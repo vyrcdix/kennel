@@ -7,6 +7,8 @@ import { NextUpRow } from '../components/NextUpRow';
 import { NextStepsStrip } from '../components/NextStepsStrip';
 import { ProjectTag } from '../components/ProjectTag';
 import { TabButton } from '../components/TabButton';
+import { ThermalPanel } from '../components/ThermalPanel';
+import { ThermalStamp } from '../components/ThermalStamp';
 import { KindIcon } from '../components/KindIcon';
 import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
@@ -14,6 +16,7 @@ import { Rev } from '../components/Rev';
 import { SectionHead } from '../components/SectionHead';
 import { ChatRow } from '../components/ChatRow';
 import { Icons } from '../components/Icon';
+import { panelTemperature, temperatureForDate } from '../lib/temperature';
 import {
   crystallizeItem,
   fileItem,
@@ -47,7 +50,22 @@ import type { Doc, Item } from '../data/types';
 
 const DAY = 86400_000;
 
-const PinnedDocCard = ({ doc, onClick }: { doc: Doc; onClick: () => void }) => (
+const TOP_EDGE_BY_TEMP: Record<string, string> = {
+  fresh: 'var(--ember-deep)',
+  active: 'var(--line)',
+  aging: 'var(--dust)',
+  dormant: 'var(--slate-light)',
+};
+
+const PinnedDocCard = ({
+  doc,
+  temp,
+  onClick,
+}: {
+  doc: Doc;
+  temp: 'fresh' | 'active' | 'aging' | 'dormant';
+  onClick: () => void;
+}) => (
   <div
     className="km-card"
     onClick={onClick}
@@ -58,6 +76,10 @@ const PinnedDocCard = ({ doc, onClick }: { doc: Doc; onClick: () => void }) => (
       flexDirection: 'column',
       gap: 6,
       cursor: 'pointer',
+      borderTop: temp === 'active'
+        ? '1px solid var(--line)'
+        : `2px solid ${TOP_EDGE_BY_TEMP[temp]}`,
+      opacity: temp === 'dormant' ? 0.82 : 1,
     }}
   >
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -184,6 +206,27 @@ export const ProjectLanding = () => {
 
   const openFieldNotes = () => navigate(`/project/${project.slug}/field-notes`);
   const openRunbook = () => navigate(`/runbook/${project.slug}`);
+
+  // Temperatures for each thermal panel. Panel temp = max recency of its
+  // contents; empty panels fall through to 'active' (silent default).
+  const inFocusTemp = panelTemperature(nextUp, settings);
+  const inFocusSince = formatRelative(
+    nextUp[0]?.lastTouchedAt ?? nextUp[0]?.updatedAt ?? new Date(0),
+  );
+  const crystTemp = panelTemperature(crystallizations, settings);
+  const crystSince = formatRelative(
+    crystallizations[0]?.doneAt ?? crystallizations[0]?.updatedAt ?? new Date(0),
+  );
+  const fieldNotesTemp = temperatureForDate(fieldNotes?.updatedAt, settings);
+  const fieldNotesSince = formatRelative(fieldNotes?.updatedAt ?? new Date(0));
+  const runbookTemp = temperatureForDate(runbook?.updatedAt, settings);
+  const runbookSince = formatRelative(runbook?.updatedAt ?? new Date(0));
+  const allChats = [...activeChats, ...staleChats];
+  const newestChat = allChats.sort(
+    (a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime(),
+  )[0];
+  const chatsTemp = temperatureForDate(newestChat?.lastSeenAt, settings);
+  const chatsSince = formatRelative(newestChat?.lastSeenAt ?? new Date(0));
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -313,13 +356,16 @@ export const ProjectLanding = () => {
             }}
           >
             {/* In focus */}
-            <section className="km-card" style={{ padding: 0 }}>
+            <ThermalPanel temp={inFocusTemp}>
               <SectionHead
                 title="In focus"
                 right={
-                  <Mono>
-                    {counts.active} in focus · {counts.reflecting} reflecting · by last touched
-                  </Mono>
+                  <>
+                    <Mono dim>
+                      {counts.active} in focus · {counts.reflecting} reflecting
+                    </Mono>
+                    <ThermalStamp temp={inFocusTemp} since={inFocusSince} />
+                  </>
                 }
               />
               <div className="km-rule" />
@@ -332,13 +378,18 @@ export const ProjectLanding = () => {
                   <NextUpRow key={item.id} item={item} project={project} selected={i === 0} />
                 ))
               )}
-            </section>
+            </ThermalPanel>
 
-            {/* Crystallizations — durable outcomes (moss accent) */}
+            {/* Crystallizations — durable outcomes (moss accent retained on the side
+                 borders; top edge yields to the temperature signal). */}
             {crystallizations.length > 0 && (
-              <section
-                className="km-card"
-                style={{ padding: 0, borderColor: 'rgba(92,122,62,.35)' }}
+              <ThermalPanel
+                temp={crystTemp}
+                style={{
+                  borderLeftColor: 'rgba(92,122,62,.35)',
+                  borderRightColor: 'rgba(92,122,62,.35)',
+                  borderBottomColor: 'rgba(92,122,62,.35)',
+                }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px' }}>
                   <span style={{ color: 'var(--moss)', marginRight: 8 }}>
@@ -349,8 +400,10 @@ export const ProjectLanding = () => {
                   </span>
                   <span style={{ flex: 1 }} />
                   <Mono dim>
-                    durable outcomes from this thread · {crystallizations.length}
+                    durable outcomes · {crystallizations.length}
                   </Mono>
+                  <span style={{ width: 12 }} />
+                  <ThermalStamp temp={crystTemp} since={crystSince} />
                 </div>
                 <div className="km-rule" />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
@@ -368,7 +421,7 @@ export const ProjectLanding = () => {
                     </div>
                   ))}
                 </div>
-              </section>
+              </ThermalPanel>
             )}
 
             {/* Pinned docs row */}
@@ -386,6 +439,7 @@ export const ProjectLanding = () => {
                     <PinnedDocCard
                       key={d.id}
                       doc={d}
+                      temp={temperatureForDate(d.updatedAt, settings)}
                       onClick={() => navigate(`/doc/${d.id}`)}
                     />
                   ))}
@@ -402,7 +456,7 @@ export const ProjectLanding = () => {
               }}
             >
               {/* Field notes */}
-              <section className="km-card" style={{ padding: 0 }}>
+              <ThermalPanel temp={fieldNotesTemp}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px' }}>
                   <span style={{ color: 'var(--fg-muted)', marginRight: 8 }}>
                     <Icons.note size={13} />
@@ -411,6 +465,10 @@ export const ProjectLanding = () => {
                   <Mono dim style={{ marginLeft: 8 }}>sense-making</Mono>
                   <span style={{ flex: 1 }} />
                   {fieldNotes && <Rev n={fieldNotes.revision} />}
+                  <span style={{ width: 8 }} />
+                  {fieldNotes && (
+                    <ThermalStamp temp={fieldNotesTemp} since={fieldNotesSince} />
+                  )}
                   <button
                     className="km-btn km-btn-ghost"
                     style={{ marginLeft: 8 }}
@@ -475,10 +533,10 @@ export const ProjectLanding = () => {
                     </Mono>
                   )}
                 </div>
-              </section>
+              </ThermalPanel>
 
               {/* Runbook */}
-              <section className="km-card" style={{ padding: 0 }}>
+              <ThermalPanel temp={runbookTemp}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px' }}>
                   <span style={{ color: 'var(--fg-muted)', marginRight: 8 }}>
                     <Icons.runbook size={13} />
@@ -487,6 +545,10 @@ export const ProjectLanding = () => {
                   <Mono dim style={{ marginLeft: 8 }}>operational</Mono>
                   <span style={{ flex: 1 }} />
                   {runbook && <Rev n={runbook.revision} />}
+                  <span style={{ width: 8 }} />
+                  {runbook && (
+                    <ThermalStamp temp={runbookTemp} since={runbookSince} />
+                  )}
                   <button
                     className="km-btn km-btn-ghost"
                     style={{ marginLeft: 8 }}
@@ -517,7 +579,7 @@ export const ProjectLanding = () => {
                     <Mono dim>no runbook yet — operational reference lives here.</Mono>
                   )}
                 </div>
-              </section>
+              </ThermalPanel>
             </div>
 
             {/* Aging — per-thread let-go surface */}
@@ -549,20 +611,15 @@ export const ProjectLanding = () => {
 
             {/* Conversations — promoted above all-items */}
             {(activeChats.length > 0 || staleChats.length > 0) && (
-              <section className="km-card" style={{ padding: 0 }}>
+              <ThermalPanel temp={chatsTemp}>
                 <SectionHead
                   title="Conversations"
                   right={
                     <>
-                      <Mono>
+                      <Mono dim>
                         {activeChats.length} active · {staleChats.length} stale
                       </Mono>
-                      <button
-                        className="km-btn km-btn-ghost"
-                        style={{ padding: '3px 8px', fontSize: 12 }}
-                      >
-                        Start new
-                      </button>
+                      <ThermalStamp temp={chatsTemp} since={chatsSince} />
                     </>
                   }
                 />
@@ -600,7 +657,7 @@ export const ProjectLanding = () => {
                     </>
                   )}
                 </div>
-              </section>
+              </ThermalPanel>
             )}
 
             {/* All items tabs */}

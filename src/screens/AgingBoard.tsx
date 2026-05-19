@@ -4,6 +4,7 @@ import { ChromeBar } from '../components/ChromeBar';
 import { Icons } from '../components/Icon';
 import { Mono } from '../components/Mono';
 import { NavRail } from '../components/NavRail';
+import { ThermalPanel } from '../components/ThermalPanel';
 import {
   crystallizeItem,
   fileItem,
@@ -120,7 +121,7 @@ export const AgingBoard = () => {
               <Mono dim>everything's been touched within the last {threshold} days</Mono>
             </div>
           ) : (
-            <div className="km-card" style={{ padding: 0 }}>
+            <ThermalPanel temp="aging">
               {aging.map((item) => (
                 <AgingRow
                   key={item.id}
@@ -132,7 +133,7 @@ export const AgingBoard = () => {
                   onFile={() => fileItem(item.id)}
                 />
               ))}
-            </div>
+            </ThermalPanel>
           )}
 
           <div

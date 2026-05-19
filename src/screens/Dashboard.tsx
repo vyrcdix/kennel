@@ -9,6 +9,8 @@ import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SectionHead } from '../components/SectionHead';
 import { Icons } from '../components/Icon';
+import { ThermalPanel } from '../components/ThermalPanel';
+import { ThermalStamp } from '../components/ThermalStamp';
 import { crystallizeItem, fileItem, touchItem } from '../data/actions';
 import {
   getAgingItems,
@@ -18,8 +20,10 @@ import {
   getNextUp,
   getPinnedProjects,
   getProjectById,
+  getProjectLastTouched,
   getSettings,
 } from '../data/selectors';
+import { panelTemperature, temperatureForDate, type Temp } from '../lib/temperature';
 import { formatDashboardDate, formatRelative } from '../data/time';
 import { useStoreVersion } from '../data/store';
 import { openCreateProject } from '../lib/modals';
@@ -27,14 +31,23 @@ import type { Item, Project } from '../data/types';
 
 const DAY = 86400_000;
 
+const TOP_EDGE_BY_TEMP: Record<Temp, { color: string; width: number }> = {
+  fresh:   { color: 'var(--ember-deep)',  width: 2 },
+  active:  { color: 'var(--line)',        width: 1 },
+  aging:   { color: 'var(--dust)',        width: 2 },
+  dormant: { color: 'var(--slate-light)', width: 2 },
+};
+
 type ProjectCardProps = {
   project: Project;
   active?: boolean;
+  temp: Temp;
   counts: { inbox: number; active: number; reflecting: number; crystallized: number };
 };
 
-const ProjectCard = ({ project, active, counts }: ProjectCardProps) => {
+const ProjectCard = ({ project, active, temp, counts }: ProjectCardProps) => {
   const navigate = useNavigate();
+  const edge = TOP_EDGE_BY_TEMP[temp];
   return (
     <div
       className="km-card"
@@ -48,6 +61,8 @@ const ProjectCard = ({ project, active, counts }: ProjectCardProps) => {
         gap: 8,
         background: active ? 'rgba(217,98,44,.06)' : 'var(--surface-1)',
         borderColor: active ? 'rgba(217,98,44,.30)' : 'var(--line)',
+        borderTop: `${edge.width}px solid ${edge.color}`,
+        opacity: temp === 'dormant' ? 0.82 : 1,
         cursor: 'pointer',
       }}
     >
@@ -273,6 +288,14 @@ export const Dashboard = () => {
   const aging = getAgingItems(settings.agingThresholdDays);
   const crystallizedWeek = getCrystallizedThisWeek();
   const totalActive = nextUp.length;
+  const inFocusTemp = panelTemperature(nextUp, settings);
+  const inFocusSince = formatRelative(
+    nextUp[0]?.lastTouchedAt ?? nextUp[0]?.updatedAt ?? new Date(0),
+  );
+  const crystTemp = panelTemperature(crystallizedWeek, settings);
+  const crystSince = formatRelative(
+    crystallizedWeek[0]?.doneAt ?? crystallizedWeek[0]?.updatedAt ?? new Date(0),
+  );
   const countsById = useMemo(() => getAllProjectCounts(), [v]);
   const projectsById = useMemo(
     () => new Map(pinned.map((p) => [p.id, p])),
@@ -341,6 +364,7 @@ export const Dashboard = () => {
                 key={p.id}
                 project={p}
                 active={i === 0}
+                temp={temperatureForDate(getProjectLastTouched(p.id), settings)}
                 counts={countsById.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 }}
               />
             ))}
@@ -349,10 +373,15 @@ export const Dashboard = () => {
           {/* Next up + side panels */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <section className="km-card" style={{ padding: 0 }}>
+              <ThermalPanel temp={inFocusTemp}>
                 <SectionHead
                   title="In focus"
-                  right={<Mono>{totalActive} active · by last touched</Mono>}
+                  right={
+                    <>
+                      <Mono dim>{totalActive} active</Mono>
+                      <ThermalStamp temp={inFocusTemp} since={inFocusSince} />
+                    </>
+                  }
                 />
                 <div className="km-rule" />
                 {nextUp.map((item, i) => {
@@ -362,13 +391,18 @@ export const Dashboard = () => {
                     <NextUpRow key={item.id} item={item} project={project} selected={i < 2} />
                   );
                 })}
-              </section>
+              </ThermalPanel>
 
-              {/* Crystallized this week — moss accent strip, hide when empty */}
+              {/* Crystallized this week — moss accent retained on side borders;
+                  top edge yields to the temperature signal. */}
               {crystallizedWeek.length > 0 && (
-                <section
-                  className="km-card"
-                  style={{ padding: 0, borderColor: 'rgba(92,122,62,.35)' }}
+                <ThermalPanel
+                  temp={crystTemp}
+                  style={{
+                    borderLeftColor: 'rgba(92,122,62,.35)',
+                    borderRightColor: 'rgba(92,122,62,.35)',
+                    borderBottomColor: 'rgba(92,122,62,.35)',
+                  }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px' }}>
                     <span style={{ color: 'var(--moss)', marginRight: 8 }}>
@@ -379,12 +413,14 @@ export const Dashboard = () => {
                     </span>
                     <span style={{ flex: 1 }} />
                     <Mono dim>{crystallizedWeek.length} durable outcomes</Mono>
+                    <span style={{ width: 12 }} />
+                    <ThermalStamp temp={crystTemp} since={crystSince} />
                   </div>
                   <div className="km-rule" />
                   {crystallizedWeek.slice(0, 4).map((item) => (
                     <CrystallizedRow key={item.id} item={item} />
                   ))}
-                </section>
+                </ThermalPanel>
               )}
             </div>
 

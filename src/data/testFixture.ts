@@ -170,6 +170,8 @@ export const makeTestFixture = (): BootstrapPayload => {
     settings: {
       agingThresholdDays: 21,
       filingPromptDays: 0,
+      dormantThresholdDays: 60,
+      showTemperature: true,
       createdAt: now(),
       updatedAt: now(),
     },

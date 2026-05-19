@@ -66,6 +66,8 @@ export type Item = {
 export type Settings = {
   agingThresholdDays: number;
   filingPromptDays: 0 | 90 | 180;
+  dormantThresholdDays: number;
+  showTemperature: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

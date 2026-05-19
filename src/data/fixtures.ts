@@ -35,6 +35,8 @@ export const tags: Tag[] = [];
 const DEFAULT_SETTINGS: Settings = {
   agingThresholdDays: 21,
   filingPromptDays: 0,
+  dormantThresholdDays: 60,
+  showTemperature: true,
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };

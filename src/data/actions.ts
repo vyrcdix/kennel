@@ -307,6 +307,8 @@ export const updateFieldNotes = async (
 export type SettingsPatch = {
   agingThresholdDays?: number;
   filingPromptDays?: 0 | 90 | 180;
+  dormantThresholdDays?: number;
+  showTemperature?: boolean;
 };
 
 export const updateSettings = async (patch: SettingsPatch): Promise<Settings> => {

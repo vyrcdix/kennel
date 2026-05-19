@@ -107,6 +107,20 @@ export const SettingsScreen = () => {
     if (n !== settings.filingPromptDays) void updateSettings({ filingPromptDays: n });
   };
 
+  const [dormantDraft, setDormantDraft] = useState(settings.dormantThresholdDays);
+  useEffect(() => setDormantDraft(settings.dormantThresholdDays), [settings.dormantThresholdDays]);
+  const commitDormant = () => {
+    const n = Math.round(dormantDraft);
+    if (n >= 30 && n <= 365 && n !== settings.dormantThresholdDays) {
+      void updateSettings({ dormantThresholdDays: n });
+    } else {
+      setDormantDraft(settings.dormantThresholdDays);
+    }
+  };
+  const toggleShowTemperature = () => {
+    void updateSettings({ showTemperature: !settings.showTemperature });
+  };
+
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
       <ChromeBar />
@@ -330,6 +344,46 @@ export const SettingsScreen = () => {
                         onClick={() => setFilingPromptDays(180)}
                       />
                     </div>
+                  }
+                />
+                <SettingsRow
+                  label="Dormant threshold"
+                  hint="Days untouched before a panel reads as dormant in the temperature signal. 30–365 days."
+                  control={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="number"
+                        min={30}
+                        max={365}
+                        value={dormantDraft}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n)) setDormantDraft(n);
+                        }}
+                        onBlur={commitDormant}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
+                        style={{
+                          width: 72,
+                          padding: '4px 8px',
+                          fontFamily: 'var(--ff-mono)',
+                          fontSize: 13,
+                          background: 'var(--surface-1)',
+                          color: 'var(--fg)',
+                          border: '1px solid var(--line)',
+                          borderRadius: 3,
+                        }}
+                      />
+                      <Mono dim>days · default 60</Mono>
+                    </div>
+                  }
+                />
+                <SettingsRow
+                  label="Show temperature"
+                  hint="Panel-level time signal — top-edge color and a header timestamp on each panel. Off flattens every panel to neutral."
+                  control={
+                    <Toggle on={settings.showTemperature} onClick={toggleShowTemperature} />
                   }
                 />
               </div>
