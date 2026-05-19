@@ -1,0 +1,2987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Kennel — UI Design</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', sans-serif; }
+  /* Make sure the canvas takes the full viewport */
+  #root { width: 100vw; height: 100vh; overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+
+/* ─── design-canvas.jsx ─── */
+
+// DesignCanvas.jsx — Figma-ish design canvas wrapper
+// Warm gray grid bg + Sections + Artboards + PostIt notes.
+// Artboards are reorderable (grip-drag), deletable, labels/titles are
+// inline-editable, and any artboard can be opened in a fullscreen focus
+// overlay (←/→/Esc). State persists to a .design-canvas.state.json sidecar
+// via the host bridge. No assets, no deps.
+//
+// Usage:
+//   <DesignCanvas>
+//     <DCSection id="onboarding" title="Onboarding" subtitle="First-run variants">
+//       <DCArtboard id="a" label="A · Dusk" width={260} height={480}>…</DCArtboard>
+//       <DCArtboard id="b" label="B · Minimal" width={260} height={480}>…</DCArtboard>
+//     </DCSection>
+//   </DesignCanvas>
+
+const DC = {
+  bg: '#f0eee9',
+  grid: 'rgba(0,0,0,0.06)',
+  label: 'rgba(60,50,40,0.7)',
+  title: 'rgba(40,30,20,0.85)',
+  subtitle: 'rgba(60,50,40,0.6)',
+  postitBg: '#fef4a8',
+  postitText: '#5a4a2a',
+  font: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+};
+
+// One-time CSS injection (classes are dc-prefixed so they don't collide with
+// the hosted design's own styles).
+if (typeof document !== 'undefined' && !document.getElementById('dc-styles')) {
+  const s = document.createElement('style');
+  s.id = 'dc-styles';
+  s.textContent = [
+    '.dc-editable{cursor:text;outline:none;white-space:nowrap;border-radius:3px;padding:0 2px;margin:0 -2px}',
+    '.dc-editable:focus{background:#fff;box-shadow:0 0 0 1.5px #c96442}',
+    '[data-dc-slot]{transition:transform .18s cubic-bezier(.2,.7,.3,1)}',
+    '[data-dc-slot].dc-dragging{transition:none;z-index:10;pointer-events:none}',
+    '[data-dc-slot].dc-dragging .dc-card{box-shadow:0 12px 40px rgba(0,0,0,.25),0 0 0 2px #c96442;transform:scale(1.02)}',
+    // isolation:isolate contains artboard content's z-indexes so a
+    // z-indexed child (sticky navbar etc.) can't paint over .dc-header or
+    // the .dc-menu popover that drops into the top of the card.
+    '.dc-card{isolation:isolate;transition:box-shadow .15s,transform .15s}',
+    '.dc-card *{scrollbar-width:none}',
+    '.dc-card *::-webkit-scrollbar{display:none}',
+    // Per-artboard header: grip + label on the left, delete/expand on the
+    // right. Single flex row; when the artboard's on-screen width is too
+    // narrow for both the label yields (ellipsis, then hidden entirely below
+    // ~4ch via the container query) and the buttons stay on the row.
+    '.dc-header{position:absolute;bottom:100%;left:-4px;margin-bottom:calc(4px * var(--dc-inv-zoom,1));z-index:2;',
+    '  display:flex;align-items:center;container-type:inline-size}',
+    '.dc-labelrow{display:flex;align-items:center;gap:4px;height:24px;flex:1 1 auto;min-width:0}',
+    '.dc-grip{flex:0 0 auto;cursor:grab;display:flex;align-items:center;padding:5px 4px;border-radius:4px;transition:background .12s,opacity .12s}',
+    '.dc-grip:hover{background:rgba(0,0,0,.08)}',
+    '.dc-grip:active{cursor:grabbing}',
+    '.dc-labeltext{flex:1 1 auto;min-width:0;cursor:pointer;border-radius:4px;padding:3px 6px;',
+    '  display:flex;align-items:center;transition:background .12s;overflow:hidden}',
+    // Below ~4ch of label room: hide the label entirely, and drop the grip to
+    // hover-only (same reveal rule as .dc-btns) so a narrow header is clean
+    // until the card is moused.
+    '@container (max-width: 110px){',
+    '  .dc-labeltext{display:none}',
+    '  .dc-grip{opacity:0}',
+    '  [data-dc-slot]:hover .dc-grip{opacity:1}',
+    '}',
+    '.dc-labeltext:hover{background:rgba(0,0,0,.05)}',
+    '.dc-labeltext .dc-editable{overflow:hidden;text-overflow:ellipsis;max-width:100%}',
+    '.dc-labeltext .dc-editable:focus{overflow:visible;text-overflow:clip}',
+    '.dc-btns{flex:0 0 auto;margin-left:auto;display:flex;gap:2px;opacity:0;transition:opacity .12s}',
+    '[data-dc-slot]:hover .dc-btns,.dc-btns:has(.dc-menu){opacity:1}',
+    '.dc-expand,.dc-kebab{width:22px;height:22px;border-radius:5px;border:none;cursor:pointer;padding:0;',
+    '  background:transparent;color:rgba(60,50,40,.7);display:flex;align-items:center;justify-content:center;',
+    '  font:inherit;transition:background .12s,color .12s}',
+    '.dc-expand:hover,.dc-kebab:hover{background:rgba(0,0,0,.06);color:#2a251f}',
+    // Slot hosting an open menu floats above later siblings (which otherwise
+    // paint on top — same z-index:auto, later DOM order) so the popup isn't
+    // clipped by the next card.
+    '[data-dc-slot]:has(.dc-menu){z-index:10}',
+    '.dc-menu{position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border-radius:8px;',
+    '  box-shadow:0 8px 28px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.05);padding:4px;min-width:160px;z-index:10}',
+    '.dc-menu button{display:block;width:100%;padding:7px 10px;border:0;background:transparent;',
+    '  border-radius:5px;font-family:inherit;font-size:13px;font-weight:500;line-height:1.2;',
+    '  color:#29261b;cursor:pointer;text-align:left;transition:background .12s;white-space:nowrap}',
+    '.dc-menu button:hover{background:rgba(0,0,0,.05)}',
+    '.dc-menu hr{border:0;border-top:1px solid rgba(0,0,0,.08);margin:4px 2px}',
+    '.dc-menu .dc-danger{color:#c96442}',
+    '.dc-menu .dc-danger:hover{background:rgba(201,100,66,.1)}',
+    // Chrome (titles / labels / buttons) counter-scales against the viewport
+    // zoom so it stays a constant on-screen size. --dc-inv-zoom is set by
+    // DCViewport on every transform update and inherits to all descendants —
+    // any overlay inside the world (e.g. a TweaksPanel on an artboard) can use
+    // it the same way.
+    //
+    // The header uses transform:scale (out-of-flow, so layout impact doesn't
+    // matter) with its world-space width set to card-width / inv-zoom so that
+    // after counter-scaling its on-screen width exactly matches the card's —
+    // that's what lets the container query + text-overflow behave against the
+    // card's visible edge at every zoom level.
+    //
+    // The section head uses CSS zoom instead of transform so its layout box
+    // grows with the counter-scale, pushing the card row down — otherwise the
+    // constant-screen-size title would overflow into the (shrinking) world-
+    // space gap and overlap the artboard headers at low zoom.
+    '.dc-header{width:calc((100% + 4px) / var(--dc-inv-zoom,1));',
+    '  transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom left}',
+    '.dc-sectionhead{zoom:var(--dc-inv-zoom,1)}',
+  ].join('\n');
+  document.head.appendChild(s);
+}
+
+const DCCtx = React.createContext(null);
+
+// Recursively unwrap React.Fragment so <>…</> grouping doesn't hide
+// DCSection/DCArtboard children from the type-based walks below.
+function dcFlatten(children) {
+  const out = [];
+  React.Children.forEach(children, (c) => {
+    if (c && c.type === React.Fragment) out.push(...dcFlatten(c.props.children));
+    else out.push(c);
+  });
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────
+// DesignCanvas — stateful wrapper around the pan/zoom viewport.
+// Owns runtime state (per-section order, renamed titles/labels, hidden
+// artboards, focused artboard). Order/titles/labels/hidden persist to a
+// .design-canvas.state.json
+// sidecar next to the HTML. Reads go via plain fetch() so the saved
+// arrangement is visible anywhere the HTML + sidecar are served together
+// (omelette preview, direct link, downloaded zip). Writes go through the
+// host's window.omelette bridge — editing requires the omelette runtime.
+// Focus is ephemeral.
+// ─────────────────────────────────────────────────────────────
+const DC_STATE_FILE = '.design-canvas.state.json';
+
+function DesignCanvas({ children, minScale, maxScale, style }) {
+  const [state, setState] = React.useState({ sections: {}, focus: null });
+  // Hold rendering until the sidecar read settles so the saved order/titles
+  // appear on first paint (no source-order flash). didRead gates writes until
+  // the read settles so the empty initial state can't clobber a slow read;
+  // skipNextWrite suppresses the one echo-write that would otherwise follow
+  // hydration.
+  const [ready, setReady] = React.useState(false);
+  const didRead = React.useRef(false);
+  const skipNextWrite = React.useRef(false);
+
+  React.useEffect(() => {
+    let off = false;
+    fetch('./' + DC_STATE_FILE)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((saved) => {
+        if (off || !saved || !saved.sections) return;
+        skipNextWrite.current = true;
+        setState((s) => ({ ...s, sections: saved.sections }));
+      })
+      .catch(() => {})
+      .finally(() => { didRead.current = true; if (!off) setReady(true); });
+    const t = setTimeout(() => { if (!off) setReady(true); }, 150);
+    return () => { off = true; clearTimeout(t); };
+  }, []);
+
+  React.useEffect(() => {
+    if (!didRead.current) return;
+    if (skipNextWrite.current) { skipNextWrite.current = false; return; }
+    const t = setTimeout(() => {
+      window.omelette?.writeFile(DC_STATE_FILE, JSON.stringify({ sections: state.sections })).catch(() => {});
+    }, 250);
+    return () => clearTimeout(t);
+  }, [state.sections]);
+
+  // Build registries synchronously from children so FocusOverlay can read
+  // them in the same render. Fragments are flattened; wrapping in other
+  // elements still opts out of focus/reorder.
+  const registry = {};     // slotId -> { sectionId, artboard }
+  const sectionMeta = {};  // sectionId -> { title, subtitle, slotIds[] }
+  const sectionOrder = [];
+  dcFlatten(children).forEach((sec) => {
+    if (!sec || sec.type !== DCSection) return;
+    const sid = sec.props.id ?? sec.props.title;
+    if (!sid) return;
+    sectionOrder.push(sid);
+    const persisted = state.sections[sid] || {};
+    const abs = [];
+    dcFlatten(sec.props.children).forEach((ab) => {
+      if (!ab || ab.type !== DCArtboard) return;
+      const aid = ab.props.id ?? ab.props.label;
+      if (aid) abs.push([aid, ab]);
+    });
+    // hidden is scoped to one source revision — when the agent regenerates
+    // (artboard-ID set changes), prior deletes don't apply to new content.
+    const srcKey = abs.map(([k]) => k).join('\x1f');
+    const hidden = persisted.srcKey === srcKey ? (persisted.hidden || []) : [];
+    const srcIds = [];
+    abs.forEach(([aid, ab]) => {
+      if (hidden.includes(aid)) return;
+      registry[`${sid}/${aid}`] = { sectionId: sid, artboard: ab };
+      srcIds.push(aid);
+    });
+    const kept = (persisted.order || []).filter((k) => srcIds.includes(k));
+    sectionMeta[sid] = {
+      title: persisted.title ?? sec.props.title,
+      subtitle: sec.props.subtitle,
+      slotIds: [...kept, ...srcIds.filter((k) => !kept.includes(k))],
+    };
+  });
+
+  const api = React.useMemo(() => ({
+    state,
+    section: (id) => state.sections[id] || {},
+    patchSection: (id, p) => setState((s) => ({
+      ...s,
+      sections: { ...s.sections, [id]: { ...s.sections[id], ...(typeof p === 'function' ? p(s.sections[id] || {}) : p) } },
+    })),
+    setFocus: (slotId) => setState((s) => ({ ...s, focus: slotId })),
+  }), [state]);
+
+  // Esc exits focus; any outside pointerdown commits an in-progress rename.
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') api.setFocus(null); };
+    const onPd = (e) => {
+      const ae = document.activeElement;
+      if (ae && ae.isContentEditable && !ae.contains(e.target)) ae.blur();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPd, true);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPd, true);
+    };
+  }, [api]);
+
+  return (
+    <DCCtx.Provider value={api}>
+      <DCViewport minScale={minScale} maxScale={maxScale} style={style}>{ready && children}</DCViewport>
+      {state.focus && registry[state.focus] && (
+        <DCFocusOverlay entry={registry[state.focus]} sectionMeta={sectionMeta} sectionOrder={sectionOrder} />
+      )}
+    </DCCtx.Provider>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// DCViewport — transform-based pan/zoom (internal)
+//
+// Input mapping (Figma-style):
+//   • trackpad pinch  → zoom   (ctrlKey wheel; Safari gesture* events)
+//   • trackpad scroll → pan    (two-finger)
+//   • mouse wheel     → zoom   (notched; distinguished from trackpad scroll)
+//   • middle-drag / primary-drag-on-bg → pan
+//
+// Transform state lives in a ref and is written straight to the DOM
+// (translate3d + will-change) so wheel ticks don't go through React —
+// keeps pans at 60fps on dense canvases.
+// ─────────────────────────────────────────────────────────────
+function DCViewport({ children, minScale = 0.1, maxScale = 8, style = {} }) {
+  const vpRef = React.useRef(null);
+  const worldRef = React.useRef(null);
+  const tf = React.useRef({ x: 0, y: 0, scale: 1 });
+  // Persist viewport across reloads so the user lands back where they were
+  // after an agent edit or browser refresh. The sandbox origin is already
+  // per-project; pathname keeps multiple canvas files in one project apart.
+  const tfKey = 'dc-viewport:' + location.pathname;
+  const saveT = React.useRef(0);
+
+  const lastPostedScale = React.useRef();
+  const apply = React.useCallback(() => {
+    const { x, y, scale } = tf.current;
+    const el = worldRef.current;
+    if (!el) return;
+    el.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+    // Exposed for zoom-invariant chrome (labels, buttons, TweaksPanel).
+    el.style.setProperty('--dc-inv-zoom', String(1 / scale));
+    // Keep the host toolbar's % readout in sync with the canvas scale. Pan
+    // ticks leave scale unchanged — skip the cross-frame post for those.
+    if (lastPostedScale.current !== scale) {
+      lastPostedScale.current = scale;
+      window.parent.postMessage({ type: '__dc_zoom', scale }, '*');
+    }
+    clearTimeout(saveT.current);
+    saveT.current = setTimeout(() => {
+      try { localStorage.setItem(tfKey, JSON.stringify(tf.current)); } catch {}
+    }, 200);
+  }, [tfKey]);
+
+  React.useLayoutEffect(() => {
+    const flush = () => {
+      clearTimeout(saveT.current);
+      try { localStorage.setItem(tfKey, JSON.stringify(tf.current)); } catch {}
+    };
+    try {
+      const s = JSON.parse(localStorage.getItem(tfKey) || 'null');
+      if (s && Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.scale)) {
+        tf.current = { x: s.x, y: s.y, scale: Math.min(maxScale, Math.max(minScale, s.scale)) };
+        apply();
+      }
+    } catch {}
+    // Flush on pagehide and unmount so a reload within the 200ms debounce
+    // window doesn't drop the last pan/zoom.
+    window.addEventListener('pagehide', flush);
+    return () => { window.removeEventListener('pagehide', flush); flush(); };
+  }, []);
+
+  React.useEffect(() => {
+    const vp = vpRef.current;
+    if (!vp) return;
+
+    const zoomAt = (cx, cy, factor) => {
+      const r = vp.getBoundingClientRect();
+      const px = cx - r.left, py = cy - r.top;
+      const t = tf.current;
+      const next = Math.min(maxScale, Math.max(minScale, t.scale * factor));
+      const k = next / t.scale;
+      // --dc-inv-zoom consumers (.dc-sectionhead's CSS zoom, each section's
+      // marginBottom) reflow on every scale change, vertically shifting the
+      // world layout — so a world point mathematically pinned under the cursor
+      // drifts as you zoom (content creeps up on zoom-in, down on zoom-out).
+      // Anchor the DOM element under the cursor instead: record its screen Y,
+      // apply the transform + --dc-inv-zoom, then cancel whatever vertical
+      // drift the reflow introduced so it stays put on screen.
+      let marker = null, markerY0 = 0;
+      if (k !== 1) {
+        const hit = document.elementFromPoint(cx, cy);
+        marker = hit && hit.closest ? hit.closest('[data-dc-slot],[data-dc-section]') : null;
+        if (marker) markerY0 = marker.getBoundingClientRect().top;
+      }
+      // keep the world point under the cursor fixed
+      t.x = px - (px - t.x) * k;
+      t.y = py - (py - t.y) * k;
+      t.scale = next;
+      apply();
+      if (marker) {
+        // A pure zoom around (cx, cy) maps screen Y → cy + (Y - cy) * k. Any
+        // departure after the --dc-inv-zoom reflow is the layout drift.
+        const drift = marker.getBoundingClientRect().top - (cy + (markerY0 - cy) * k);
+        if (Math.abs(drift) > 0.1) { t.y -= drift; apply(); }
+      }
+    };
+
+    // Mouse-wheel vs trackpad-scroll heuristic. A physical wheel sends
+    // line-mode deltas (Firefox) or large integer pixel deltas with no X
+    // component (Chrome/Safari, typically multiples of 100/120). Trackpad
+    // two-finger scroll sends small/fractional pixel deltas, often with
+    // non-zero deltaX. ctrlKey is set by the browser for trackpad pinch.
+    const isMouseWheel = (e) =>
+      e.deltaMode !== 0 ||
+      (e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 40);
+
+    const onWheel = (e) => {
+      e.preventDefault();
+      if (isGesturing) return; // Safari: gesture* owns the pinch — discard concurrent wheels
+      if ((e.ctrlKey || e.metaKey) && !isMouseWheel(e)) {
+        // trackpad pinch, or ctrl/cmd + smooth-scroll mouse. Notched
+        // wheels fall through to the fixed-step branch below.
+        zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
+      } else if (isMouseWheel(e)) {
+        // notched mouse wheel — fixed-ratio step per click
+        zoomAt(e.clientX, e.clientY, Math.exp(-Math.sign(e.deltaY) * 0.18));
+      } else {
+        // trackpad two-finger scroll — pan
+        tf.current.x -= e.deltaX;
+        tf.current.y -= e.deltaY;
+        apply();
+      }
+    };
+
+    // Safari sends native gesture* events for trackpad pinch with a smooth
+    // e.scale; preferring these over the ctrl+wheel fallback gives a much
+    // better feel there. No-ops on other browsers. Safari also fires
+    // ctrlKey wheel events during the same pinch — isGesturing makes
+    // onWheel drop those entirely so they neither zoom nor pan.
+    let gsBase = 1;
+    let isGesturing = false;
+    const onGestureStart = (e) => { e.preventDefault(); isGesturing = true; gsBase = tf.current.scale; };
+    const onGestureChange = (e) => {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, (gsBase * e.scale) / tf.current.scale);
+    };
+    const onGestureEnd = (e) => { e.preventDefault(); isGesturing = false; };
+
+    // Drag-pan: middle button anywhere, or primary button on canvas
+    // background (anything that isn't an artboard or an inline editor).
+    let drag = null;
+    const onPointerDown = (e) => {
+      const onBg = !e.target.closest('[data-dc-slot], .dc-editable');
+      if (!(e.button === 1 || (e.button === 0 && onBg))) return;
+      e.preventDefault();
+      vp.setPointerCapture(e.pointerId);
+      drag = { id: e.pointerId, lx: e.clientX, ly: e.clientY };
+      vp.style.cursor = 'grabbing';
+    };
+    const onPointerMove = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      tf.current.x += e.clientX - drag.lx;
+      tf.current.y += e.clientY - drag.ly;
+      drag.lx = e.clientX; drag.ly = e.clientY;
+      apply();
+    };
+    const onPointerUp = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      vp.releasePointerCapture(e.pointerId);
+      drag = null;
+      vp.style.cursor = '';
+    };
+
+    // Host-driven zoom (toolbar % menu). Zooms around viewport centre so the
+    // visible midpoint stays fixed — matching the host's iframe-zoom feel.
+    const onHostMsg = (e) => {
+      const d = e.data;
+      if (d && d.type === '__dc_set_zoom' && typeof d.scale === 'number') {
+        const r = vp.getBoundingClientRect();
+        zoomAt(r.left + r.width / 2, r.top + r.height / 2, d.scale / tf.current.scale);
+      } else if (d && d.type === '__dc_probe') {
+        // Host's [readyGen] reset asks whether a canvas is present; it
+        // fires on the iframe's native 'load', which for canvases with
+        // images/fonts is after our mount-time announce, so re-announce.
+        // Clear the pan-tick guard so apply() re-posts the current scale
+        // even if it's unchanged — the host just reset dcScale to 1.
+        window.parent.postMessage({ type: '__dc_present' }, '*');
+        lastPostedScale.current = undefined;
+        apply();
+      }
+    };
+    window.addEventListener('message', onHostMsg);
+    // Announce canvas mode so the host toolbar proxies its % control here
+    // instead of scaling the iframe element (which would just shrink the
+    // viewport window of an infinite canvas). The apply() that follows emits
+    // the initial __dc_zoom so the toolbar % is correct before first pinch.
+    // lastPostedScale reset mirrors the __dc_probe handler: the layout
+    // effect's restore-path apply() may already have posted the restored
+    // scale (before __dc_present), so clear the guard to re-post it in order.
+    window.parent.postMessage({ type: '__dc_present' }, '*');
+    lastPostedScale.current = undefined;
+    apply();
+
+    vp.addEventListener('wheel', onWheel, { passive: false });
+    vp.addEventListener('gesturestart', onGestureStart, { passive: false });
+    vp.addEventListener('gesturechange', onGestureChange, { passive: false });
+    vp.addEventListener('gestureend', onGestureEnd, { passive: false });
+    vp.addEventListener('pointerdown', onPointerDown);
+    vp.addEventListener('pointermove', onPointerMove);
+    vp.addEventListener('pointerup', onPointerUp);
+    vp.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      window.removeEventListener('message', onHostMsg);
+      vp.removeEventListener('wheel', onWheel);
+      vp.removeEventListener('gesturestart', onGestureStart);
+      vp.removeEventListener('gesturechange', onGestureChange);
+      vp.removeEventListener('gestureend', onGestureEnd);
+      vp.removeEventListener('pointerdown', onPointerDown);
+      vp.removeEventListener('pointermove', onPointerMove);
+      vp.removeEventListener('pointerup', onPointerUp);
+      vp.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [apply, minScale, maxScale]);
+
+  const gridSvg = `url("data:image/svg+xml,%3Csvg width='120' height='120' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M120 0H0v120' fill='none' stroke='${encodeURIComponent(DC.grid)}' stroke-width='1'/%3E%3C/svg%3E")`;
+  return (
+    <div
+      ref={vpRef}
+      className="design-canvas"
+      style={{
+        height: '100vh', width: '100vw',
+        background: DC.bg,
+        overflow: 'hidden',
+        overscrollBehavior: 'none',
+        touchAction: 'none',
+        position: 'relative',
+        fontFamily: DC.font,
+        boxSizing: 'border-box',
+        ...style,
+      }}
+    >
+      <div
+        ref={worldRef}
+        style={{
+          position: 'absolute', top: 0, left: 0,
+          transformOrigin: '0 0',
+          willChange: 'transform',
+          width: 'max-content', minWidth: '100%',
+          minHeight: '100%',
+          padding: '60px 0 80px',
+        }}
+      >
+        <div style={{ position: 'absolute', inset: -6000, backgroundImage: gridSvg, backgroundSize: '120px 120px', pointerEvents: 'none', zIndex: -1 }} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// DCSection — editable title + h-row of artboards in persisted order
+// ─────────────────────────────────────────────────────────────
+function DCSection({ id, title, subtitle, children, gap = 48 }) {
+  const ctx = React.useContext(DCCtx);
+  const sid = id ?? title;
+  const all = React.Children.toArray(dcFlatten(children));
+  const artboards = all.filter((c) => c && c.type === DCArtboard);
+  const rest = all.filter((c) => !(c && c.type === DCArtboard));
+  const sec = (ctx && sid && ctx.section(sid)) || {};
+  // Must match DesignCanvas's srcKey computation exactly (it filters falsy
+  // IDs), or onDelete persists a srcKey that DesignCanvas never recognizes.
+  const allIds = artboards.map((a) => a.props.id ?? a.props.label).filter(Boolean);
+  const srcKey = allIds.join('\x1f');
+  const hidden = sec.srcKey === srcKey ? (sec.hidden || []) : [];
+  const srcOrder = allIds.filter((k) => !hidden.includes(k));
+
+  const order = React.useMemo(() => {
+    const kept = (sec.order || []).filter((k) => srcOrder.includes(k));
+    return [...kept, ...srcOrder.filter((k) => !kept.includes(k))];
+  }, [sec.order, srcOrder.join('|')]);
+
+  const byId = Object.fromEntries(artboards.map((a) => [a.props.id ?? a.props.label, a]));
+
+  // marginBottom counter-scales so the on-screen gap between sections stays
+  // constant — otherwise at low zoom the (world-space) gap collapses while
+  // the screen-constant sectionhead below it doesn't, and the title reads as
+  // belonging to the section above. paddingBottom below is just enough for
+  // the 24px artboard-header (abs-positioned above each card) plus ~8px, so
+  // the title sits tight against its own row at every zoom.
+  return (
+    <div data-dc-section={sid}
+      style={{ marginBottom: 'calc(80px * var(--dc-inv-zoom, 1))', position: 'relative' }}>
+      <div style={{ padding: '0 60px' }}>
+        <div className="dc-sectionhead" style={{ paddingBottom: 36 }}>
+          <DCEditable tag="div" value={sec.title ?? title}
+            onChange={(v) => ctx && sid && ctx.patchSection(sid, { title: v })}
+            style={{ fontSize: 28, fontWeight: 600, color: DC.title, letterSpacing: -0.4, marginBottom: 6, display: 'inline-block' }} />
+          {subtitle && <div style={{ fontSize: 16, color: DC.subtitle }}>{subtitle}</div>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap, padding: '0 60px', alignItems: 'flex-start', width: 'max-content' }}>
+        {order.map((k) => (
+          <DCArtboardFrame key={k} sectionId={sid} artboard={byId[k]} order={order}
+            label={(sec.labels || {})[k] ?? byId[k].props.label}
+            onRename={(v) => ctx && ctx.patchSection(sid, (x) => ({ labels: { ...x.labels, [k]: v } }))}
+            onReorder={(next) => ctx && ctx.patchSection(sid, { order: next })}
+            onDelete={() => ctx && ctx.patchSection(sid, (x) => ({
+              hidden: [...(x.srcKey === srcKey ? (x.hidden || []) : []), k],
+              srcKey,
+            }))}
+            onFocus={() => ctx && ctx.setFocus(`${sid}/${k}`)} />
+        ))}
+      </div>
+      {rest}
+    </div>
+  );
+}
+
+// DCArtboard — marker; rendered by DCArtboardFrame via DCSection.
+function DCArtboard() { return null; }
+
+// Per-artboard export (kind: 'png' | 'html'). Both paths share the same
+// self-contained clone: computed styles baked in, @font-face / <img> /
+// inline-style background-image urls inlined as data URIs. PNG wraps the
+// clone in foreignObject→canvas at 3× the artboard's natural width×height
+// (same pipeline the host uses for page captures); HTML wraps it in a
+// minimal standalone document. Both are independent of viewport zoom.
+async function dcExport(node, w, h, name, kind) {
+  try { await document.fonts.ready; } catch {}
+  const toDataURL = (url) => fetch(url).then((r) => r.blob()).then((b) => new Promise((res) => {
+    const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(url); fr.readAsDataURL(b);
+  })).catch(() => url);
+
+  // Collect @font-face rules. ss.cssRules throws SecurityError on
+  // cross-origin sheets (e.g. fonts.googleapis.com) — in that case fetch
+  // the CSS text directly (those endpoints send ACAO:*) and regex-extract
+  // the blocks. @import and @media/@supports are walked so nested
+  // @font-face rules aren't missed.
+  const fontRules = [], pending = [], seen = new Set();
+  const scrapeCss = (href) => {
+    if (seen.has(href)) return; seen.add(href);
+    pending.push(fetch(href).then((r) => r.text()).then((css) => {
+      for (const m of css.match(/@font-face\s*{[^}]*}/g) || []) fontRules.push({ css: m, base: href });
+      for (const m of css.matchAll(/@import\s+(?:url\()?['"]?([^'")\s;]+)/g))
+        scrapeCss(new URL(m[1], href).href);
+    }).catch(() => {}));
+  };
+  const walk = (rules, base) => {
+    for (const r of rules) {
+      if (r.type === CSSRule.FONT_FACE_RULE) fontRules.push({ css: r.cssText, base });
+      else if (r.type === CSSRule.IMPORT_RULE && r.styleSheet) {
+        const ibase = r.styleSheet.href || base;
+        try { walk(r.styleSheet.cssRules, ibase); } catch { scrapeCss(ibase); }
+      } else if (r.cssRules) walk(r.cssRules, base);
+    }
+  };
+  for (const ss of document.styleSheets) {
+    const base = ss.href || location.href;
+    try { walk(ss.cssRules, base); } catch { if (ss.href) scrapeCss(ss.href); }
+  }
+  while (pending.length) await pending.shift();
+  const fontCss = (await Promise.all(fontRules.map(async (rule) => {
+    let out = rule.css, m; const re = /url\((['"]?)([^'")]+)\1\)/g;
+    while ((m = re.exec(rule.css))) {
+      if (m[2].indexOf('data:') === 0) continue;
+      let abs; try { abs = new URL(m[2], rule.base).href; } catch { continue; }
+      out = out.split(m[0]).join('url("' + await toDataURL(abs) + '")');
+    }
+    return out;
+  }))).join('\n');
+
+  const cloneStyled = (src) => {
+    if (src.nodeType === 8 || (src.nodeType === 1 && src.tagName === 'SCRIPT')) return document.createTextNode('');
+    const dst = src.cloneNode(false);
+    if (src.nodeType === 1) {
+      const cs = getComputedStyle(src); let txt = '';
+      for (let i = 0; i < cs.length; i++) txt += cs[i] + ':' + cs.getPropertyValue(cs[i]) + ';';
+      dst.setAttribute('style', txt + 'animation:none;transition:none;');
+      if (src.tagName === 'CANVAS') try { const im = document.createElement('img'); im.src = src.toDataURL(); im.setAttribute('style', txt); return im; } catch {}
+    }
+    for (let c = src.firstChild; c; c = c.nextSibling) dst.appendChild(cloneStyled(c));
+    return dst;
+  };
+  const clone = cloneStyled(node);
+  clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+  // Drop the card's own shadow/radius so the export is a flush w×h rect;
+  // the artboard's own background (if any) is already in the computed style.
+  clone.style.boxShadow = 'none'; clone.style.borderRadius = '0';
+
+  const jobs = [];
+  clone.querySelectorAll('img').forEach((el) => {
+    const s = el.getAttribute('src');
+    if (s && s.indexOf('data:') !== 0) jobs.push(toDataURL(el.src).then((d) => el.setAttribute('src', d)));
+  });
+  [clone, ...clone.querySelectorAll('*')].forEach((el) => {
+    const bg = el.style.backgroundImage; if (!bg) return;
+    let m; const re = /url\(["']?([^"')]+)["']?\)/g;
+    while ((m = re.exec(bg))) {
+      const tok = m[0], url = m[1];
+      if (url.indexOf('data:') === 0) continue;
+      jobs.push(toDataURL(url).then((d) => { el.style.backgroundImage = el.style.backgroundImage.split(tok).join('url("' + d + '")'); }));
+    }
+  });
+  await Promise.all(jobs);
+
+  const xml = new XMLSerializer().serializeToString(clone);
+  const save = (blob, ext) => {
+    if (!blob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name + '.' + ext; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
+  if (kind === 'html') {
+    const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + name + '</title>' +
+      (fontCss ? '<style>' + fontCss + '</style>' : '') +
+      '</head><body style="margin:0">' + xml + '</body></html>';
+    return save(new Blob([html], { type: 'text/html' }), 'html');
+  }
+
+  // PNG: the SVG's own width/height must be the output resolution — an
+  // <img>-loaded SVG rasterizes at its intrinsic size, so sizing it at 1×
+  // and ctx.scale()-ing up would just upscale a 1× bitmap. viewBox maps the
+  // w×h foreignObject onto the px·w × px·h SVG canvas so the browser renders
+  // the HTML at full resolution.
+  const px = 3;
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w * px + '" height="' + h * px +
+    '" viewBox="0 0 ' + w + ' ' + h + '"><foreignObject width="' + w + '" height="' + h + '">' +
+    (fontCss ? '<style><![CDATA[' + fontCss + ']]></style>' : '') + xml + '</foreignObject></svg>';
+  const img = new Image();
+  await new Promise((res, rej) => {
+    img.onload = res; img.onerror = () => rej(new Error('svg load failed'));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  });
+  const cv = document.createElement('canvas');
+  cv.width = w * px; cv.height = h * px;
+  cv.getContext('2d').drawImage(img, 0, 0);
+  cv.toBlob((blob) => save(blob, 'png'), 'image/png');
+}
+
+function DCArtboardFrame({ sectionId, artboard, label, order, onRename, onReorder, onFocus, onDelete }) {
+  const { id: rawId, label: rawLabel, width = 260, height = 480, children, style = {} } = artboard.props;
+  const id = rawId ?? rawLabel;
+  const ref = React.useRef(null);
+  const cardRef = React.useRef(null);
+  const menuRef = React.useRef(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
+
+  // ⋯ menu: close on any outside pointerdown. Two-click delete lives inside
+  // the menu — first click arms the row, second commits; closing disarms.
+  React.useEffect(() => {
+    if (!menuOpen) { setConfirming(false); return; }
+    const off = (e) => { if (!menuRef.current || !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('pointerdown', off, true);
+    return () => document.removeEventListener('pointerdown', off, true);
+  }, [menuOpen]);
+
+  const doExport = (kind) => {
+    setMenuOpen(false);
+    if (!cardRef.current) return;
+    const name = String(label || id || 'artboard').replace(/[^\w\s.-]+/g, '_');
+    dcExport(cardRef.current, width, height, name, kind)
+      .catch((e) => console.error('[design-canvas] export failed:', e));
+  };
+
+  // Live drag-reorder: dragged card sticks to cursor; siblings slide into
+  // their would-be slots in real time via transforms. DOM order only
+  // changes on drop.
+  const onGripDown = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const me = ref.current;
+    // translateX is applied in local (pre-scale) space but pointer deltas and
+    // getBoundingClientRect().left are screen-space — divide by the viewport's
+    // current scale so the dragged card tracks the cursor at any zoom level.
+    const scale = me.getBoundingClientRect().width / me.offsetWidth || 1;
+    const peers = Array.from(document.querySelectorAll(`[data-dc-section="${sectionId}"] [data-dc-slot]`));
+    const homes = peers.map((el) => ({ el, id: el.dataset.dcSlot, x: el.getBoundingClientRect().left }));
+    const slotXs = homes.map((h) => h.x);
+    const startIdx = order.indexOf(id);
+    const startX = e.clientX;
+    let liveOrder = order.slice();
+    me.classList.add('dc-dragging');
+
+    const layout = () => {
+      for (const h of homes) {
+        if (h.id === id) continue;
+        const slot = liveOrder.indexOf(h.id);
+        h.el.style.transform = `translateX(${(slotXs[slot] - h.x) / scale}px)`;
+      }
+    };
+
+    const move = (ev) => {
+      const dx = ev.clientX - startX;
+      me.style.transform = `translateX(${dx / scale}px)`;
+      const cur = homes[startIdx].x + dx;
+      let nearest = 0, best = Infinity;
+      for (let i = 0; i < slotXs.length; i++) {
+        const d = Math.abs(slotXs[i] - cur);
+        if (d < best) { best = d; nearest = i; }
+      }
+      if (liveOrder.indexOf(id) !== nearest) {
+        liveOrder = order.filter((k) => k !== id);
+        liveOrder.splice(nearest, 0, id);
+        layout();
+      }
+    };
+
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      const finalSlot = liveOrder.indexOf(id);
+      me.classList.remove('dc-dragging');
+      me.style.transform = `translateX(${(slotXs[finalSlot] - homes[startIdx].x) / scale}px)`;
+      // After the settle transition, kill transitions + clear transforms +
+      // commit the reorder in the same frame so there's no visual snap-back.
+      setTimeout(() => {
+        for (const h of homes) { h.el.style.transition = 'none'; h.el.style.transform = ''; }
+        if (liveOrder.join('|') !== order.join('|')) onReorder(liveOrder);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          for (const h of homes) h.el.style.transition = '';
+        }));
+      }, 180);
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  };
+
+  return (
+    <div ref={ref} data-dc-slot={id} style={{ position: 'relative', flexShrink: 0 }}>
+      <div className="dc-header" data-noncommentable="" style={{ color: DC.label }} onPointerDown={(e) => e.stopPropagation()}>
+        <div className="dc-labelrow">
+          <div className="dc-grip" onPointerDown={onGripDown} title="Drag to reorder">
+            <svg width="9" height="13" viewBox="0 0 9 13" fill="currentColor"><circle cx="2" cy="2" r="1.1"/><circle cx="7" cy="2" r="1.1"/><circle cx="2" cy="6.5" r="1.1"/><circle cx="7" cy="6.5" r="1.1"/><circle cx="2" cy="11" r="1.1"/><circle cx="7" cy="11" r="1.1"/></svg>
+          </div>
+          <div className="dc-labeltext" onClick={onFocus} title="Click to focus">
+            <DCEditable value={label} onChange={onRename} onClick={(e) => e.stopPropagation()}
+              style={{ fontSize: 15, fontWeight: 500, color: DC.label, lineHeight: 1 }} />
+          </div>
+        </div>
+        <div className="dc-btns">
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button className="dc-kebab" title="More" onClick={() => setMenuOpen((o) => !o)}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><circle cx="2.5" cy="6" r="1.1"/><circle cx="6" cy="6" r="1.1"/><circle cx="9.5" cy="6" r="1.1"/></svg>
+            </button>
+            {menuOpen && (
+              <div className="dc-menu" onPointerDown={(e) => e.stopPropagation()}>
+                <button onClick={() => doExport('png')}>Download PNG</button>
+                <button onClick={() => doExport('html')}>Download HTML</button>
+                <hr />
+                <button className="dc-danger"
+                  onClick={() => { if (confirming) { setMenuOpen(false); onDelete(); } else setConfirming(true); }}>
+                  {confirming ? 'Click again to delete' : 'Delete'}
+                </button>
+              </div>
+            )}
+          </div>
+          <button className="dc-expand" onClick={onFocus} title="Focus">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M7 1h4v4M5 11H1V7M11 1L7.5 4.5M1 11l3.5-3.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div ref={cardRef} className="dc-card"
+        style={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06)', overflow: 'hidden', width, height, background: '#fff', ...style }}>
+        {children || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 13, fontFamily: DC.font }}>{id}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Inline rename — commits on blur or Enter.
+function DCEditable({ value, onChange, style, tag = 'span', onClick }) {
+  const T = tag;
+  return (
+    <T className="dc-editable" contentEditable suppressContentEditableWarning
+      onClick={onClick}
+      onPointerDown={(e) => e.stopPropagation()}
+      onBlur={(e) => onChange && onChange(e.currentTarget.textContent)}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+      style={style}>{value}</T>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Focus mode — overlay one artboard; ←/→ within section, ↑/↓ across
+// sections, Esc or backdrop click to exit.
+// ─────────────────────────────────────────────────────────────
+function DCFocusOverlay({ entry, sectionMeta, sectionOrder }) {
+  const ctx = React.useContext(DCCtx);
+  const { sectionId, artboard } = entry;
+  const sec = ctx.section(sectionId);
+  const meta = sectionMeta[sectionId];
+  const peers = meta.slotIds;
+  const aid = artboard.props.id ?? artboard.props.label;
+  const idx = peers.indexOf(aid);
+  const secIdx = sectionOrder.indexOf(sectionId);
+
+  const go = (d) => { const n = peers[(idx + d + peers.length) % peers.length]; if (n) ctx.setFocus(`${sectionId}/${n}`); };
+  const goSection = (d) => {
+    // Sections whose artboards are all deleted have slotIds:[] — step past
+    // them to the next non-empty section so ↑/↓ doesn't dead-end.
+    const n = sectionOrder.length;
+    for (let i = 1; i < n; i++) {
+      const ns = sectionOrder[(((secIdx + d * i) % n) + n) % n];
+      const first = sectionMeta[ns] && sectionMeta[ns].slotIds[0];
+      if (first) { ctx.setFocus(`${ns}/${first}`); return; }
+    }
+  };
+
+  React.useEffect(() => {
+    const k = (e) => {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); goSection(-1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); goSection(1); }
+    };
+    document.addEventListener('keydown', k);
+    return () => document.removeEventListener('keydown', k);
+  });
+
+  const { width = 260, height = 480, children } = artboard.props;
+  const [vp, setVp] = React.useState({ w: window.innerWidth, h: window.innerHeight });
+  React.useEffect(() => { const r = () => setVp({ w: window.innerWidth, h: window.innerHeight }); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []);
+  const scale = Math.max(0.1, Math.min((vp.w - 200) / width, (vp.h - 260) / height, 2));
+
+  const [ddOpen, setDd] = React.useState(false);
+  const Arrow = ({ dir, onClick }) => (
+    <button onClick={(e) => { e.stopPropagation(); onClick(); }}
+      style={{ position: 'absolute', top: '50%', [dir]: 28, transform: 'translateY(-50%)',
+        border: 'none', background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.9)',
+        width: 44, height: 44, borderRadius: 22, fontSize: 18, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,.18)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,.08)')}>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d={dir === 'left' ? 'M11 3L5 9l6 6' : 'M7 3l6 6-6 6'} /></svg>
+    </button>
+  );
+
+  // Portal to body so position:fixed is the real viewport regardless of any
+  // transform on DesignCanvas's ancestors (including the canvas zoom itself).
+  return ReactDOM.createPortal(
+    <div onClick={() => ctx.setFocus(null)}
+      onWheel={(e) => e.preventDefault()}
+      style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(24,20,16,.6)', backdropFilter: 'blur(14px)',
+        fontFamily: DC.font, color: '#fff' }}>
+
+      {/* top bar: section dropdown (left) · close (right) */}
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 72, display: 'flex', alignItems: 'flex-start', padding: '16px 20px 0', gap: 16 }}>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setDd((o) => !o)}
+            style={{ border: 'none', background: 'transparent', color: '#fff', cursor: 'pointer', padding: '6px 8px',
+              borderRadius: 6, textAlign: 'left', fontFamily: 'inherit' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.3 }}>{meta.title}</span>
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" style={{ opacity: .7 }}><path d="M2 4l3.5 3.5L9 4"/></svg>
+            </span>
+            {meta.subtitle && <span style={{ display: 'block', fontSize: 13, opacity: .6, fontWeight: 400, marginTop: 2 }}>{meta.subtitle}</span>}
+          </button>
+          {ddOpen && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#2a251f', borderRadius: 8,
+              boxShadow: '0 8px 32px rgba(0,0,0,.4)', padding: 4, minWidth: 200, zIndex: 10 }}>
+              {sectionOrder.filter((sid) => sectionMeta[sid].slotIds.length).map((sid) => (
+                <button key={sid} onClick={() => { setDd(false); const f = sectionMeta[sid].slotIds[0]; if (f) ctx.setFocus(`${sid}/${f}`); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                    background: sid === sectionId ? 'rgba(255,255,255,.1)' : 'transparent', color: '#fff',
+                    padding: '8px 12px', borderRadius: 5, fontSize: 14, fontWeight: sid === sectionId ? 600 : 400, fontFamily: 'inherit' }}>
+                  {sectionMeta[sid].title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => ctx.setFocus(null)}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,.12)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,.7)', width: 32, height: 32,
+            borderRadius: 16, fontSize: 20, cursor: 'pointer', lineHeight: 1, transition: 'background .12s' }}>×</button>
+      </div>
+
+      {/* card centered, label + index below — only the card itself stops
+          propagation so any backdrop click (including the margins around
+          the card) exits focus */}
+      <div
+        style={{ position: 'absolute', top: 64, bottom: 56, left: 100, right: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: width * scale, height: height * scale, position: 'relative' }}>
+          <div style={{ width, height, transform: `scale(${scale})`, transformOrigin: 'top left', background: '#fff', borderRadius: 2, overflow: 'hidden',
+            boxShadow: '0 20px 80px rgba(0,0,0,.4)' }}>
+            {children || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb' }}>{aid}</div>}
+          </div>
+        </div>
+        <div onClick={(e) => e.stopPropagation()} style={{ fontSize: 14, fontWeight: 500, opacity: .85, textAlign: 'center' }}>
+          {(sec.labels || {})[aid] ?? artboard.props.label}
+          <span style={{ opacity: .5, marginLeft: 10, fontVariantNumeric: 'tabular-nums' }}>{idx + 1} / {peers.length}</span>
+        </div>
+      </div>
+
+      <Arrow dir="left" onClick={() => go(-1)} />
+      <Arrow dir="right" onClick={() => go(1)} />
+
+      {/* dots */}
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 8 }}>
+        {peers.map((p, i) => (
+          <button key={p} onClick={() => ctx.setFocus(`${sectionId}/${p}`)}
+            style={{ border: 'none', padding: 0, cursor: 'pointer', width: 6, height: 6, borderRadius: 3,
+              background: i === idx ? '#fff' : 'rgba(255,255,255,.3)' }} />
+        ))}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Post-it — absolute-positioned sticky note
+// ─────────────────────────────────────────────────────────────
+function DCPostIt({ children, top, left, right, bottom, rotate = -2, width = 180 }) {
+  return (
+    <div style={{
+      position: 'absolute', top, left, right, bottom, width,
+      background: DC.postitBg, padding: '14px 16px',
+      fontFamily: '"Comic Sans MS", "Marker Felt", "Segoe Print", cursive',
+      fontSize: 14, lineHeight: 1.4, color: DC.postitText,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
+      transform: `rotate(${rotate}deg)`,
+      zIndex: 5,
+    }}>{children}</div>
+  );
+}
+
+Object.assign(window, { DesignCanvas, DCSection, DCArtboard, DCPostIt });
+
+
+
+/* ─── common.jsx ─── */
+// Kennel — shared atoms, icons, and small pieces used across screens.
+// Mono-weight line icons (Lucide-style, hand-traced to keep parity).
+
+const Icon = ({ d, size = 14, stroke = 'currentColor', sw = 1.5, fill = 'none', extra }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={{flex:'0 0 auto', display:'block'}}>
+    {extra}
+    {Array.isArray(d) ? d.map((s, i) => <path key={i} d={s} />) : <path d={d} />}
+  </svg>
+);
+
+const Icons = {
+  search:   (p={}) => <Icon {...p} d={["M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z","m20 20-3.5-3.5"]} />,
+  plus:     (p={}) => <Icon {...p} d={["M12 5v14","M5 12h14"]} />,
+  menu:     (p={}) => <Icon {...p} d={["M4 7h16","M4 12h16","M4 17h16"]} />,
+  grip:     (p={}) => <Icon {...p} d={["M9 6h.01","M15 6h.01","M9 12h.01","M15 12h.01","M9 18h.01","M15 18h.01"]} sw={2.5} />,
+  pin:      (p={}) => <Icon {...p} d={["M12 17v5","M5 9h14l-2 8H7L5 9z","M9 9V4h6v5"]} />,
+  bulb:     (p={}) => <Icon {...p} d={["M9 18h6","M10 22h4","M8 14a4 4 0 1 1 8 0c0 2-2 3-2 4h-4c0-1-2-2-2-4z"]} />,
+  note:     (p={}) => <Icon {...p} d={["M4 5h16v14H4z","M8 9h8","M8 13h8","M8 17h5"]} />,
+  check:    (p={}) => <Icon {...p} d={["M4 5h16v14H4z","m8 12 3 3 5-6"]} />,
+  doc:      (p={}) => <Icon {...p} d={["M6 3h8l4 4v14H6z","M14 3v4h4","M9 13h6","M9 17h6","M9 9h2"]} />,
+  link:     (p={}) => <Icon {...p} d={["M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1","M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"]} />,
+  chat:     (p={}) => <Icon {...p} d={["M4 6h16v10H8l-4 4z"]} />,
+  runbook:  (p={}) => <Icon {...p} d={["M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z","M5 18h14","M9 8h6","M9 12h4"]} />,
+  arrowR:   (p={}) => <Icon {...p} d={["M5 12h14","m13 6 6 6-6 6"]} />,
+  arrowDown:(p={}) => <Icon {...p} d="m6 9 6 6 6-6" />,
+  arrowUp:  (p={}) => <Icon {...p} d="m6 15 6-6 6 6" />,
+  archive:  (p={}) => <Icon {...p} d={["M3 5h18v4H3z","M5 9v11h14V9","M10 13h4"]} />,
+  trash:    (p={}) => <Icon {...p} d={["M4 7h16","M9 7V4h6v3","M6 7v13h12V7","M10 11v6","M14 11v6"]} />,
+  park:     (p={}) => <Icon {...p} d={["M6 4h8a4 4 0 0 1 0 8h-4v8H6z","M10 8h4"]} />,
+  star:     (p={}) => <Icon {...p} d="M12 4l2.4 5 5.6.6-4 3.8 1.2 5.6L12 16.3 6.8 19l1.2-5.6-4-3.8L9.6 9z" />,
+  filter:   (p={}) => <Icon {...p} d={["M4 5h16l-6 8v6l-4-2v-4z"]} />,
+  cog:      (p={}) => <Icon {...p} d={["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z","M12 2v3","M12 19v3","m4.2 4.2 2.1 2.1","m17.7 17.7 2.1 2.1","M2 12h3","M19 12h3","m4.2 19.8 2.1-2.1","m17.7 6.3 2.1-2.1"]} />,
+  x:        (p={}) => <Icon {...p} d={["M6 6l12 12","M18 6L6 18"]} />,
+  copy:     (p={}) => <Icon {...p} d={["M9 4h10v12H9z","M5 8v12h10"]} />,
+  ext:      (p={}) => <Icon {...p} d={["M14 5h5v5","M19 5l-8 8","M19 14v5H5V5h5"]} />,
+  eye:      (p={}) => <Icon {...p} d={["M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z","M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"]} />,
+  side:     (p={}) => <Icon {...p} d={["M4 5h16v14H4z","M10 5v14"]} />,
+  cmd:      (p={}) => <Icon {...p} d="M9 6a3 3 0 1 1-3 3h12a3 3 0 1 1-3-3v12a3 3 0 1 1 3-3H6a3 3 0 1 1 3 3z" />,
+  bell:     (p={}) => <Icon {...p} d={["M6 16V11a6 6 0 1 1 12 0v5l2 2H4z","M10 20a2 2 0 0 0 4 0"]} />,
+  caret:    (p={}) => <Icon {...p} d="m9 6 6 6-6 6" />,
+};
+
+// Kind icon per item kind
+const KindIcon = ({ kind, size = 14, muted = true }) => {
+  const map = { idea: Icons.bulb, note: Icons.note, action: Icons.check, doc: Icons.doc, ref: Icons.link, chat: Icons.chat };
+  const C = map[kind] || Icons.note;
+  return <span style={{ color: muted ? 'var(--fg-muted)' : 'var(--fg)' }}><C size={size} /></span>;
+};
+
+// Project tag (slug pill)
+const ProjectTag = ({ slug }) => <span className="km-proj">{slug}</span>;
+
+// State indicator
+const StateDot = ({ state }) => {
+  if (state === 'inbox' || state === 'dismissed') return null;
+  if (state === 'active')   return <span className="km-dot km-dot-ember" title="active" />;
+  if (state === 'parked')   return <span className="km-dot km-dot-dust" title="parked" />;
+  if (state === 'done')     return <span className="km-dot km-dot-moss" title="done" />;
+  if (state === 'archived') return <span className="km-dot km-dot-slate" title="archived" />;
+  return null;
+};
+
+// Revision indicator
+const Rev = ({ n }) => <span className="km-mono-sm" style={{whiteSpace:'nowrap'}}>rev {n}</span>;
+
+// Display small uppercase label
+const Label = ({ children, style }) => <div className="km-display-sm" style={style}>{children}</div>;
+
+// Mono small text
+const Mono = ({ children, style, dim }) => (
+  <span className="km-mono-sm" style={{ color: dim ? 'var(--fg-faint)' : undefined, ...style }}>{children}</span>
+);
+
+// Section header used inside cards / panels
+const SectionHead = ({ title, right, dense }) => (
+  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding: dense ? '8px 14px' : '12px 16px' }}>
+    <Label>{title}</Label>
+    <div style={{ display:'flex', alignItems:'center', gap: 8 }}>{right}</div>
+  </div>
+);
+
+// Tiny actor badge for activity log
+const Actor = ({ who }) => {
+  const map = {
+    C: { label: 'C', bg: 'var(--slate)',     fg: '#F2EDE0' },
+    Cl:{ label: '⌬', bg: 'var(--ember-deep)',fg: '#F2EDE0' },
+    CLI:{label: '⎈', bg: 'var(--moss)',      fg: '#F2EDE0' },
+    sys:{label: '•', bg: 'var(--surface-2)', fg: 'var(--fg-muted)'},
+  };
+  const a = map[who] || map.sys;
+  return (
+    <span style={{
+      display:'inline-flex', alignItems:'center', justifyContent:'center',
+      width: 16, height: 16, borderRadius: 3,
+      background: a.bg, color: a.fg, fontFamily:'var(--ff-mono)', fontSize: 10, lineHeight: 1
+    }}>{a.label}</span>
+  );
+};
+
+// Top header / chrome bar reused across every screen
+const ChromeBar = ({ projectChip, search = 'Search projects, items, docs…' }) => (
+  <div style={{
+    height: 44,
+    borderBottom: '1px solid var(--line)',
+    display:'flex', alignItems:'center',
+    padding:'0 14px', gap: 14,
+    background: 'var(--surface-0)',
+    flex:'0 0 auto',
+  }}>
+    <div style={{display:'flex', alignItems:'center', gap:8}}>
+      <span className="km-logo-slot">LOGO</span>
+      <span className="km-display-md" style={{fontSize:16, letterSpacing:'.08em'}}>KENNEL</span>
+    </div>
+    {projectChip}
+    <div style={{flex:1}} />
+    <div style={{
+      display:'flex', alignItems:'center', gap:8,
+      background:'var(--surface-1)',
+      border:'1px solid var(--line)',
+      borderRadius:4,
+      padding:'5px 10px',
+      width: 360, color: 'var(--fg-muted)'
+    }}>
+      <Icons.search size={13} />
+      <span className="km-mono-sm" style={{flex:1}}>{search}</span>
+      <span className="km-kbd">⌘K</span>
+    </div>
+    <button className="km-btn km-btn-primary"><Icons.plus size={13} /> Capture</button>
+    <div style={{
+      width:26, height:26, borderRadius:3, background:'var(--surface-2)',
+      display:'inline-flex', alignItems:'center', justifyContent:'center',
+      fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--fg-muted)'
+    }}>CD</div>
+  </div>
+);
+
+// Left navigation rail used across most screens (projects + system links)
+const NavRail = ({ active = 'dashboard' }) => {
+  const projects = [
+    { slug: 'picnic-engage',   name: 'Picnic — Engagement',   count: 4 },
+    { slug: 'kennel',          name: 'Kennel',                 count: 12, active: true },
+    { slug: 'pacecraft',       name: 'Pacecraft',              count: 2 },
+    { slug: 'klein-advisory',  name: 'Klein Advisory',         count: 1 },
+    { slug: 'training-block',  name: 'Training Block',         count: 0 },
+    { slug: 'reading-stack',   name: 'Reading Stack',          count: 7 },
+  ];
+  const sys = [
+    { id: 'dashboard', icon: Icons.menu,    label: 'Dashboard' },
+    { id: 'triage',    icon: Icons.filter,  label: 'Triage queue', n: 14 },
+    { id: 'search',    icon: Icons.search,  label: 'Search' },
+    { id: 'skills',    icon: Icons.star,    label: 'Skills' },
+    { id: 'settings',  icon: Icons.cog,     label: 'Settings' },
+  ];
+  return (
+    <aside style={{
+      width: 224, flex:'0 0 224px',
+      borderRight: '1px solid var(--line)',
+      padding: '14px 0',
+      display:'flex', flexDirection:'column', gap: 6,
+      background: 'var(--surface-0)',
+      overflow:'hidden'
+    }}>
+      <div style={{padding:'2px 16px 6px'}}>
+        <Label>Workspace</Label>
+      </div>
+      {sys.map(s => (
+        <button key={s.id} className="km-row" style={{
+          display:'flex', alignItems:'center', gap:9, width:'100%',
+          padding:'5px 16px', border:0, background: active === s.id ? 'rgba(217,98,44,.10)' : 'transparent',
+          boxShadow: active === s.id ? 'inset 2px 0 0 var(--ember)' : 'none',
+          color: active === s.id ? 'var(--ember-deep)' : 'var(--fg)',
+          fontSize: 13, fontFamily:'var(--ff-sans)', cursor:'pointer',
+          textAlign:'left'
+        }}>
+          <s.icon size={14} />
+          <span style={{flex:1}}>{s.label}</span>
+          {s.n != null && <Mono>{s.n}</Mono>}
+        </button>
+      ))}
+      <div style={{padding:'14px 16px 6px'}}>
+        <Label>Pinned projects</Label>
+      </div>
+      {projects.map(p => (
+        <button key={p.slug} className="km-row" style={{
+          display:'flex', alignItems:'center', gap: 9, width:'100%',
+          padding:'5px 16px', border: 0,
+          background: p.active ? 'rgba(92,122,62,.10)' : 'transparent',
+          boxShadow: p.active ? 'inset 2px 0 0 var(--moss)' : 'none',
+          color: 'var(--fg)', cursor:'pointer', textAlign:'left'
+        }}>
+          <span className="km-mono-sm" style={{ color: p.active ? 'var(--moss)' : 'var(--fg-faint)', flex:'0 0 auto', width:6, textAlign:'center'}}>
+            {p.active ? '●' : '○'}
+          </span>
+          <span style={{flex:1, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{p.name}</span>
+          {p.count > 0 && <Mono>{p.count}</Mono>}
+        </button>
+      ))}
+      <div style={{flex:1}} />
+      <div style={{padding:'10px 16px', borderTop:'1px solid var(--line)', display:'flex', alignItems:'center', gap:8}}>
+        <Mono>v0.1.4</Mono>
+        <span style={{flex:1}} />
+        <Mono dim>↻ synced 14:32</Mono>
+      </div>
+    </aside>
+  );
+};
+
+Object.assign(window, { Icon, Icons, KindIcon, ProjectTag, StateDot, Rev, Label, Mono, SectionHead, Actor, ChromeBar, NavRail });
+
+
+/* ─── foundation.jsx ─── */
+// Foundation artboards: palette swatches and type scale.
+
+const Swatch = ({ name, hex, role, dark }) => (
+  <div style={{display:'flex', alignItems:'stretch', gap:0, border:'1px solid var(--line)', borderRadius:3, overflow:'hidden'}}>
+    <div style={{ width: 86, background: hex, flex:'0 0 86px' }} />
+    <div style={{flex:1, padding:'10px 12px', display:'flex', flexDirection:'column', gap:3, background:'var(--surface-1)'}}>
+      <div className="km-display-md" style={{fontSize:14, letterSpacing:'.06em', textTransform:'uppercase'}}>{name}</div>
+      <Mono>{hex}</Mono>
+      <div className="km-body-sm" style={{lineHeight:1.35}}>{role}</div>
+    </div>
+  </div>
+);
+
+const PaletteBoard = () => (
+  <div className="km" style={{padding:'32px 40px', height:'100%', overflow:'hidden'}}>
+    <div style={{display:'flex', alignItems:'baseline', gap:16, marginBottom: 6}}>
+      <div className="km-display-lg">Palette</div>
+      <Mono>kennel · v0.1 · inherits pacecraft</Mono>
+    </div>
+    <div className="km-body-sm" style={{maxWidth: 720, marginBottom: 24}}>
+      Bone-dominated light mode, slate-dark dominated dark mode. Same warm accents in both. Ember leads action; moss carries structure; blaze is punctuation only.
+    </div>
+
+    <Label style={{marginBottom: 10}}>Core</Label>
+    <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginBottom: 24}}>
+      <Swatch name="Bone"       hex="#F2EDE0" role="Light bg. Default canvas." />
+      <Swatch name="Slate"      hex="#3A3F45" role="Primary text light. Headings." />
+      <Swatch name="Slate-dark" hex="#2A2E33" role="Dark bg. Floor (never deeper)." />
+      <Swatch name="Moss"       hex="#5C7A3E" role="Structural accent. Project tag." />
+      <Swatch name="Ember"      hex="#D9622C" role="Hero warm. Primary action." />
+      <Swatch name="Dust"       hex="#C9A87C" role="Soft accents. Muted bg." />
+      <Swatch name="Blaze"      hex="#E8B547" role="Pinned indicator. Punctuation." />
+      <Swatch name="Slate-light"hex="#7A8088" role="Secondary text. De-emphasized." />
+    </div>
+
+    <Label style={{marginBottom: 10}}>Derived</Label>
+    <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10, marginBottom: 28}}>
+      <Swatch name="Ember-dark"  hex="#A84919" role="Hover / pressed on ember." />
+      <Swatch name="Ember-deep"  hex="#8A3A14" role="Ember link underline. Claude voice." />
+      <Swatch name="Slate-light" hex="#7A8088" role="55% slate alt." />
+    </div>
+
+    <Label style={{marginBottom: 10}}>Rules</Label>
+    <ul className="km-body-sm" style={{margin:0, paddingLeft: 16, lineHeight: 1.7, color:'var(--fg)'}}>
+      <li>Ember and blaze never sit side-by-side at equal weight.</li>
+      <li>Never dark-on-dark or warm-on-warm at the same value.</li>
+      <li>Dust is background or soft accent — never foreground type.</li>
+      <li>Light mode is default; dark mode is a peer, not an afterthought.</li>
+    </ul>
+  </div>
+);
+
+const TypeRow = ({ token, spec, sample, sampleClass }) => (
+  <div style={{display:'grid', gridTemplateColumns:'180px 240px 1fr', alignItems:'baseline', padding:'14px 0', borderTop:'1px solid var(--line)', gap: 18}}>
+    <div className="km-display-sm">{token}</div>
+    <Mono>{spec}</Mono>
+    <div className={sampleClass}>{sample}</div>
+  </div>
+);
+
+const TypeBoard = () => (
+  <div className="km" style={{padding:'32px 40px', height:'100%', overflow:'hidden'}}>
+    <div style={{display:'flex', alignItems:'baseline', gap:16, marginBottom: 4}}>
+      <div className="km-display-lg">Typography</div>
+      <Mono>oswald · inter · jetbrains mono</Mono>
+    </div>
+    <div className="km-body-sm" style={{maxWidth: 720, marginBottom: 22}}>
+      Hierarchy carried by weight, size, and color. Display marks structural moments. Body does the work. Mono signals technical content — anything operational, slugs, timestamps, revisions.
+    </div>
+
+    <div style={{borderBottom:'1px solid var(--line)'}}>
+      <TypeRow token="Display large"  spec="Oswald 500 · 28 / 0.02em"     sample="Picnic — Engagement" sampleClass="km-display-lg" />
+      <TypeRow token="Display medium" spec="Oswald 500 · 20 / 0.04em"     sample="Project context"     sampleClass="km-display-md" />
+      <TypeRow token="Display small"  spec="Oswald 500 · 12 / 0.18em UC"  sample="NEXT UP"             sampleClass="km-display-sm" />
+      <TypeRow token="Body large"     spec="Inter 500 · 16"                sample="Draft Q3 outreach plan" sampleClass="km-body-lg" />
+      <TypeRow token="Body default"   spec="Inter 400 · 14"                sample="Send revised copy to A. Klein before Friday standup." sampleClass="km-body" />
+      <TypeRow token="Body small"     spec="Inter 400 · 12 / 55%"          sample="captured 2h ago via mobile share"                      sampleClass="km-body-sm" />
+      <TypeRow token="Mono"           spec="JetBrains Mono 400 · 12.5"     sample="picnic-engage  rev 7  14:32  #outreach" sampleClass="km-mono" />
+      <TypeRow token="Mono small"     spec="JetBrains Mono 400 · 11 / 55%" sample="2026-05-17T14:32:18-07:00"               sampleClass="km-mono-sm" />
+    </div>
+
+    <div style={{marginTop: 22, display:'grid', gridTemplateColumns:'1fr 1fr', gap: 28}}>
+      <div>
+        <Label style={{marginBottom: 8}}>Field-manual labels</Label>
+        <div className="km-body-sm" style={{marginBottom: 10}}>Section labels and small UI labels are always uppercased and letter-spaced.</div>
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
+          <div className="km-display-sm">PROJECT RAIL</div>
+          <div className="km-display-sm">YESTERDAY</div>
+          <div className="km-display-sm">RUNBOOK · RUN</div>
+        </div>
+      </div>
+      <div>
+        <Label style={{marginBottom: 8}}>Numbers that matter</Label>
+        <div className="km-body-sm" style={{marginBottom: 10}}>Revision counters, timestamps, item counts — always mono.</div>
+        <div style={{display:'flex', flexDirection:'column', gap:6, fontFamily:'var(--ff-mono)'}}>
+          <Mono>rev 12</Mono>
+          <Mono>14:32 · 2h ago</Mono>
+          <Mono>4 inbox · 17 active · 9 parked</Mono>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+Object.assign(window, { PaletteBoard, TypeBoard });
+
+
+/* ─── components-board.jsx ─── */
+// Component library artboard — showcases the patterns from §7 of the brief.
+
+const CRow = ({ label, children, w = 480 }) => (
+  <div style={{display:'grid', gridTemplateColumns:'180px 1fr', alignItems:'flex-start', gap:24, padding:'14px 0', borderTop:'1px solid var(--line)'}}>
+    <div>
+      <div className="km-display-sm">{label}</div>
+    </div>
+    <div style={{display:'flex', flexWrap:'wrap', alignItems:'center', gap:12, maxWidth: w}}>{children}</div>
+  </div>
+);
+
+const ChatRow = ({ tagline, since, stale, claudeUrl = true }) => (
+  <div className="km-row" style={{display:'flex', alignItems:'center', gap:10, padding:'7px 10px', borderRadius:3, opacity: stale ? 0.6 : 1}}>
+    <span style={{color:'var(--fg-faint)'}}><Icons.chat size={13} /></span>
+    <span style={{flex:1, fontFamily:'var(--ff-sans)', fontStyle:'italic', fontSize:13, lineHeight:1.4, color:'var(--fg)', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>{tagline}</span>
+    <Mono>{since}</Mono>
+    {claudeUrl && <span style={{color:'var(--fg-faint)'}}><Icons.ext size={12} /></span>}
+  </div>
+);
+
+const ActivityEntry = ({ time, who, verb, target, payload }) => (
+  <div style={{display:'flex', alignItems:'baseline', gap:10, padding:'5px 0', fontSize:13}}>
+    <Mono style={{minWidth:50}}>{time}</Mono>
+    <Actor who={who} />
+    <span className="km-display-sm" style={{fontSize:10, minWidth:62}}>{verb}</span>
+    <span className="km-link" style={{borderBottomStyle:'dashed'}}>{target}</span>
+    <span className="km-body-sm" style={{flex:1}}>{payload}</span>
+  </div>
+);
+
+const ComponentBoard = () => (
+  <div className="km" style={{padding:'28px 36px', height:'100%', overflow:'hidden'}}>
+    <div style={{display:'flex', alignItems:'baseline', gap:16, marginBottom: 4}}>
+      <div className="km-display-lg">Components</div>
+      <Mono>§7 patterns · drop-in reusable atoms</Mono>
+    </div>
+    <div className="km-body-sm" style={{maxWidth: 720, marginBottom: 14}}>
+      Every pattern called out in the brief, demonstrated here so Claude Code can reach for them as primitives.
+    </div>
+
+    <div style={{borderBottom:'1px solid var(--line)'}}>
+      <CRow label="Project tag">
+        <ProjectTag slug="picnic-engage" />
+        <ProjectTag slug="kennel" />
+        <ProjectTag slug="pacecraft" />
+        <ProjectTag slug="klein-advisory" />
+        <span className="km-body-sm">always the slug · never the full name</span>
+      </CRow>
+
+      <CRow label="Free-form tag">
+        <span className="km-tag">#outreach</span>
+        <span className="km-tag">#draft</span>
+        <span className="km-tag">#read-later</span>
+        <span className="km-tag" style={{cursor:'pointer'}}>+ tag</span>
+      </CRow>
+
+      <CRow label="Kind icons">
+        <span style={{display:'flex', alignItems:'center', gap:6}}><KindIcon kind="idea" /><span className="km-body-sm">idea</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><KindIcon kind="note" /><span className="km-body-sm">note</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><KindIcon kind="action" /><span className="km-body-sm">action</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><KindIcon kind="doc" /><span className="km-body-sm">doc</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><KindIcon kind="ref" /><span className="km-body-sm">reference</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><KindIcon kind="chat" /><span className="km-body-sm">chat</span></span>
+      </CRow>
+
+      <CRow label="State indicator">
+        <span style={{display:'flex', alignItems:'center', gap:6}}><span className="km-body-sm">inbox</span><span className="km-body-sm" style={{color:'var(--fg-faint)'}}>(no indicator)</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><StateDot state="active" /><span className="km-body-sm">active</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><StateDot state="parked" /><span className="km-body-sm">parked</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><StateDot state="done" /><span className="km-body-sm">done</span></span>
+        <span style={{display:'flex', alignItems:'center', gap:6}}><StateDot state="archived" /><span className="km-body-sm">archived</span></span>
+      </CRow>
+
+      <CRow label="Revision indicator">
+        <Rev n={7} /> <Rev n={12} /> <Rev n={104} />
+        <span className="km-body-sm">tooltip on hover reveals last-updated timestamp</span>
+      </CRow>
+
+      <CRow label="Buttons">
+        <button className="km-btn km-btn-primary">Activate</button>
+        <button className="km-btn">Park</button>
+        <button className="km-btn km-btn-moss">Accept</button>
+        <button className="km-btn">Dismiss</button>
+        <button className="km-btn km-btn-ghost">Cancel</button>
+      </CRow>
+
+      <CRow label="Pinned (blaze)" w={620}>
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-pin"><Icons.pin size={12} /></span><span className="km-body">Project pinned</span></span>
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-pin"><Icons.star size={12} /></span><span className="km-body">Doc pinned</span></span>
+        <span className="km-body-sm">tiny accents only · never a large surface</span>
+      </CRow>
+
+      <CRow label="Activity entry" w={680}>
+        <div style={{width:'100%', display:'flex', flexDirection:'column', gap:1, fontFamily:'var(--ff-sans)'}}>
+          <ActivityEntry time="14:32" who="C"  verb="EDITED"   target="draft Q3 outreach plan" payload="rev 7 → rev 8 · 4 lines changed" />
+          <ActivityEntry time="13:58" who="Cl" verb="PROPOSED"  target="skill / outreach-cadence" payload="add fallback for paused contacts" />
+          <ActivityEntry time="11:11" who="CLI" verb="CAPTURED" target="ref / Stripe pricing docs" payload="https://stripe.com/pricing" />
+          <ActivityEntry time="08:04" who="sys" verb="BACKUP"   target="nightly snapshot" payload="2.4 MB · ok" />
+        </div>
+      </CRow>
+
+      <CRow label="Chat row" w={620}>
+        <div style={{width:'100%', display:'flex', flexDirection:'column', gap:2, background:'var(--surface-1)', padding:6, border:'1px solid var(--line)', borderRadius:4}}>
+          <ChatRow tagline="working through the segmentation logic — we landed on three tiers and a churn-risk overlay" since="2h ago" />
+          <ChatRow tagline="quick check on whether the runbook should call out the staging URL or read it from .env" since="yesterday" />
+          <ChatRow tagline="experimenting with a cold-open hook for the founder profile piece — three drafts, none great yet" since="74d ago" stale />
+        </div>
+      </CRow>
+
+      <CRow label="Input · mono">
+        <input className="km-input km-input-mono" placeholder='tag:#outreach kind:action state:active' style={{width: 360}} />
+      </CRow>
+
+      <CRow label="Keyboard hints">
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-kbd">J</span><span className="km-kbd">K</span> <span className="km-body-sm">navigate</span></span>
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-kbd">A</span> <span className="km-body-sm">activate</span></span>
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-kbd">P</span> <span className="km-body-sm">park</span></span>
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-kbd">X</span> <span className="km-body-sm">dismiss</span></span>
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-kbd">D</span> <span className="km-body-sm">done</span></span>
+        <span style={{display:'inline-flex', alignItems:'center', gap:6}}><span className="km-kbd">⌘</span><span className="km-kbd">K</span> <span className="km-body-sm">search</span></span>
+      </CRow>
+    </div>
+  </div>
+);
+
+Object.assign(window, { ComponentBoard, ChatRow, ActivityEntry });
+
+
+/* ─── screens-1.jsx ─── */
+// Screens 1-4: Dashboard, Project Landing, Triage Queue, Doc Editor
+
+// ─── 1. Dashboard ────────────────────────────────────────────────────────────
+const ProjectCard = ({ slug, name, desc, counts, pinned, active }) => (
+  <div className="km-card" style={{
+    minWidth: 248, maxWidth: 248,
+    padding: '12px 14px',
+    display:'flex', flexDirection:'column', gap: 8,
+    background: active ? 'rgba(217,98,44,.06)' : 'var(--surface-1)',
+    borderColor: active ? 'rgba(217,98,44,.30)' : 'var(--line)',
+  }}>
+    <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8}}>
+      <div style={{display:'flex', flexDirection:'column', gap:2, minWidth:0}}>
+        <ProjectTag slug={slug} />
+        <div className="km-body-lg" style={{fontSize:14, marginTop:4}}>{name}</div>
+      </div>
+      {pinned && <span className="km-pin"><Icons.pin size={12} /></span>}
+    </div>
+    <div className="km-body-sm" style={{lineHeight:1.4, minHeight:32, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>{desc}</div>
+    <div style={{display:'flex', alignItems:'center', gap:10, marginTop:'auto', paddingTop:6, borderTop:'1px solid var(--line)'}}>
+      <span style={{display:'flex', alignItems:'center', gap:5}}>
+        <span className="km-mono-sm" style={{color:'var(--fg-faint)'}}>in</span>
+        <Mono>{counts.inbox}</Mono>
+      </span>
+      <span style={{display:'flex', alignItems:'center', gap:5}}>
+        <span className="km-dot km-dot-ember" />
+        <Mono>{counts.active}</Mono>
+      </span>
+      <span style={{display:'flex', alignItems:'center', gap:5}}>
+        <span className="km-dot km-dot-dust" />
+        <Mono>{counts.parked}</Mono>
+      </span>
+      <span style={{flex:1}} />
+      <span className="km-mono-sm" style={{color:'var(--ember-deep)', cursor:'pointer', display:'flex', alignItems:'center', gap:3}}>
+        <Icons.runbook size={11} /> run
+      </span>
+    </div>
+  </div>
+);
+
+const NextUpRow = ({ slug, kind, title, due, drag, ember, hash }) => (
+  <div className={`km-row ${ember ? 'km-active-row' : ''}`} style={{
+    display:'grid',
+    gridTemplateColumns:'18px 14px 110px 1fr 90px 16px',
+    alignItems:'center', gap: 12, padding: '8px 14px',
+    borderBottom: '1px solid var(--line)',
+  }}>
+    <span style={{color:'var(--fg-faint)', opacity: drag ? 1 : 0}}><Icons.grip size={12} /></span>
+    <KindIcon kind={kind} />
+    <ProjectTag slug={slug} />
+    <div style={{display:'flex', alignItems:'center', gap:8, minWidth:0}}>
+      <span className="km-body" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{title}</span>
+      {hash && <span className="km-mono-sm" style={{color:'var(--fg-faint)'}}>{hash}</span>}
+    </div>
+    <Mono>{due}</Mono>
+    <StateDot state={ember ? 'active' : 'active'} />
+  </div>
+);
+
+const Dashboard = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column'}}>
+    <ChromeBar />
+    <div style={{flex:1, display:'flex', overflow:'hidden'}}>
+      <NavRail active="dashboard" />
+      <main className="km-scroll" style={{flex:1, padding:'22px 32px 0', overflow:'auto'}}>
+        {/* Page heading */}
+        <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom: 14}}>
+          <div>
+            <div className="km-display-lg">Dashboard</div>
+            <Mono>monday · 17 may 2026 · 14:32 PDT</Mono>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:8}}>
+            <button className="km-btn"><Icons.eye size={12} /> Focus mode</button>
+            <button className="km-btn"><Icons.filter size={12} /> Weekly review</button>
+          </div>
+        </div>
+
+        {/* Project rail */}
+        <Label style={{marginBottom: 10}}>Pinned projects</Label>
+        <div className="km-scroll" style={{display:'flex', gap:10, overflowX:'auto', paddingBottom:16, marginBottom: 18}}>
+          <ProjectCard slug="kennel"         name="Kennel"          desc="Personal command center. Currently in scoping and core schema." counts={{inbox:4, active:12, parked:5}} active pinned />
+          <ProjectCard slug="picnic-engage"  name="Picnic — Engagement" desc="Q3 outreach refresh for the engagement workstream." counts={{inbox:1, active:4, parked:2}} />
+          <ProjectCard slug="pacecraft"      name="Pacecraft"       desc="Brand system and field manual; supplies vocabulary." counts={{inbox:0, active:2, parked:1}} />
+          <ProjectCard slug="klein-advisory" name="Klein Advisory"  desc="Quarterly check-ins and review notes." counts={{inbox:0, active:1, parked:0}} />
+          <ProjectCard slug="reading-stack"  name="Reading Stack"   desc="Long reads, papers, references to revisit." counts={{inbox:7, active:0, parked:9}} />
+        </div>
+
+        {/* Next up */}
+        <div style={{display:'grid', gridTemplateColumns:'1.6fr 1fr', gap: 24}}>
+          <section className="km-card" style={{padding:0}}>
+            <SectionHead title="Next up" right={<Mono>17 active · ranked</Mono>} />
+            <div className="km-rule" />
+            <NextUpRow slug="kennel"        kind="action" title="Decide on dark-mode third elevation tone" hash="#design" due="today"   ember drag />
+            <NextUpRow slug="picnic-engage" kind="doc"    title="Draft Q3 outreach plan"                  hash="rev 7" due="tomorrow" ember />
+            <NextUpRow slug="kennel"        kind="action" title="Sketch triage keyboard shortcut sheet"   due="Wed" />
+            <NextUpRow slug="kennel"        kind="idea"   title="Move chats panel above pinned docs?"     due="—" />
+            <NextUpRow slug="pacecraft"     kind="action" title="Revise voice section for Kennel adaptation" due="Fri" />
+            <NextUpRow slug="reading-stack" kind="ref"    title="Reread §3 of Cal Newport on capture friction" due="—" />
+            <NextUpRow slug="klein-advisory" kind="note"  title="Prep Q2 retro talking points"            due="May 24" />
+          </section>
+
+          <div style={{display:'flex', flexDirection:'column', gap: 18}}>
+            {/* Inbox roll-up */}
+            <section className="km-card" style={{padding:0}}>
+              <SectionHead title="Inbox" right={<><Mono>14 unsorted</Mono><button className="km-btn km-btn-ghost" style={{padding:'4px 6px'}}>Triage all <Icons.arrowR size={12} /></button></>} />
+              <div className="km-rule" />
+              <div style={{padding:'6px 0'}}>
+                {[
+                  ['kennel',         7],
+                  ['picnic-engage',  3],
+                  ['reading-stack',  3],
+                  ['klein-advisory', 1],
+                ].map(([slug, n]) => (
+                  <div key={slug} className="km-row" style={{display:'flex', alignItems:'center', gap:10, padding:'6px 14px'}}>
+                    <ProjectTag slug={slug} />
+                    <span style={{flex:1}} />
+                    <Mono>{n}</Mono>
+                    <span className="km-mono-sm" style={{color:'var(--ember-deep)'}}>triage</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Yesterday */}
+            <section className="km-card" style={{padding:0}}>
+              <SectionHead title="Yesterday" right={<Mono>14 events · collapsed</Mono>} />
+              <div className="km-rule" />
+              <div style={{padding:'8px 14px', display:'flex', flexDirection:'column', gap:3}}>
+                <ActivityEntry time="22:14" who="C"   verb="ARCHIVED" target="3 items in reading-stack" payload="" />
+                <ActivityEntry time="19:02" who="Cl"  verb="DRAFTED"  target="outreach-cadence skill"   payload="proposal pending" />
+                <ActivityEntry time="16:41" who="C"   verb="PROMOTED" target="kennel idea → action"     payload="dark-mode elevation" />
+                <ActivityEntry time="14:55" who="CLI" verb="CAPTURED" target="ref / capture friction"   payload="newport.com/…" />
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+// ─── 2. Project landing ─────────────────────────────────────────────────────
+const RunbookTab = ({ label, active }) => (
+  <button style={{
+    border:0, background:'transparent',
+    fontFamily:'var(--ff-display)', fontWeight: 500,
+    fontSize: 12, letterSpacing: '.18em', textTransform:'uppercase',
+    color: active ? 'var(--ember-deep)' : 'var(--fg-muted)',
+    padding: '8px 0',
+    borderBottom: active ? '2px solid var(--ember)' : '2px solid transparent',
+    cursor:'pointer'
+  }}>{label}</button>
+);
+
+const PinnedDocCard = ({ title, preview, rev }) => (
+  <div className="km-card" style={{padding:'10px 12px', minWidth: 220, display:'flex', flexDirection:'column', gap:6}}>
+    <div style={{display:'flex', alignItems:'center', gap:6}}>
+      <span style={{color:'var(--fg-muted)'}}><Icons.doc size={12} /></span>
+      <span className="km-body" style={{fontWeight:500, flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{title}</span>
+      <span className="km-pin"><Icons.pin size={10} /></span>
+    </div>
+    <div className="km-body-sm" style={{lineHeight:1.4, display:'-webkit-box', WebkitLineClamp:1, WebkitBoxOrient:'vertical', overflow:'hidden'}}>{preview}</div>
+    <Mono>rev {rev}</Mono>
+  </div>
+);
+
+const ProjectLanding = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column'}}>
+    <ChromeBar projectChip={<ProjectTag slug="kennel" />} />
+    <div style={{flex:1, display:'flex', overflow:'hidden'}}>
+      <NavRail active="" />
+      <main className="km-scroll" style={{flex:1, overflow:'auto'}}>
+        {/* Project header */}
+        <div style={{padding:'22px 32px 14px', borderBottom:'1px solid var(--line)'}}>
+          <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:24}}>
+            <div style={{flex:1}}>
+              <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
+                <ProjectTag slug="kennel" />
+                <span className="km-pin"><Icons.pin size={12} /></span>
+                <Mono>created 2026-03-04</Mono>
+              </div>
+              <div className="km-display-lg" style={{marginBottom: 4}}>Kennel</div>
+              <div className="km-body" style={{maxWidth: 760, color:'var(--fg-muted)'}}>
+                Personal command center. Captures ideas, notes, actions, docs and Claude conversations across all active work; surfaces what needs attention without nagging.
+              </div>
+              <div style={{marginTop:8, display:'flex', alignItems:'center', gap:6}}>
+                <Icons.arrowDown size={12} />
+                <span className="km-link" style={{fontSize:13, borderBottomStyle:'dashed'}}>show context</span>
+                <span className="km-body-sm">— full markdown shipped to Claude with chat sessions</span>
+              </div>
+            </div>
+            <div style={{display:'flex', alignItems:'center', gap:8}}>
+              <button className="km-btn"><Icons.plus size={12} /> New item</button>
+              <button className="km-btn"><Icons.runbook size={12} /> Run</button>
+              <button className="km-btn km-btn-ghost"><Icons.cog size={13} /></button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{padding:'18px 32px 32px', display:'flex', flexDirection:'column', gap:18}}>
+          {/* Next up strip */}
+          <section className="km-card" style={{padding:0}}>
+            <SectionHead title="Next up" right={<Mono>12 active · 5 parked</Mono>} />
+            <div className="km-rule" />
+            <NextUpRow slug="kennel" kind="action" title="Decide on dark-mode third elevation tone" hash="#design" due="today"   ember drag />
+            <NextUpRow slug="kennel" kind="action" title="Sketch triage keyboard shortcut sheet"   due="Wed" />
+            <NextUpRow slug="kennel" kind="doc"    title="Skill proposal review — wireframe notes" hash="rev 3" due="Thu" />
+            <NextUpRow slug="kennel" kind="idea"   title="Move chats panel above pinned docs?"    due="—" />
+          </section>
+
+          {/* Runbook panel */}
+          <section className="km-card" style={{padding:0}}>
+            <div style={{display:'flex', alignItems:'center', padding:'10px 16px'}}>
+              <span style={{color:'var(--fg-muted)', marginRight:8}}><Icons.runbook size={14} /></span>
+              <Label>Runbook</Label>
+              <span style={{flex:1}} />
+              <Rev n={12} />
+              <span style={{margin:'0 10px', color:'var(--fg-faint)'}}>·</span>
+              <Mono>updated 14:02</Mono>
+              <button className="km-btn km-btn-ghost" style={{marginLeft:8}}>Edit</button>
+              <button className="km-btn km-btn-ghost"><Icons.arrowDown size={12} /></button>
+            </div>
+            <div className="km-rule" />
+            <div style={{display:'flex', gap:0, padding:'0 16px', borderBottom:'1px solid var(--line)'}}>
+              <RunbookTab label="Prerequisites" />
+              <span style={{width:18}} />
+              <RunbookTab label="Setup" />
+              <span style={{width:18}} />
+              <RunbookTab label="Run" active />
+              <span style={{width:18}} />
+              <RunbookTab label="Deploy" />
+              <span style={{width:18}} />
+              <RunbookTab label="Troubleshoot" />
+              <span style={{width:18}} />
+              <RunbookTab label="Notes" />
+            </div>
+            <div style={{padding:'14px 16px 16px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:18}}>
+              <div>
+                <div className="km-body" style={{marginBottom:6, fontWeight:500}}>Start dev server</div>
+                <div style={{
+                  fontFamily:'var(--ff-mono)', fontSize:12, padding:'10px 12px',
+                  background:'rgba(201,168,124,.18)', borderLeft:'2px solid var(--ember-deep)',
+                  whiteSpace:'pre', lineHeight:1.7
+                }}>{`$ uv run kennel serve --reload\n$ open http://localhost:8421`}</div>
+              </div>
+              <div>
+                <div className="km-body" style={{marginBottom:6, fontWeight:500}}>Sync with MCP</div>
+                <div style={{
+                  fontFamily:'var(--ff-mono)', fontSize:12, padding:'10px 12px',
+                  background:'rgba(201,168,124,.18)', borderLeft:'2px solid var(--ember-deep)',
+                  whiteSpace:'pre', lineHeight:1.7
+                }}>{`$ kennel mcp register \\\n    --token $KENNEL_TOKEN`}</div>
+              </div>
+            </div>
+          </section>
+
+          {/* Pinned docs row */}
+          <section>
+            <div style={{display:'flex', alignItems:'center', marginBottom: 10}}>
+              <Label>Pinned docs</Label>
+              <span style={{flex:1}} />
+              <Mono>3 of 14</Mono>
+            </div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:12}}>
+              <PinnedDocCard title="Design brief v0.1" preview="Eight core screens, Pacecraft palette inheritance, capture-friction-first design principles." rev={4} />
+              <PinnedDocCard title="Data model"        preview="Entities and relationships — items, docs, refs, runbooks, skills, chats, activity." rev={9} />
+              <PinnedDocCard title="User flows"        preview="What happens on each screen and why — capture, triage, review, write-back." rev={6} />
+            </div>
+          </section>
+
+          {/* All items tabs */}
+          <section className="km-card" style={{padding:0}}>
+            <div style={{display:'flex', alignItems:'center', padding:'0 16px', borderBottom:'1px solid var(--line)'}}>
+              <RunbookTab label="Items" active />
+              <span style={{width:18}} />
+              <RunbookTab label="Docs" />
+              <span style={{width:18}} />
+              <RunbookTab label="References" />
+              <span style={{width:18}} />
+              <RunbookTab label="Chats" />
+              <span style={{flex:1}} />
+              <span className="km-body-sm" style={{marginRight:8}}>state</span>
+              <span className="km-tag">active</span>
+              <span style={{width:6}} />
+              <span className="km-tag">parked</span>
+              <span style={{width:12}} />
+              <button className="km-btn km-btn-ghost"><Icons.filter size={12} /> Filter</button>
+            </div>
+            <div>
+              <NextUpRow slug="kennel" kind="action" title="Resolve chat-tagline character budget edge case"     due="May 22" />
+              <NextUpRow slug="kennel" kind="doc"    title="Triage queue — keyboard interaction notes"          hash="rev 2" due="—" />
+              <NextUpRow slug="kennel" kind="ref"    title="Linear's filter-chip pattern · screenshots collected" due="—" />
+              <NextUpRow slug="kennel" kind="note"   title="Concerns about FTS5 ranking on short titles"        due="—" />
+            </div>
+          </section>
+
+          {/* Chats panel */}
+          <section className="km-card" style={{padding:0}}>
+            <SectionHead title="Chats" right={<><Mono>4 active · 2 stale</Mono><button className="km-btn km-btn-ghost" style={{padding:'4px 6px'}}><Icons.arrowDown size={12} /></button></>} />
+            <div className="km-rule" />
+            <div style={{padding:'6px 8px', display:'flex', flexDirection:'column', gap:2}}>
+              <ChatRow tagline="working through the segmentation logic — three tiers and a churn-risk overlay" since="2h ago" />
+              <ChatRow tagline="quick check on whether the runbook should call out the staging URL or read it from .env" since="yesterday" />
+              <ChatRow tagline="figuring out whether the proposal queue should batch by skill or interleave" since="4d ago" />
+              <div style={{padding:'10px 8px 4px'}}><Mono>Stale · {'>'}60 days</Mono></div>
+              <ChatRow tagline="experimenting with a cold-open hook for the founder profile piece — three drafts, none great yet" since="74d ago" stale />
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+// ─── 3. Triage queue ────────────────────────────────────────────────────────
+const FilterChip = ({ label, active }) => (
+  <span className="km-tag" style={{
+    background: active ? 'rgba(217,98,44,.16)' : 'rgba(201,168,124,.18)',
+    color: active ? 'var(--ember-deep)' : 'var(--fg)',
+    padding:'2px 8px', cursor:'pointer'
+  }}>{label}</span>
+);
+
+const TriageRow = ({ slug, kind, title, captured, selected, proposal, body }) => (
+  <div className={`km-row ${selected ? 'km-active-row' : ''} ${proposal ? 'km-proposal' : ''}`} style={{
+    padding:'10px 16px', borderBottom:'1px solid var(--line)',
+    background: selected ? 'rgba(217,98,44,.05)' : (proposal ? 'rgba(92,122,62,.03)' : 'transparent')
+  }}>
+    <div style={{display:'flex', alignItems:'center', gap:10, marginBottom: body ? 6 : 0}}>
+      {proposal && <span className="km-display-sm" style={{color:'var(--moss)', fontSize:10}}>PROPOSAL</span>}
+      {!proposal && <KindIcon kind={kind} />}
+      <ProjectTag slug={slug} />
+      <span className="km-body" style={{flex:1, fontWeight: selected ? 500 : 400}}>{title}</span>
+      <Mono>{captured}</Mono>
+    </div>
+    {body && <div className="km-body-sm" style={{paddingLeft: 22, lineHeight:1.5, color:'var(--fg-muted)'}}>{body}</div>}
+    {selected && (
+      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:10, paddingLeft: 22}}>
+        <button className="km-btn km-btn-primary">Activate <span className="km-kbd" style={{marginLeft:4, background:'rgba(0,0,0,.18)', borderColor:'transparent', color:'#fff'}}>A</span></button>
+        <button className="km-btn">Park <span className="km-kbd" style={{marginLeft:4}}>P</span></button>
+        <button className="km-btn">Convert <span className="km-kbd" style={{marginLeft:4}}>C</span></button>
+        <button className="km-btn">Done <span className="km-kbd" style={{marginLeft:4}}>D</span></button>
+        <button className="km-btn km-btn-ghost">Dismiss <span className="km-kbd" style={{marginLeft:4}}>X</span></button>
+      </div>
+    )}
+  </div>
+);
+
+const TriageQueue = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column'}}>
+    <ChromeBar />
+    <div style={{flex:1, display:'flex', overflow:'hidden'}}>
+      <NavRail active="triage" />
+      <main style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 28px 12px', borderBottom:'1px solid var(--line)'}}>
+          <div style={{display:'flex', alignItems:'baseline', gap:14, marginBottom: 10}}>
+            <div className="km-display-lg">Triage queue</div>
+            <Mono>14 inbox · 2 proposals · global view</Mono>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+            <span className="km-display-sm">project</span>
+            <FilterChip label="all" active />
+            <FilterChip label="kennel" />
+            <FilterChip label="picnic-engage" />
+            <FilterChip label="reading-stack" />
+            <span style={{width:18}} />
+            <span className="km-display-sm">kind</span>
+            <FilterChip label="idea" />
+            <FilterChip label="note" />
+            <FilterChip label="action" />
+            <FilterChip label="ref" />
+            <FilterChip label="proposal" active />
+            <span style={{flex:1}} />
+            <div style={{display:'flex', alignItems:'center', gap:6}}>
+              <Mono dim>shortcuts</Mono>
+              <span className="km-kbd">J</span><span className="km-kbd">K</span>
+              <span className="km-kbd">A</span><span className="km-kbd">P</span>
+              <span className="km-kbd">X</span><span className="km-kbd">D</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{flex:1, display:'grid', gridTemplateColumns:'1.4fr 1fr', overflow:'hidden'}}>
+          {/* Item list */}
+          <div className="km-scroll" style={{overflow:'auto', borderRight:'1px solid var(--line)'}}>
+            <TriageRow slug="kennel"        kind="idea"   title="Move chats panel above pinned docs?" captured="2m ago" body="Idea — chats panel currently lives at the bottom but feels like it should be quieter, not lower. Above pinned docs might be wrong, but the position deserves a second look." selected />
+            <TriageRow slug="picnic-engage" kind="ref"    title="Stripe — billing tiers reference"      captured="14m ago" />
+            <TriageRow slug="kennel"        proposal      title="outreach-cadence — add fallback for paused contacts" captured="33m ago" body="Triggered by chat working through the segmentation logic. Adds a 'paused' branch with a 14-day re-check." />
+            <TriageRow slug="reading-stack" kind="ref"    title="Newport on capture friction · §3"      captured="1h ago" />
+            <TriageRow slug="kennel"        kind="note"   title="Concerns about FTS5 ranking on short titles" captured="3h ago" />
+            <TriageRow slug="kennel"        proposal      title="triage-workflow — keyboard hint reposition" captured="yesterday" />
+            <TriageRow slug="picnic-engage" kind="action" title="Send revised copy to A. Klein before Friday standup" captured="yesterday" />
+            <TriageRow slug="klein-advisory" kind="note"   title="Q2 retro — opening framing"            captured="2d ago" />
+            <TriageRow slug="reading-stack" kind="ref"    title="Linear changelog · keyboard model"     captured="2d ago" />
+            <TriageRow slug="kennel"        kind="idea"   title="Convert idea → action should preserve markdown body" captured="3d ago" />
+          </div>
+
+          {/* Preview pane */}
+          <aside className="km-scroll" style={{overflow:'auto', padding:'18px 24px', background:'var(--surface-1)'}}>
+            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
+              <KindIcon kind="idea" muted={false} />
+              <ProjectTag slug="kennel" />
+              <span style={{flex:1}} />
+              <Mono>id 0x4f2a · captured via desktop ⌘⇧K</Mono>
+            </div>
+            <div className="km-display-md" style={{marginBottom:10}}>Move chats panel above pinned docs?</div>
+            <div className="km-body" style={{lineHeight:1.6, color:'var(--fg)'}}>
+              <p style={{margin:'0 0 10px'}}>Chats panel currently lives at the bottom of the project landing page and feels right that it's quiet, but feels wrong that it's <em>lower</em>. Maybe the answer is to keep it at the bottom but make stale chats render at even lower opacity. Or put a tiny activity-rollup at the top that mentions "3 chats touched today" and have <em>that</em> link down to the panel.</p>
+              <p style={{margin:'0 0 10px'}}>Tension: chats should be discoverable but should not feel central. The current bottom placement protects that. Moving them up risks centering them.</p>
+              <div style={{display:'flex', flexWrap:'wrap', gap:6, marginTop:14}}>
+                <span className="km-tag">#design</span>
+                <span className="km-tag">#information-architecture</span>
+              </div>
+            </div>
+
+            <div style={{marginTop: 24, paddingTop: 18, borderTop:'1px solid var(--line)'}}>
+              <Label style={{marginBottom:8}}>Convert to</Label>
+              <div style={{display:'flex', flexWrap:'wrap', gap:8}}>
+                <button className="km-btn"><Icons.check size={12} /> action</button>
+                <button className="km-btn"><Icons.doc size={12} /> doc</button>
+                <button className="km-btn"><Icons.note size={12} /> note</button>
+                <button className="km-btn"><Icons.link size={12} /> reference</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+// ─── 4. Doc editor ───────────────────────────────────────────────────────────
+const DocEditor = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column'}}>
+    <ChromeBar />
+    <div style={{flex:1, display:'flex', overflow:'hidden'}}>
+      <NavRail active="" />
+      <main style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Doc header */}
+        <div style={{padding:'16px 28px 14px', borderBottom:'1px solid var(--line)'}}>
+          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom: 6}}>
+            <ProjectTag slug="kennel" />
+            <Mono>docs / triage-keyboard-notes.md</Mono>
+            <span className="km-pin"><Icons.pin size={12} /></span>
+          </div>
+          <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:24}}>
+            <div className="km-display-lg">Triage queue — keyboard interaction notes</div>
+            <div style={{display:'flex', alignItems:'center', gap:14}}>
+              <Rev n={7} />
+              <Mono>saved 14:32</Mono>
+              <button className="km-btn km-btn-ghost"><Icons.side size={13} /> Preview only</button>
+              <button className="km-btn"><Icons.archive size={12} /> Archive</button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{flex:1, display:'grid', gridTemplateColumns:'1fr 1fr 320px', overflow:'hidden'}}>
+          {/* Markdown source */}
+          <div className="km-scroll" style={{overflow:'auto', padding:'22px 26px', borderRight:'1px solid var(--line)', fontFamily:'var(--ff-mono)', fontSize:12.5, lineHeight:1.7, background:'var(--surface-0)'}}>
+{`# Triage queue — keyboard interaction notes
+
+The triage queue is the only screen where speed matters more
+than clarity. Every decision is a single keystroke.
+
+## Bindings
+
+* \`J\` / \`K\`  — next / previous item
+* \`A\`        — activate selected
+* \`P\`        — park
+* \`D\`        — done (skip activate)
+* \`X\`        — dismiss
+* \`C\`        — convert popover
+
+> When the popover is open, J/K should NOT navigate the queue —
+> they pick within the popover instead.
+
+## Affordances
+
+The selected row carries an **ember left border** and a
+slightly elevated background. The action row appears inline
+under the title rather than in a footer.
+
+## Open questions
+
+1. Should \`Enter\` be a synonym for \`A\`, or reserved for "open
+   in detail view"?
+2. When a skill proposal is selected, the action set differs —
+   \`A\` becomes "Accept", \`X\` "Reject". Same key, different
+   verb. Risky.`}
+          </div>
+
+          {/* Rendered preview */}
+          <div className="km-scroll" style={{overflow:'auto', padding:'22px 28px', borderRight:'1px solid var(--line)', background:'var(--surface-0)'}}>
+            <h1 className="km-display-lg" style={{fontSize: 24, margin:'0 0 10px'}}>Triage queue — keyboard interaction notes</h1>
+            <p className="km-body" style={{margin:'0 0 14px'}}>The triage queue is the only screen where speed matters more than clarity. Every decision is a single keystroke.</p>
+            <div className="km-display-sm" style={{margin:'18px 0 8px'}}>Bindings</div>
+            <ul className="km-body" style={{margin:0, paddingLeft: 18, lineHeight:1.7}}>
+              <li><span className="km-kbd">J</span> <span className="km-kbd">K</span> next / previous item</li>
+              <li><span className="km-kbd">A</span> activate selected</li>
+              <li><span className="km-kbd">P</span> park</li>
+              <li><span className="km-kbd">D</span> done (skip activate)</li>
+              <li><span className="km-kbd">X</span> dismiss</li>
+              <li><span className="km-kbd">C</span> convert popover</li>
+            </ul>
+            <div style={{margin:'14px 0', padding:'8px 14px', borderLeft:'2px solid var(--moss)', background:'rgba(92,122,62,.06)'}}>
+              <p className="km-body" style={{margin:0, fontStyle:'italic'}}>When the popover is open, J/K should NOT navigate the queue — they pick within the popover instead.</p>
+            </div>
+            <div className="km-display-sm" style={{margin:'18px 0 8px'}}>Affordances</div>
+            <p className="km-body" style={{margin:'0 0 14px'}}>The selected row carries an <b>ember left border</b> and a slightly elevated background. The action row appears inline under the title rather than in a footer.</p>
+            <div className="km-display-sm" style={{margin:'18px 0 8px'}}>Open questions</div>
+            <ol className="km-body" style={{margin:0, paddingLeft: 18, lineHeight:1.7}}>
+              <li>Should <code style={{fontFamily:'var(--ff-mono)', fontSize:12, background:'var(--surface-2)', padding:'1px 4px', borderRadius:2}}>Enter</code> be a synonym for A, or reserved for "open in detail view"?</li>
+              <li>When a skill proposal is selected, the action set differs — A becomes "Accept", X "Reject". Same key, different verb. Risky.</li>
+            </ol>
+          </div>
+
+          {/* Comments rail */}
+          <aside className="km-scroll" style={{overflow:'auto', padding:'18px 18px', background:'var(--surface-1)'}}>
+            <div style={{display:'flex', alignItems:'center', marginBottom: 14}}>
+              <Label>Comments</Label>
+              <span style={{flex:1}} />
+              <Mono>3 · whole-doc</Mono>
+            </div>
+
+            <div style={{display:'flex', flexDirection:'column', gap:14}}>
+              <div>
+                <div style={{display:'flex', alignItems:'center', gap:6, marginBottom: 4}}>
+                  <Actor who="C" /> <span className="km-display-sm">CRAIG</span>
+                  <span style={{flex:1}} />
+                  <Mono>14:18</Mono>
+                </div>
+                <div className="km-body" style={{lineHeight:1.5}}>Worried about the same-key/different-verb thing. Let's prototype it before deciding — gut says it's fine because the row visually announces 'this is a proposal'.</div>
+              </div>
+
+              <div style={{paddingLeft:0, borderLeft:'2px solid var(--ember-deep)', background:'rgba(138,58,20,.06)', padding:'10px 12px'}}>
+                <div style={{display:'flex', alignItems:'center', gap:6, marginBottom: 4}}>
+                  <Actor who="Cl" /> <span className="km-display-sm" style={{color:'var(--ember-deep)'}}>CLAUDE</span>
+                  <span style={{flex:1}} />
+                  <Mono>14:21</Mono>
+                </div>
+                <div className="km-body" style={{lineHeight:1.5, fontStyle:'italic'}}>One small idea: when a proposal is selected, animate the kbd hint row to swap labels (A → Accept). Reinforces it's a different mode and costs ~150ms of motion.</div>
+              </div>
+
+              <div>
+                <div style={{display:'flex', alignItems:'center', gap:6, marginBottom: 4}}>
+                  <Actor who="C" /> <span className="km-display-sm">CRAIG</span>
+                  <span style={{flex:1}} />
+                  <Mono>14:30</Mono>
+                </div>
+                <div className="km-body" style={{lineHeight:1.5}}>Yes — but no animation. Just swap the labels instantly.</div>
+              </div>
+            </div>
+
+            <div style={{marginTop: 18, paddingTop: 14, borderTop:'1px solid var(--line)'}}>
+              <textarea placeholder="Add a comment…" className="km-input" rows={3} style={{resize:'none', fontSize:13}} />
+              <div style={{display:'flex', alignItems:'center', gap:8, marginTop: 8}}>
+                <span className="km-body-sm" style={{flex:1}}>Cmd+Enter to post · @claude to ask</span>
+                <button className="km-btn km-btn-primary" style={{padding:'4px 10px', fontSize:12}}>Post</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+Object.assign(window, { Dashboard, ProjectLanding, TriageQueue, DocEditor });
+
+
+/* ─── screens-2.jsx ─── */
+// Screens 5-8: Runbook view, Skill proposal review, Global search, Settings
+
+// ─── 5. Runbook view ────────────────────────────────────────────────────────
+const RunSection = ({ label, children }) => (
+  <section style={{display:'flex', gap: 32, padding:'18px 0', borderBottom:'1px solid var(--line)'}}>
+    <div style={{width: 180, flex:'0 0 180px'}}>
+      <Label>{label}</Label>
+    </div>
+    <div style={{flex:1, maxWidth: 760}}>{children}</div>
+  </section>
+);
+
+const Code = ({ children }) => (
+  <pre style={{
+    fontFamily:'var(--ff-mono)', fontSize:12.5, padding:'10px 14px',
+    background:'rgba(201,168,124,.18)', borderLeft:'2px solid var(--ember-deep)',
+    margin:'10px 0', whiteSpace:'pre', lineHeight:1.7, overflow:'auto'
+  }}>{children}</pre>
+);
+
+const RunbookView = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column'}}>
+    <ChromeBar projectChip={<ProjectTag slug="kennel" />} />
+    <div style={{flex:1, display:'flex', overflow:'hidden'}}>
+      <NavRail active="" />
+      <main className="km-scroll" style={{flex:1, overflow:'auto', padding:'22px 32px 32px'}}>
+        {/* Header */}
+        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap: 24, marginBottom: 18, paddingBottom: 16, borderBottom:'1px solid var(--line)'}}>
+          <div>
+            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
+              <span style={{color:'var(--fg-muted)'}}><Icons.runbook size={14} /></span>
+              <ProjectTag slug="kennel" />
+              <Mono>runbook</Mono>
+            </div>
+            <div className="km-display-lg" style={{marginBottom:4}}>Kennel — Runbook</div>
+            <div className="km-body" style={{color:'var(--fg-muted)', maxWidth: 760}}>
+              How to bring this project online, run it locally, deploy it, and dig out when something breaks. Read top-to-bottom on a new machine; jump to Run on a known one.
+            </div>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <div style={{textAlign:'right'}}>
+              <Rev n={12} />
+              <div><Mono>updated 14:02 by C</Mono></div>
+            </div>
+            <button className="km-btn"><Icons.copy size={12} /> Copy as md</button>
+            <button className="km-btn km-btn-primary">Edit</button>
+          </div>
+        </div>
+
+        {/* Sections (Run expanded most) */}
+        <RunSection label="Prerequisites">
+          <ul className="km-body" style={{margin:0, paddingLeft: 18, lineHeight:1.8}}>
+            <li>macOS 14+ with Xcode CLT installed.</li>
+            <li><code style={{fontFamily:'var(--ff-mono)', fontSize:12.5}}>uv</code> 0.4.x or newer.</li>
+            <li>Claude desktop with MCP enabled (Settings → Developer).</li>
+            <li>A VPS reachable over SSH for the persistence layer (optional in dev).</li>
+          </ul>
+        </RunSection>
+
+        <RunSection label="Setup">
+          <p className="km-body" style={{margin:'0 0 4px'}}>One-time clone and dependency bootstrap.</p>
+          <Code>{`$ git clone git@github.com:craig/kennel.git ~/work/kennel
+$ cd ~/work/kennel
+$ uv sync                            # python deps + sqlite-vec extension
+$ cp .env.sample .env
+$ vim .env                           # KENNEL_TOKEN, MCP_URL, BACKUP_DIR`}</Code>
+          <p className="km-body" style={{margin:'8px 0 0'}}>
+            FTS5 is enabled in the default sqlite build; nothing else to install.
+          </p>
+        </RunSection>
+
+        <RunSection label="Run">
+          <p className="km-body" style={{margin:'0 0 4px'}}>Day-to-day.</p>
+          <Code>{`$ uv run kennel serve --reload --port 8421
+$ open http://localhost:8421
+$ kennel mcp register --token $KENNEL_TOKEN  # one-shot per machine`}</Code>
+          <div className="km-body" style={{margin:'10px 0 0', display:'flex', alignItems:'center', gap:8, color:'var(--fg-muted)'}}>
+            <Icons.bulb size={14} />
+            <span>Reload watches the python sources and the static frontend; markdown edits in <code style={{fontFamily:'var(--ff-mono)', fontSize:12.5}}>~/work/skills</code> are hot-reloaded on next request.</span>
+          </div>
+        </RunSection>
+
+        <RunSection label="Deploy">
+          <Code>{`$ make deploy   # builds wheels, rsyncs to vps:/srv/kennel, restarts systemd unit`}</Code>
+          <p className="km-body" style={{margin:'8px 0 0'}}>The deploy script refuses to run if there are uncommitted changes or pending migrations.</p>
+        </RunSection>
+
+        <RunSection label="Troubleshoot">
+          <div style={{display:'flex', flexDirection:'column', gap: 10}}>
+            <div>
+              <div className="km-body" style={{fontWeight:500}}>MCP says "could not reach kennel".</div>
+              <div className="km-body-sm">Token mismatch is by far the most common cause. Reset it: <code style={{fontFamily:'var(--ff-mono)', fontSize:12.5}}>kennel mcp rotate-token</code> then re-register the client.</div>
+            </div>
+            <div>
+              <div className="km-body" style={{fontWeight:500}}>FTS5 search returns nothing.</div>
+              <div className="km-body-sm">The trigram index can drift if rows were inserted with WAL checkpointing paused. Rebuild: <code style={{fontFamily:'var(--ff-mono)', fontSize:12.5}}>kennel db reindex --fts</code>.</div>
+            </div>
+          </div>
+        </RunSection>
+
+        <RunSection label="Notes">
+          <p className="km-body" style={{margin:0, color:'var(--fg-muted)'}}>Backups run at 03:00 PDT via launchd. The MCP token has no expiry; rotate it any time anyone but Craig touches a Claude client.</p>
+        </RunSection>
+      </main>
+    </div>
+  </div>
+);
+
+// ─── 6. Skill proposal review ───────────────────────────────────────────────
+const DiffLine = ({ n, sign, text, kind }) => (
+  <div style={{
+    display:'grid', gridTemplateColumns:'34px 16px 1fr',
+    alignItems:'baseline',
+    background: kind === 'add' ? 'rgba(92,122,62,.10)' : (kind === 'del' ? 'rgba(138,58,20,.08)' : 'transparent'),
+    padding:'1px 0'
+  }}>
+    <span className="km-mono-sm" style={{textAlign:'right', paddingRight:6, color:'var(--fg-faint)'}}>{n}</span>
+    <span className="km-mono-sm" style={{textAlign:'center', color: kind === 'add' ? 'var(--moss)' : (kind === 'del' ? 'var(--ember-deep)' : 'var(--fg-faint)')}}>{sign || ' '}</span>
+    <span style={{fontFamily:'var(--ff-mono)', fontSize:12.5, whiteSpace:'pre-wrap', lineHeight:1.6, color:'var(--fg)'}}>{text}</span>
+  </div>
+);
+
+const SkillProposal = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column'}}>
+    <ChromeBar />
+    <div style={{flex:1, display:'flex', overflow:'hidden'}}>
+      <NavRail active="" />
+      <main style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'16px 28px 14px', borderBottom:'1px solid var(--line)'}}>
+          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom: 8}}>
+            <span className="km-display-sm" style={{color:'var(--moss)'}}>SKILL PROPOSAL</span>
+            <ProjectTag slug="picnic-engage" />
+            <span style={{flex:1}} />
+            <span className="km-display-sm" style={{color:'var(--ember-deep)'}}>● PENDING REVIEW</span>
+          </div>
+          <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:24}}>
+            <div>
+              <div className="km-display-lg" style={{marginBottom:4}}>outreach-cadence</div>
+              <Mono>skills/outreach-cadence.md · rev 4 → rev 5 · +18 −6 across 2 hunks</Mono>
+            </div>
+            <div style={{display:'flex', alignItems:'center', gap:14}}>
+              <Mono>proposed 33m ago</Mono>
+              <Actor who="Cl" /><span className="km-body-sm">by Claude</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{flex:1, display:'grid', gridTemplateColumns:'1fr 360px', overflow:'hidden'}}>
+          {/* Diff */}
+          <div className="km-scroll" style={{overflow:'auto', padding:'18px 24px 24px', borderRight:'1px solid var(--line)'}}>
+            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom: 12}}>
+              <Label>Diff</Label>
+              <span className="km-body-sm">hunk 1 of 2 · §branching</span>
+              <span style={{flex:1}} />
+              <button className="km-btn km-btn-ghost" style={{padding:'4px 8px'}}>collapse unchanged</button>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 0, border:'1px solid var(--line)', borderRadius:3, overflow:'hidden'}}>
+              <div style={{borderRight:'1px solid var(--line)'}}>
+                <div style={{padding:'8px 12px', background:'var(--surface-2)', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', gap:8}}>
+                  <span className="km-display-sm">Current · rev 4</span>
+                  <Mono dim>local · ~/work/skills/outreach-cadence.md</Mono>
+                </div>
+                <div style={{padding:'10px 0'}}>
+                  <DiffLine n={42} text="## Branching" />
+                  <DiffLine n={43} text="" />
+                  <DiffLine n={44} text="When a contact is in an active sequence, the cadence" />
+                  <DiffLine n={45} text="proceeds as defined. When a contact is **opted out**," />
+                  <DiffLine n={46} sign="−" kind="del" text="the cadence halts and the contact is marked complete." />
+                  <DiffLine n={47} sign="−" kind="del" text="No re-check is performed." />
+                  <DiffLine n={48} text="" />
+                  <DiffLine n={49} text="## Notes" />
+                </div>
+              </div>
+              <div>
+                <div style={{padding:'8px 12px', background:'var(--surface-2)', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', gap:8}}>
+                  <span className="km-display-sm" style={{color:'var(--moss)'}}>Proposed · rev 5</span>
+                  <Mono dim>claude · session 0x9c1f</Mono>
+                </div>
+                <div style={{padding:'10px 0'}}>
+                  <DiffLine n={42} text="## Branching" />
+                  <DiffLine n={43} text="" />
+                  <DiffLine n={44} text="When a contact is in an active sequence, the cadence" />
+                  <DiffLine n={45} text="proceeds as defined. When a contact is **opted out**," />
+                  <DiffLine n={46} sign="+" kind="add" text="the cadence halts and the contact is marked complete." />
+                  <DiffLine n={47} sign="+" kind="add" text="" />
+                  <DiffLine n={48} sign="+" kind="add" text="When a contact is **paused** (e.g. OOO auto-reply, or" />
+                  <DiffLine n={49} sign="+" kind="add" text="manual hold), the cadence enters a 14-day re-check loop:" />
+                  <DiffLine n={50} sign="+" kind="add" text="every 14 days, attempt one low-touch nudge. After three" />
+                  <DiffLine n={51} sign="+" kind="add" text="failed re-checks (~6 weeks), demote to opted-out." />
+                  <DiffLine n={52} text="" />
+                  <DiffLine n={53} text="## Notes" />
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:'flex', alignItems:'center', gap:8, padding:'10px 0', marginTop:10}}>
+              <Label>Rationale</Label>
+              <span style={{flex:1}} />
+              <Mono>triggered by chat · "segmentation logic"</Mono>
+              <span style={{color:'var(--fg-muted)'}}><Icons.ext size={12} /></span>
+            </div>
+            <div style={{padding:'12px 14px', borderLeft:'2px solid var(--ember-deep)', background:'rgba(138,58,20,.05)'}}>
+              <p className="km-body" style={{margin:'0 0 6px', fontStyle:'italic', color:'var(--fg)'}}>
+                In your chat working through tier segmentation, you noted that OOO replies and manual holds were getting bucketed as opted-out, which dropped contacts that should re-enter the cadence. This proposal adds a 'paused' branch with a bounded re-check loop so paused contacts aren't permanently lost — and so opted-out remains a deliberate terminal state, not a default.
+              </p>
+              <div className="km-body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
+                <Mono>3 turns · 0x9c1f</Mono>
+                <span>·</span>
+                <span className="km-link" style={{borderBottomStyle:'dashed', color:'var(--ember-deep)'}}>view conversation</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions sidebar */}
+          <aside className="km-scroll" style={{overflow:'auto', padding:'18px 20px', background:'var(--surface-1)'}}>
+            <Label style={{marginBottom: 12}}>Decision</Label>
+            <div style={{display:'flex', flexDirection:'column', gap:8}}>
+              <button className="km-btn km-btn-moss" style={{justifyContent:'center', padding:'10px 12px'}}>
+                <Icons.check size={13} /> Accept · update kennel only
+              </button>
+              <button className="km-btn km-btn-primary" style={{justifyContent:'center', padding:'10px 12px'}}>
+                <Icons.ext size={13} /> Accept &amp; write to source
+              </button>
+              <div className="km-body-sm" style={{paddingLeft:2, color:'var(--fg-muted)', lineHeight:1.5}}>
+                'Write to source' updates <code style={{fontFamily:'var(--ff-mono)', fontSize:12}}>~/work/skills/outreach-cadence.md</code> on disk. The file will reflect rev 5 immediately.
+              </div>
+              <div className="km-rule" style={{margin:'10px 0 4px'}} />
+              <button className="km-btn" style={{justifyContent:'center', padding:'10px 12px'}}>
+                Edit then accept
+              </button>
+              <button className="km-btn" style={{justifyContent:'center', padding:'10px 12px', borderColor:'var(--line-strong)'}}>
+                Reject
+              </button>
+            </div>
+
+            <div style={{marginTop: 18}}>
+              <Label style={{marginBottom: 6}}>Decision note <span style={{color:'var(--fg-faint)', textTransform:'none', letterSpacing:0, fontFamily:'var(--ff-sans)', fontSize:11, fontWeight:400}}> · optional</span></Label>
+              <textarea className="km-input" rows={4} style={{resize:'none'}} placeholder="If rejecting, briefly note why — used as context next time Claude proposes a related change." />
+            </div>
+
+            <div style={{marginTop: 22}}>
+              <Label style={{marginBottom: 8}}>Metadata</Label>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                <div style={{display:'flex', gap:8}}><Mono dim>scope</Mono><Mono>project · picnic-engage</Mono></div>
+                <div style={{display:'flex', gap:8}}><Mono dim>kind</Mono><Mono>cadence rule</Mono></div>
+                <div style={{display:'flex', gap:8}}><Mono dim>hunks</Mono><Mono>2 · +18 −6</Mono></div>
+                <div style={{display:'flex', gap:8}}><Mono dim>backed up</Mono><Mono>rev 4 retained</Mono></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+// ─── 7. Global search ───────────────────────────────────────────────────────
+const GlobalSearch = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column', position:'relative'}}>
+    <ChromeBar />
+    {/* dimmed background hint */}
+    <div style={{flex:1, display:'flex', overflow:'hidden', filter:'opacity(.35) blur(.5px)'}}>
+      <NavRail active="search" />
+      <main style={{flex:1, padding:'22px 32px'}}>
+        <div className="km-display-lg">Dashboard</div>
+        <div style={{marginTop:18}} className="km-rule" />
+      </main>
+    </div>
+
+    {/* Modal */}
+    <div style={{
+      position:'absolute', inset: 0, display:'flex', alignItems:'flex-start', justifyContent:'center',
+      paddingTop: 64, background: 'rgba(42,46,51,.18)',
+    }}>
+      <div className="km-card" style={{
+        width: 880, maxWidth:'92%',
+        background: 'var(--surface-0)',
+        border:'1px solid var(--line-strong)',
+        borderRadius:6, overflow:'hidden',
+        display:'flex', flexDirection:'column',
+        maxHeight: 720
+      }}>
+        {/* Input */}
+        <div style={{padding:'16px 18px', display:'flex', alignItems:'center', gap:12, borderBottom:'1px solid var(--line)'}}>
+          <Icons.search size={16} />
+          <input
+            className="km-input-mono"
+            defaultValue='kind:doc tag:#outreach "paused"'
+            style={{flex:1, fontSize:14, border:0, background:'transparent', outline:'none', color:'var(--fg)'}}
+          />
+          <Mono>FTS5</Mono>
+          <span className="km-kbd">esc</span>
+        </div>
+        <div style={{padding:'6px 18px', display:'flex', alignItems:'center', gap:10, borderBottom:'1px solid var(--line)', background:'var(--surface-1)'}}>
+          <Mono dim>syntax</Mono>
+          <Mono>kind:doc</Mono><Mono>tag:#outreach</Mono><Mono>project:picnic-engage</Mono><Mono>state:active</Mono><Mono>"phrase"</Mono>
+          <span style={{flex:1}} />
+          <Mono>34 matches · 18ms</Mono>
+        </div>
+
+        {/* Results */}
+        <div className="km-scroll" style={{overflow:'auto', padding:'6px 0'}}>
+          {[
+            { group:'Items', count: 8, rows: [
+              { kind:'action', slug:'picnic-engage', title:'Send revised copy to A. Klein before Friday standup', snippet:'…align on the paused-contact branch before the cadence ships…', updated:'2h ago' },
+              { kind:'idea',   slug:'picnic-engage', title:'Paused branch should expire after 6 weeks, not 8',     snippet:'…three failed re-checks (~6 weeks), demote to opted-out…', updated:'yesterday' },
+            ]},
+            { group:'Docs', count: 3, rows: [
+              { kind:'doc',    slug:'picnic-engage', title:'Q3 outreach plan',                                     snippet:'…we expect 30% of contacts to enter the paused state at least once in a cycle…', updated:'rev 7' },
+              { kind:'doc',    slug:'picnic-engage', title:'Cadence rules · field manual',                          snippet:'…opted-out is terminal; paused is a re-check loop…', updated:'rev 2' },
+            ]},
+            { group:'Skills', count: 2, rows: [
+              { kind:'doc',    slug:'picnic-engage', title:'outreach-cadence',                                      snippet:'…When a contact is paused (e.g. OOO auto-reply, or manual hold)…', updated:'rev 5 pending' },
+            ]},
+            { group:'Chats', count: 5, rows: [
+              { kind:'chat',   slug:'picnic-engage', title:'working through the segmentation logic',                snippet:'…the OOO auto-replies were getting treated as opted-out which dropped them from re-engagement…', updated:'2h ago' },
+            ]},
+          ].map(group => (
+            <div key={group.group}>
+              <div style={{padding:'10px 18px 6px', display:'flex', alignItems:'center', gap:8}}>
+                <Label>{group.group}</Label>
+                <Mono>{group.count} matches</Mono>
+                <span style={{flex:1}} />
+                {group.count > group.rows.length && <span className="km-link" style={{fontSize:12, borderBottomStyle:'dashed', color:'var(--ember-deep)'}}>see all</span>}
+              </div>
+              {group.rows.map((r, i) => (
+                <div key={i} className="km-row" style={{padding:'8px 18px', display:'grid', gridTemplateColumns:'18px 110px 1fr 80px', alignItems:'baseline', gap:12}}>
+                  <KindIcon kind={r.kind} />
+                  <ProjectTag slug={r.slug} />
+                  <div>
+                    <div className="km-body" style={{fontWeight:500}}>{r.title}</div>
+                    <div className="km-body-sm" style={{marginTop:2, lineHeight:1.4}}>
+                      {r.snippet.split('paused').map((part, idx, arr) => (
+                        <React.Fragment key={idx}>
+                          {part}
+                          {idx < arr.length - 1 && <span className="km-hl">paused</span>}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                  <Mono>{r.updated}</Mono>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div style={{borderTop:'1px solid var(--line)', padding:'8px 18px', display:'flex', alignItems:'center', gap:12, background:'var(--surface-1)'}}>
+          <span className="km-kbd">↑</span><span className="km-kbd">↓</span> <Mono dim>navigate</Mono>
+          <span className="km-kbd">↵</span> <Mono dim>open</Mono>
+          <span className="km-kbd">⌘↵</span> <Mono dim>open in new pane</Mono>
+          <span style={{flex:1}} />
+          <Mono>saved searches · 4</Mono>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── 8. Settings ────────────────────────────────────────────────────────────
+const SettingsRow = ({ label, hint, control }) => (
+  <div style={{display:'grid', gridTemplateColumns:'220px 1fr', padding:'14px 0', borderTop:'1px solid var(--line)', alignItems:'flex-start', gap:24}}>
+    <div>
+      <div className="km-body" style={{fontWeight:500}}>{label}</div>
+      {hint && <div className="km-body-sm" style={{marginTop:2, lineHeight:1.45}}>{hint}</div>}
+    </div>
+    <div>{control}</div>
+  </div>
+);
+
+const Toggle = ({ on }) => (
+  <span style={{
+    display:'inline-block', width:32, height:18, borderRadius:9,
+    background: on ? 'var(--moss)' : 'var(--surface-2)',
+    position:'relative', cursor:'pointer'
+  }}>
+    <span style={{
+      position:'absolute', top:2, left: on ? 16 : 2,
+      width:14, height:14, borderRadius:'50%', background:'var(--surface-0)',
+      transition:'left .15s ease'
+    }} />
+  </span>
+);
+
+const SegBtn = ({ label, active }) => (
+  <button style={{
+    padding:'4px 11px', fontFamily:'var(--ff-sans)', fontSize:12,
+    border:'1px solid var(--line-strong)',
+    background: active ? 'rgba(217,98,44,.12)' : 'transparent',
+    color: active ? 'var(--ember-deep)' : 'var(--fg)',
+    cursor:'pointer',
+    marginLeft: -1,
+    lineHeight: 1.4
+  }}>{label}</button>
+);
+
+const SettingsScreen = () => (
+  <div className="km" style={{display:'flex', flexDirection:'column'}}>
+    <ChromeBar />
+    <div style={{flex:1, display:'flex', overflow:'hidden'}}>
+      <NavRail active="settings" />
+      <main className="km-scroll" style={{flex:1, overflow:'auto'}}>
+        <div style={{display:'flex'}}>
+          {/* Settings nav */}
+          <aside style={{width:200, flex:'0 0 200px', borderRight:'1px solid var(--line)', padding:'22px 0', minHeight: '100%'}}>
+            <div style={{padding:'0 18px 8px'}}><Label>Settings</Label></div>
+            {['Profile','Appearance','Capture','Chat tracking','Reference types','Backups','MCP connection','About'].map((s, i) => (
+              <button key={s} className="km-row" style={{
+                display:'block', width:'100%', textAlign:'left', border:0,
+                padding:'7px 18px', background: i === 1 ? 'rgba(217,98,44,.08)' : 'transparent',
+                boxShadow: i === 1 ? 'inset 2px 0 0 var(--ember)' : 'none',
+                color: i === 1 ? 'var(--ember-deep)' : 'var(--fg)',
+                fontSize: 13, fontFamily:'var(--ff-sans)', cursor:'pointer'
+              }}>{s}</button>
+            ))}
+          </aside>
+
+          <div style={{flex:1, padding:'22px 36px 32px', maxWidth: 880}}>
+            <div className="km-display-lg" style={{marginBottom:4}}>Appearance</div>
+            <div className="km-body" style={{color:'var(--fg-muted)', marginBottom: 20}}>
+              Mode and a few small typographic preferences. Density is not a setting — there is one density.
+            </div>
+
+            <div style={{borderBottom:'1px solid var(--line)'}}>
+              <SettingsRow
+                label="Mode"
+                hint="Light is default. Dark is a peer."
+                control={
+                  <div style={{display:'inline-flex'}}>
+                    <SegBtn label="Light" />
+                    <SegBtn label="Dark" active />
+                    <SegBtn label="System" />
+                  </div>
+                }
+              />
+              <SettingsRow
+                label="Accent emphasis"
+                hint="Kennel leans on moss for structure and ember for action. Dialing this up biases ember toward more surfaces; down biases moss."
+                control={
+                  <div style={{display:'flex', alignItems:'center', gap:10, maxWidth: 360}}>
+                    <Mono dim>quiet</Mono>
+                    <div style={{flex:1, height:4, background:'var(--surface-2)', borderRadius:2, position:'relative'}}>
+                      <div style={{position:'absolute', top:0, left:0, width:'40%', height:'100%', background:'var(--ember)', borderRadius:2}} />
+                      <div style={{position:'absolute', top:-4, left:'40%', width:12, height:12, borderRadius:'50%', background:'var(--ember)', transform:'translateX(-50%)'}} />
+                    </div>
+                    <Mono dim>warm</Mono>
+                  </div>
+                }
+              />
+              <SettingsRow
+                label="Monospace family"
+                hint="Used for slugs, timestamps, revisions, runbook commands."
+                control={
+                  <div style={{display:'inline-flex'}}>
+                    <SegBtn label="JetBrains Mono" active />
+                    <SegBtn label="IBM Plex Mono" />
+                    <SegBtn label="Berkeley Mono" />
+                  </div>
+                }
+              />
+              <SettingsRow
+                label="Relative timestamps"
+                hint="Within 24h, show '2h ago'. Beyond, show absolute. Recommend leaving on."
+                control={<Toggle on />}
+              />
+              <SettingsRow
+                label="Focus mode shortcut"
+                hint="Hides everything except Next Up and a single project."
+                control={
+                  <div style={{display:'flex', alignItems:'center', gap:6}}>
+                    <span className="km-kbd">⌘</span><span className="km-kbd">⇧</span><span className="km-kbd">F</span>
+                    <Mono dim>change</Mono>
+                  </div>
+                }
+              />
+              <SettingsRow
+                label="Reduce motion"
+                hint="Disables the 200–300ms ease on state changes."
+                control={<Toggle on={false} />}
+              />
+            </div>
+
+            {/* Quick peek at another section */}
+            <div className="km-display-lg" style={{marginTop:28, marginBottom:4, fontSize:22}}>MCP connection</div>
+            <div className="km-body" style={{color:'var(--fg-muted)', marginBottom: 14}}>
+              How Claude clients reach this Kennel. Rotate the token any time a non-Craig surface gets a copy.
+            </div>
+            <div className="km-card" style={{padding:'12px 14px'}}>
+              <div style={{display:'grid', gridTemplateColumns:'120px 1fr 80px', alignItems:'center', gap:12}}>
+                <Mono dim>url</Mono><Mono>https://kennel.dixon.run/mcp</Mono><span className="km-link" style={{textAlign:'right', fontSize:12}}>copy</span>
+                <Mono dim>token</Mono><Mono>knl_sk_••••••••••••••••mZ4q</Mono><span className="km-link" style={{textAlign:'right', fontSize:12, color:'var(--ember-deep)'}}>rotate</span>
+                <Mono dim>last reach</Mono><Mono>14:32 from claude-desktop / mac · ok</Mono><span />
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+Object.assign(window, { RunbookView, SkillProposal, GlobalSearch, SettingsScreen });
+
+
+/* ─── mobile-extras.jsx ─── */
+// Mobile mocks, empty states, tone-of-voice examples.
+
+// ─── Mobile chrome wrapper (replaces ChromeBar/NavRail for narrow widths) ──
+const MobileShell = ({ title, right, children, footerActive = 'home' }) => (
+  <div className="km" style={{display:'flex', flexDirection:'column', height:'100%', background:'var(--surface-0)'}}>
+    {/* status bar slot */}
+    <div style={{height: 42, padding:'0 18px', display:'flex', alignItems:'center', justifyContent:'space-between', fontFamily:'var(--ff-mono)', fontSize:11, color:'var(--fg-muted)', flex:'0 0 42px'}}>
+      <span>14:32</span>
+      <span style={{display:'flex', gap:6}}>● ● ●</span>
+    </div>
+    <div style={{padding:'10px 18px 8px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--line)', flex:'0 0 auto'}}>
+      <div style={{display:'flex', alignItems:'center', gap:8}}>
+        <span className="km-logo-slot" style={{width:18, height:18, fontSize:8}}>K</span>
+        <span className="km-display-md" style={{fontSize:14, letterSpacing:'.08em'}}>{title}</span>
+      </div>
+      <div style={{display:'flex', alignItems:'center', gap:10, color:'var(--fg-muted)'}}>
+        {right}
+      </div>
+    </div>
+    <div className="km-scroll" style={{flex:1, overflow:'auto'}}>{children}</div>
+    {/* footer nav */}
+    <div style={{flex:'0 0 56px', borderTop:'1px solid var(--line)', display:'grid', gridTemplateColumns:'repeat(4, 1fr)', alignItems:'center'}}>
+      {[
+        {id:'home', icon: Icons.menu, label:'Home'},
+        {id:'capture', icon: Icons.plus, label:'Capture'},
+        {id:'search', icon: Icons.search, label:'Search'},
+        {id:'me', icon: Icons.cog, label:'Settings'},
+      ].map(n => (
+        <button key={n.id} style={{
+          border:0, background:'transparent',
+          display:'flex', flexDirection:'column', alignItems:'center', gap:2,
+          color: footerActive === n.id ? 'var(--ember-deep)' : 'var(--fg-muted)',
+          fontFamily:'var(--ff-sans)', fontSize: 10, letterSpacing:'.02em', cursor:'pointer'
+        }}>
+          <n.icon size={16} />
+          <span>{n.label}</span>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// 8.1 Quick capture
+const MobileCapture = () => (
+  <MobileShell title="CAPTURE" footerActive="capture" right={<Icons.x size={18} />}>
+    <div style={{padding:'16px 18px 24px'}}>
+      <div className="km-display-sm" style={{marginBottom:10}}>NEW</div>
+      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:18}}>
+        <ProjectTag slug="kennel" />
+        <Mono dim>default · change</Mono>
+      </div>
+
+      <div className="km-body-sm" style={{marginBottom:6}}>Kind</div>
+      <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:18}}>
+        {[
+          ['idea','Idea'],['note','Note'],['action','Action'],['ref','Reference'],
+        ].map(([k,l], i) => (
+          <span key={k} className="km-tag" style={{
+            background: i === 0 ? 'rgba(217,98,44,.16)' : 'rgba(201,168,124,.18)',
+            color: i === 0 ? 'var(--ember-deep)' : 'var(--fg)',
+            fontFamily:'var(--ff-sans)', fontSize:12, padding:'5px 10px'
+          }}>
+            <KindIcon kind={k} /> &nbsp;{l}
+          </span>
+        ))}
+      </div>
+
+      <div className="km-body-sm" style={{marginBottom:6}}>Title</div>
+      <input className="km-input" defaultValue="Move chats panel above pinned docs?" style={{fontSize:15, padding:'10px 12px', marginBottom:14}} />
+      <div className="km-body-sm" style={{marginBottom:6}}>Body <span style={{color:'var(--fg-faint)'}}>· optional</span></div>
+      <textarea className="km-input" rows={6} placeholder="Markdown. Stays out of the way." style={{resize:'none', fontSize:14, lineHeight:1.55}} />
+
+      <div style={{display:'flex', gap:8, marginTop:18}}>
+        <button className="km-btn km-btn-primary" style={{flex:1, justifyContent:'center', padding:'12px 14px', fontSize:14}}>
+          Capture
+        </button>
+        <button className="km-btn" style={{padding:'12px 14px', fontSize:14}}>
+          More…
+        </button>
+      </div>
+      <div className="km-body-sm" style={{marginTop:14, textAlign:'center'}}>
+        captured items land in the project inbox · triage on desktop
+      </div>
+    </div>
+  </MobileShell>
+);
+
+// 8.1 Mobile dashboard (read-only)
+const MobileDashboard = () => (
+  <MobileShell title="KENNEL" right={<><Icons.search size={16} /><Icons.bell size={16} /></>}>
+    <div style={{padding:'16px 18px 8px'}}>
+      <div className="km-display-lg" style={{fontSize: 22, marginBottom:2}}>Next up</div>
+      <Mono dim>monday · 17 may</Mono>
+    </div>
+    <div style={{padding:'4px 12px 12px', display:'flex', flexDirection:'column', gap:6}}>
+      {[
+        { slug:'kennel',        kind:'action', title:'Decide on dark-mode third elevation tone', due:'today' },
+        { slug:'picnic-engage', kind:'doc',    title:'Draft Q3 outreach plan',                   due:'tomorrow' },
+        { slug:'kennel',        kind:'action', title:'Sketch triage keyboard shortcut sheet',    due:'Wed' },
+        { slug:'pacecraft',     kind:'action', title:'Revise voice section for Kennel adaptation', due:'Fri' },
+      ].map((r, i) => (
+        <div key={i} className={`km-card ${i < 2 ? 'km-active-row' : ''}`} style={{padding:'12px 12px', display:'flex', flexDirection:'column', gap:4}}>
+          <div style={{display:'flex', alignItems:'center', gap:8}}>
+            <KindIcon kind={r.kind} />
+            <ProjectTag slug={r.slug} />
+            <span style={{flex:1}} />
+            <Mono>{r.due}</Mono>
+          </div>
+          <div className="km-body" style={{fontWeight:500}}>{r.title}</div>
+        </div>
+      ))}
+    </div>
+
+    <div style={{padding:'14px 18px 6px', display:'flex', alignItems:'center'}}>
+      <Label>Inbox</Label>
+      <span style={{flex:1}} />
+      <Mono>14 unsorted</Mono>
+    </div>
+    <div style={{padding:'4px 18px 16px', display:'flex', flexDirection:'column', gap:2}}>
+      {[['kennel',7],['picnic-engage',3],['reading-stack',3],['klein-advisory',1]].map(([s,n]) => (
+        <div key={s} className="km-row" style={{display:'flex', alignItems:'center', gap:8, padding:'7px 0', borderBottom:'1px solid var(--line)'}}>
+          <ProjectTag slug={s} />
+          <span style={{flex:1}} />
+          <Mono>{n}</Mono>
+        </div>
+      ))}
+    </div>
+
+    <div style={{padding:'8px 18px 6px', display:'flex', alignItems:'center'}}>
+      <Label>Yesterday</Label>
+      <span style={{flex:1}} />
+      <Mono dim>tap to expand</Mono>
+    </div>
+    <div style={{padding:'4px 18px 16px'}}>
+      <ActivityEntry time="22:14" who="C"  verb="ARCH" target="3 reading-stack items" payload="" />
+      <ActivityEntry time="19:02" who="Cl" verb="DRAFT" target="outreach-cadence" payload="proposal" />
+      <ActivityEntry time="16:41" who="C" verb="PROM" target="idea → action" payload="" />
+    </div>
+  </MobileShell>
+);
+
+// 8.1 Mobile project read
+const MobileProject = () => (
+  <MobileShell title="KENNEL" right={<><Icons.search size={16} /><Icons.runbook size={16} /></>}>
+    <div style={{padding:'16px 18px 6px'}}>
+      <ProjectTag slug="kennel" />
+      <div className="km-display-lg" style={{fontSize: 22, marginTop:6}}>Kennel</div>
+      <div className="km-body-sm" style={{lineHeight:1.45, marginTop: 4}}>
+        Personal command center. Captures and surfaces what needs attention without nagging.
+      </div>
+    </div>
+
+    <div style={{padding:'14px 18px 4px', display:'flex', alignItems:'center'}}>
+      <Label>Next up</Label>
+      <span style={{flex:1}} />
+      <Mono>12 active</Mono>
+    </div>
+    <div style={{padding:'4px 12px 4px', display:'flex', flexDirection:'column', gap:6}}>
+      {[
+        { kind:'action', title:'Decide on dark-mode third elevation tone', due:'today' },
+        { kind:'action', title:'Sketch triage keyboard shortcut sheet',    due:'Wed' },
+        { kind:'doc',    title:'Skill proposal review — wireframe notes',  due:'Thu' },
+      ].map((r, i) => (
+        <div key={i} className={`km-card ${i === 0 ? 'km-active-row' : ''}`} style={{padding:'10px 12px', display:'flex', alignItems:'center', gap:8}}>
+          <KindIcon kind={r.kind} />
+          <span className="km-body" style={{flex:1, fontWeight:500}}>{r.title}</span>
+          <Mono>{r.due}</Mono>
+        </div>
+      ))}
+    </div>
+
+    <div style={{padding:'14px 18px 4px'}}>
+      <Label>Pinned docs</Label>
+    </div>
+    <div style={{padding:'4px 18px 4px', display:'flex', flexDirection:'column', gap:6}}>
+      <div className="km-row" style={{display:'flex', alignItems:'center', gap:8, padding:'8px 0', borderBottom:'1px solid var(--line)'}}>
+        <Icons.doc size={13} />
+        <span className="km-body" style={{flex:1}}>Design brief v0.1</span>
+        <span className="km-pin"><Icons.pin size={11} /></span>
+        <Rev n={4} />
+      </div>
+      <div className="km-row" style={{display:'flex', alignItems:'center', gap:8, padding:'8px 0', borderBottom:'1px solid var(--line)'}}>
+        <Icons.doc size={13} />
+        <span className="km-body" style={{flex:1}}>Data model</span>
+        <span className="km-pin"><Icons.pin size={11} /></span>
+        <Rev n={9} />
+      </div>
+    </div>
+
+    <div style={{padding:'14px 18px 4px', display:'flex', alignItems:'center'}}>
+      <Label>Chats</Label>
+      <span style={{flex:1}} />
+      <Mono dim>4 active · 2 stale</Mono>
+    </div>
+    <div style={{padding:'2px 12px 24px', display:'flex', flexDirection:'column', gap:2}}>
+      <ChatRow tagline="working through the segmentation logic — three tiers and a churn-risk overlay" since="2h ago" />
+      <ChatRow tagline="quick check on whether the runbook should call out the staging URL or read it from .env" since="yesterday" />
+    </div>
+  </MobileShell>
+);
+
+// 8.1 Mobile search
+const MobileSearch = () => (
+  <MobileShell title="SEARCH" footerActive="search" right={<Icons.x size={18} />}>
+    <div style={{padding:'12px 18px 8px'}}>
+      <div style={{display:'flex', alignItems:'center', gap:8, padding:'10px 12px', background:'var(--surface-1)', border:'1px solid var(--line)', borderRadius:4}}>
+        <Icons.search size={14} />
+        <span className="km-mono-sm" style={{flex:1, color:'var(--fg)'}}>kind:doc "paused"</span>
+        <span className="km-mono-sm">FTS5</span>
+      </div>
+      <div className="km-body-sm" style={{marginTop:6, color:'var(--fg-muted)', display:'flex', alignItems:'center', gap:8}}>
+        <Mono>34 matches · 18ms</Mono>
+        <span style={{flex:1}} />
+        <span className="km-link" style={{borderBottomStyle:'dashed', fontSize:11, color:'var(--ember-deep)'}}>filters</span>
+      </div>
+    </div>
+
+    {[
+      { group: 'Docs', count: 3, rows: [
+        { kind:'doc', slug:'picnic-engage', title:'Q3 outreach plan', snippet:'…30% of contacts enter the paused state in a cycle…', updated:'rev 7' },
+        { kind:'doc', slug:'picnic-engage', title:'Cadence rules · field manual', snippet:'…opted-out is terminal; paused is a re-check loop…', updated:'rev 2' },
+      ]},
+      { group: 'Skills', count: 2, rows: [
+        { kind:'doc', slug:'picnic-engage', title:'outreach-cadence', snippet:'…paused (e.g. OOO auto-reply, or manual hold)…', updated:'rev 5 pending' },
+      ]},
+      { group: 'Chats', count: 5, rows: [
+        { kind:'chat', slug:'picnic-engage', title:'working through the segmentation logic', snippet:'…OOO auto-replies were treated as opted-out…', updated:'2h ago' },
+      ]},
+    ].map(g => (
+      <div key={g.group}>
+        <div style={{padding:'12px 18px 4px', display:'flex', alignItems:'center', gap:8}}>
+          <Label>{g.group}</Label>
+          <Mono>{g.count}</Mono>
+        </div>
+        {g.rows.map((r, i) => (
+          <div key={i} className="km-row" style={{padding:'10px 18px', borderTop:'1px solid var(--line)'}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom: 3}}>
+              <KindIcon kind={r.kind} />
+              <ProjectTag slug={r.slug} />
+              <span style={{flex:1}} />
+              <Mono>{r.updated}</Mono>
+            </div>
+            <div className="km-body" style={{fontWeight:500}}>{r.title}</div>
+            <div className="km-body-sm" style={{lineHeight:1.45, marginTop:2}}>
+              {r.snippet.split('paused').map((p, idx, arr) => (
+                <React.Fragment key={idx}>{p}{idx < arr.length - 1 && <span className="km-hl">paused</span>}</React.Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    ))}
+  </MobileShell>
+);
+
+// ─── Empty states ───────────────────────────────────────────────────────────
+const InboxEmptyBoard = ({ dark = false }) => (
+  <div className={`km ${dark ? 'km-dark' : ''}`} style={{display:'flex', flexDirection:'column', height:'100%'}}>
+    <ChromeBar />
+    <div style={{flex:1, display:'flex'}}>
+      <NavRail active="triage" />
+      <main style={{flex:1, padding:'22px 28px', display:'flex', flexDirection:'column'}}>
+        <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom: 16}}>
+          <div>
+            <div className="km-display-lg">Triage queue</div>
+            <Mono>kennel · 0 inbox</Mono>
+          </div>
+        </div>
+        <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:14, paddingBottom: 80}}>
+          <div className="km-display-md" style={{fontSize:18, color:'var(--fg-muted)'}}>INBOX</div>
+          <div className="km-display-lg" style={{textAlign:'center'}}>Inbox is clear.</div>
+          <Mono>last triaged 13:48 · 4 items processed</Mono>
+          <button className="km-btn km-btn-primary" style={{marginTop:4, padding:'8px 14px'}}><Icons.plus size={12} /> Capture something</button>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+const NoProjectsBoard = ({ dark = false }) => (
+  <div className={`km ${dark ? 'km-dark' : ''}`} style={{display:'flex', flexDirection:'column', height:'100%'}}>
+    <ChromeBar />
+    <div style={{flex:1, display:'flex'}}>
+      <aside style={{
+        width: 224, flex:'0 0 224px',
+        borderRight: '1px solid var(--line)', padding:'14px 16px',
+        background: 'var(--surface-0)',
+        display:'flex', flexDirection:'column', gap:12
+      }}>
+        <Label>Workspace</Label>
+        <div className="km-body-sm" style={{color:'var(--fg-muted)', lineHeight:1.5}}>
+          No projects yet. Create one to populate the rail.
+        </div>
+      </aside>
+      <main style={{flex:1, padding:'22px 28px', display:'flex', flexDirection:'column'}}>
+        <div className="km-display-lg" style={{marginBottom:6}}>Dashboard</div>
+        <Mono dim>fresh install · 2026-05-17</Mono>
+        <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, paddingBottom: 60, maxWidth: 520, margin:'0 auto'}}>
+          <div className="km-display-md" style={{fontSize:18, color:'var(--fg-muted)'}}>NO PROJECTS</div>
+          <div className="km-display-lg" style={{textAlign:'center'}}>No projects. Create one to start.</div>
+          <div className="km-body" style={{color:'var(--fg-muted)', textAlign:'center', lineHeight:1.55, maxWidth: 420}}>
+            A project is the unit that holds items, docs, references, and chats. Most users start with one for active work and one for reading.
+          </div>
+          <div style={{display:'flex', gap:8, marginTop: 4}}>
+            <button className="km-btn km-btn-primary"><Icons.plus size={12} /> New project</button>
+            <button className="km-btn">Import from filesystem</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+);
+
+// ─── Tone of voice page ─────────────────────────────────────────────────────
+const ToneRow = ({ context, good, bad }) => (
+  <div style={{display:'grid', gridTemplateColumns:'200px 1fr 1fr', alignItems:'flex-start', gap: 18, padding:'18px 0', borderTop:'1px solid var(--line)'}}>
+    <div>
+      <Label>{context}</Label>
+    </div>
+    <div style={{padding:'12px 14px', background:'rgba(92,122,62,.08)', border:'1px solid rgba(92,122,62,.25)', borderRadius:3}}>
+      <div className="km-display-sm" style={{color:'var(--moss)', marginBottom:6}}>✓ KENNEL</div>
+      <div className="km-body" style={{lineHeight:1.55, color:'var(--fg)'}}>{good}</div>
+    </div>
+    <div style={{padding:'12px 14px', background:'rgba(138,58,20,.05)', border:'1px solid rgba(138,58,20,.25)', borderRadius:3}}>
+      <div className="km-display-sm" style={{color:'var(--ember-deep)', marginBottom:6}}>✗ NOT KENNEL</div>
+      <div className="km-body" style={{lineHeight:1.55, color:'var(--fg)'}}>{bad}</div>
+    </div>
+  </div>
+);
+
+const ToneBoard = () => (
+  <div className="km" style={{padding:'30px 36px', height:'100%', overflow:'hidden'}}>
+    <div style={{display:'flex', alignItems:'baseline', gap:16, marginBottom: 4}}>
+      <div className="km-display-lg">Voice</div>
+      <Mono>capable but not precious · honest about difficulty</Mono>
+    </div>
+    <div className="km-body-sm" style={{maxWidth: 760, marginBottom: 16}}>
+      Direct, specific, slightly dry. A little self-aware. Never motivational kicker copy. Below, three UI moments contrasted — what Kennel says vs. what every other tool says.
+    </div>
+
+    <div style={{borderBottom:'1px solid var(--line)'}}>
+      <ToneRow
+        context="Empty inbox"
+        good={<>“Inbox is clear.” <span className="km-body-sm" style={{display:'block', marginTop:4}}>Last triaged 13:48 · 4 items processed.</span></>}
+        bad={<>“You’re all caught up! 🎉 Time to focus — what will you build today?”</>}
+      />
+      <ToneRow
+        context="Confirm archive"
+        good="Archived."
+        bad="✅ Successfully archived! Your item has been safely moved to the archive."
+      />
+      <ToneRow
+        context="Server unreachable"
+        good={<>“Couldn’t reach the server. Check connection — retry in <Mono>kennel doctor</Mono>.”</>}
+        bad="Oh no! Something went wrong. Please try again later or contact support."
+      />
+      <ToneRow
+        context="Capture confirmation"
+        good={<><Mono>captured · picnic-engage · idea</Mono></>}
+        bad="🎉 Great catch! Your idea has been added to your inbox."
+      />
+      <ToneRow
+        context="Proposal accepted"
+        good="Accepted. Written to ~/work/skills/outreach-cadence.md (rev 5)."
+        bad="✨ Skill updated! Claude will now incorporate this change going forward."
+      />
+    </div>
+
+    <div style={{marginTop: 18, padding:'12px 14px', background:'var(--surface-1)', border:'1px solid var(--line)', borderRadius:3, maxWidth: 760}}>
+      <Label style={{marginBottom: 6}}>Rules of thumb</Label>
+      <ul className="km-body-sm" style={{margin:0, paddingLeft: 16, lineHeight:1.7, color:'var(--fg)'}}>
+        <li>Action labels in imperative. 'Archive', 'Park', 'Promote to action'.</li>
+        <li>Confirmations factual. 'Archived.' not 'Successfully archived!'.</li>
+        <li>Errors blunt and useful. Tell them what to try.</li>
+        <li>Pluralize correctly. '1 item', not '1 item(s)'.</li>
+        <li>Time references in mono. Never both absolute and relative.</li>
+      </ul>
+    </div>
+  </div>
+);
+
+Object.assign(window, { MobileCapture, MobileDashboard, MobileProject, MobileSearch, InboxEmptyBoard, NoProjectsBoard, ToneBoard });
+
+
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+// Helper to render any screen inside a frame, with optional dark mode wrapper.
+const Frame = ({ dark, children, scroll }) => (
+  <div className={dark ? 'km-dark' : ''} style={{ width:'100%', height:'100%', overflow: scroll ? 'auto' : 'hidden', background: 'var(--surface-0)' }}>
+    {children}
+  </div>
+);
+
+const W = 1440, H = 900;     // desktop artboard
+const MW = 390, MH = 844;    // mobile artboard
+
+const App = () => (
+  <DesignCanvas>
+    <DCSection id="foundation" title="Foundation" subtitle="Palette, typography, system tokens">
+      <DCArtboard id="palette"    label="Palette · light"   width={900}  height={720}><Frame><PaletteBoard /></Frame></DCArtboard>
+      <DCArtboard id="palette-dk" label="Palette · dark"    width={900}  height={720}><Frame dark><PaletteBoard /></Frame></DCArtboard>
+      <DCArtboard id="type"       label="Type scale"        width={1100} height={720}><Frame><TypeBoard /></Frame></DCArtboard>
+    </DCSection>
+
+    <DCSection id="components" title="Components" subtitle="§7 patterns — drop-in atoms for Claude Code">
+      <DCArtboard id="comp-light" label="Components · light" width={1100} height={780}><Frame scroll><ComponentBoard /></Frame></DCArtboard>
+      <DCArtboard id="comp-dark"  label="Components · dark"  width={1100} height={780}><Frame dark scroll><ComponentBoard /></Frame></DCArtboard>
+    </DCSection>
+
+    <DCSection id="screens-light" title="Screens · Light mode" subtitle="Eight core screens at desktop scale">
+      <DCArtboard id="dash-l"   label="01 · Dashboard"             width={W} height={H}><Frame><Dashboard /></Frame></DCArtboard>
+      <DCArtboard id="proj-l"   label="02 · Project landing"        width={W} height={H}><Frame><ProjectLanding /></Frame></DCArtboard>
+      <DCArtboard id="triage-l" label="03 · Triage queue"           width={W} height={H}><Frame><TriageQueue /></Frame></DCArtboard>
+      <DCArtboard id="doc-l"    label="04 · Doc editor"             width={W} height={H}><Frame><DocEditor /></Frame></DCArtboard>
+      <DCArtboard id="run-l"    label="05 · Runbook view"           width={W} height={H}><Frame><RunbookView /></Frame></DCArtboard>
+      <DCArtboard id="skill-l"  label="06 · Skill proposal review"  width={W} height={H}><Frame><SkillProposal /></Frame></DCArtboard>
+      <DCArtboard id="search-l" label="07 · Global search"          width={W} height={H}><Frame><GlobalSearch /></Frame></DCArtboard>
+      <DCArtboard id="set-l"    label="08 · Settings"               width={W} height={H}><Frame><SettingsScreen /></Frame></DCArtboard>
+    </DCSection>
+
+    <DCSection id="screens-dark" title="Screens · Dark mode" subtitle="Same components, slate-dark canvas — never pure black">
+      <DCArtboard id="dash-d"   label="01 · Dashboard"             width={W} height={H}><Frame dark><Dashboard /></Frame></DCArtboard>
+      <DCArtboard id="proj-d"   label="02 · Project landing"        width={W} height={H}><Frame dark><ProjectLanding /></Frame></DCArtboard>
+      <DCArtboard id="triage-d" label="03 · Triage queue"           width={W} height={H}><Frame dark><TriageQueue /></Frame></DCArtboard>
+      <DCArtboard id="doc-d"    label="04 · Doc editor"             width={W} height={H}><Frame dark><DocEditor /></Frame></DCArtboard>
+      <DCArtboard id="run-d"    label="05 · Runbook view"           width={W} height={H}><Frame dark><RunbookView /></Frame></DCArtboard>
+      <DCArtboard id="skill-d"  label="06 · Skill proposal review"  width={W} height={H}><Frame dark><SkillProposal /></Frame></DCArtboard>
+      <DCArtboard id="search-d" label="07 · Global search"          width={W} height={H}><Frame dark><GlobalSearch /></Frame></DCArtboard>
+      <DCArtboard id="set-d"    label="08 · Settings"               width={W} height={H}><Frame dark><SettingsScreen /></Frame></DCArtboard>
+    </DCSection>
+
+    <DCSection id="mobile" title="Mobile" subtitle="Capture and read · §8.1 primary surfaces">
+      <DCArtboard id="mob-cap"  label="Quick capture · light" width={MW} height={MH}><Frame><MobileCapture /></Frame></DCArtboard>
+      <DCArtboard id="mob-dash" label="Dashboard (read-only)" width={MW} height={MH}><Frame><MobileDashboard /></Frame></DCArtboard>
+      <DCArtboard id="mob-proj" label="Project read"          width={MW} height={MH}><Frame><MobileProject /></Frame></DCArtboard>
+      <DCArtboard id="mob-srch" label="Search overlay"        width={MW} height={MH}><Frame><MobileSearch /></Frame></DCArtboard>
+      <DCArtboard id="mob-cap-d" label="Quick capture · dark" width={MW} height={MH}><Frame dark><MobileCapture /></Frame></DCArtboard>
+      <DCArtboard id="mob-dash-d" label="Dashboard · dark"     width={MW} height={MH}><Frame dark><MobileDashboard /></Frame></DCArtboard>
+    </DCSection>
+
+    <DCSection id="empty" title="Empty states" subtitle="Typographic restraint · no Lily, no kicker copy">
+      <DCArtboard id="empty-inbox-l"  label="Inbox empty · light"   width={W} height={H}><Frame><InboxEmptyBoard /></Frame></DCArtboard>
+      <DCArtboard id="empty-inbox-d"  label="Inbox empty · dark"    width={W} height={H}><Frame dark><InboxEmptyBoard dark /></Frame></DCArtboard>
+      <DCArtboard id="empty-proj-l"   label="No projects · light"   width={W} height={H}><Frame><NoProjectsBoard /></Frame></DCArtboard>
+      <DCArtboard id="empty-proj-d"   label="No projects · dark"    width={W} height={H}><Frame dark><NoProjectsBoard dark /></Frame></DCArtboard>
+    </DCSection>
+
+    <DCSection id="tone" title="Voice" subtitle="UI copy — what Kennel says vs. what every other tool says">
+      <DCArtboard id="tone-l" label="Voice · light" width={1200} height={780}><Frame scroll><ToneBoard /></Frame></DCArtboard>
+      <DCArtboard id="tone-d" label="Voice · dark"  width={1200} height={780}><Frame dark scroll><ToneBoard /></Frame></DCArtboard>
+    </DCSection>
+  </DesignCanvas>
+);
+
+// Wait for all babel modules to finish defining their globals
+const ready = () => window.PaletteBoard && window.TypeBoard && window.ComponentBoard && window.Dashboard && window.ProjectLanding && window.TriageQueue && window.DocEditor && window.RunbookView && window.SkillProposal && window.GlobalSearch && window.SettingsScreen && window.MobileCapture && window.InboxEmptyBoard && window.ToneBoard && window.DesignCanvas;
+
+const tryMount = () => {
+  if (ready()) ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  else setTimeout(tryMount, 50);
+};
+tryMount();
+</script>
+</body>
+</html>

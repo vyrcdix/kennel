@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Pacecraft">
+  <title>Pacecraft</title>
+  <rect width="32" height="32" rx="4" fill="#2A2E33"/>
+  <circle cx="22" cy="11" r="4" fill="#E8B547"/>
+  <path d="M 3 24 L 9 17 L 13 20 L 19 13 L 23 17 L 27 14 L 30 24 Z" fill="#C9A87C"/>
+</svg>

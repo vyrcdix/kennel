@@ -1,0 +1,30 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+
+# TS build info (regenerated on every build)
+*.tsbuildinfo
+
+# Per-user Claude Code settings (permissions etc.)
+.claude/settings.local.json
+
+# Server runtime artifacts
+server/kennel.db
+server/kennel.db-journal
+server/kennel.db-wal
+server/kennel.db-shm
+server/content/
+server/dist/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

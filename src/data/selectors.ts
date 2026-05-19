@@ -1,0 +1,371 @@
+// Read-only selectors over the fixture store. Pure functions; future-friendly
+// for a real API layer where they become async `fetch`s.
+
+import {
+  activity,
+  chats,
+  comments,
+  docs,
+  items,
+  projects,
+  references,
+  runbooks,
+  skillProposals,
+  skills,
+} from './fixtures';
+import { NOW, daysAgo, isStale } from './time';
+import type {
+  ActivityEntry,
+  Chat,
+  EntityComment,
+  Item,
+  ItemKind,
+  Project,
+  Reference,
+  Runbook,
+  Skill,
+  SkillProposal,
+} from './types';
+
+// ─── Projects ───────────────────────────────────────────────────────────────
+
+export const getProjects = () =>
+  [...projects].sort((a, b) => a.rank - b.rank);
+
+export const getPinnedProjects = () =>
+  getProjects().filter((p) => p.pinned && p.status !== 'archived');
+
+export const getProjectById = (id: string) => projects.find((p) => p.id === id);
+
+export const getProjectBySlug = (slug: string) =>
+  projects.find((p) => p.slug === slug);
+
+export type ProjectCounts = {
+  inbox: number;
+  active: number;
+  parked: number;
+  done: number;
+};
+
+const COUNTED_STATES: ReadonlySet<string> = new Set(['inbox', 'active', 'parked', 'done']);
+
+/** Single pass over items[] producing per-project counts for every project.
+ *  Callers iterating projects (NavRail, Dashboard, inbox rollup) should use
+ *  this and look up by id instead of calling getProjectCounts() per project. */
+export const getAllProjectCounts = (): Map<string, ProjectCounts> => {
+  const map = new Map<string, ProjectCounts>();
+  for (const p of projects) map.set(p.id, { inbox: 0, active: 0, parked: 0, done: 0 });
+  for (const it of items) {
+    const counts = map.get(it.projectId);
+    if (!counts || !COUNTED_STATES.has(it.state)) continue;
+    counts[it.state as keyof ProjectCounts]++;
+  }
+  return map;
+};
+
+export const getProjectCounts = (projectId: string): ProjectCounts =>
+  getAllProjectCounts().get(projectId) ?? { inbox: 0, active: 0, parked: 0, done: 0 };
+
+// ─── Items ─────────────────────────────────────────────────────────────────
+
+const rankCmp = (a: Item, b: Item) => {
+  const r = a.rank - b.rank;
+  if (r !== 0) return r;
+  const ad = a.dueAt?.getTime() ?? Infinity;
+  const bd = b.dueAt?.getTime() ?? Infinity;
+  if (ad !== bd) return ad - bd;
+  return b.updatedAt.getTime() - a.updatedAt.getTime();
+};
+
+export const getNextUp = (projectId?: string, limit = 20) => {
+  const candidates = items.filter(
+    (it) => it.state === 'active' && (!projectId || it.projectId === projectId),
+  );
+  return candidates.sort(rankCmp).slice(0, limit);
+};
+
+export const getInbox = (projectId?: string) =>
+  items
+    .filter((it) => it.state === 'inbox' && (!projectId || it.projectId === projectId))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+export type InboxRollupRow = { project: Project; count: number };
+
+export const getInboxRollup = (): InboxRollupRow[] => {
+  const counts = getAllProjectCounts();
+  return getProjects()
+    .map((project) => ({ project, count: counts.get(project.id)?.inbox ?? 0 }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
+};
+
+export const getTotalInboxCount = () => getInbox().length;
+
+export const getItemById = (id: string) => items.find((it) => it.id === id);
+
+export const getProjectItems = (projectId: string, state?: Item['state']) =>
+  items
+    .filter((it) => it.projectId === projectId && (!state || it.state === state))
+    .sort(rankCmp);
+
+// ─── Activity ──────────────────────────────────────────────────────────────
+
+export const getActivitySince = (since: Date): ActivityEntry[] =>
+  activity
+    .filter((a) => a.occurredAt >= since)
+    .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+
+export const getYesterdayActivity = (limit = 4) =>
+  getActivitySince(daysAgo(2)).slice(0, limit);
+
+export const getProjectActivity = (projectId: string, since?: Date) =>
+  activity
+    .filter((a) => a.projectId === projectId && (!since || a.occurredAt >= since))
+    .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+
+// ─── Docs ──────────────────────────────────────────────────────────────────
+
+export const getProjectDocs = (projectId: string) =>
+  docs.filter((d) => d.projectId === projectId);
+
+export const getPinnedDocs = (projectId: string) =>
+  getProjectDocs(projectId).filter((d) => d.pinned);
+
+export const getDocById = (id: string) => docs.find((d) => d.id === id);
+
+/** Default doc for the unparameterised /doc route. */
+export const getDefaultDoc = () => docs.find((d) => d.id === 'd-triage-keyboard') ?? docs[0];
+
+export const getDocComments = (docId: string): EntityComment[] =>
+  comments
+    .filter((c) => c.entityType === 'doc' && c.entityId === docId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+// ─── References ────────────────────────────────────────────────────────────
+
+export const getReferenceById = (id: string): Reference | undefined =>
+  references.find((r) => r.id === id);
+
+// ─── Runbooks ──────────────────────────────────────────────────────────────
+
+export const getRunbook = (projectId: string): Runbook | undefined =>
+  runbooks.find((r) => r.projectId === projectId);
+
+// ─── Chats ─────────────────────────────────────────────────────────────────
+
+export type ProjectChats = { active: Chat[]; stale: Chat[] };
+
+export const getProjectChats = (projectId: string): ProjectChats => {
+  const all = chats
+    .filter((c) => c.projectId === projectId && c.status === 'active')
+    .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime());
+  return {
+    active: all.filter((c) => !isStale(c.lastSeenAt)),
+    stale: all.filter((c) => isStale(c.lastSeenAt)),
+  };
+};
+
+// ─── Skills & proposals ────────────────────────────────────────────────────
+
+export const getSkillById = (id: string) => skills.find((s) => s.id === id);
+
+export const getPendingProposals = () =>
+  skillProposals
+    .filter((p) => p.status === 'pending')
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+export type ProposalView = {
+  proposal: SkillProposal;
+  skill: Skill;
+  project?: Project;
+  chat?: Chat;
+};
+
+export const getProposalView = (id?: string): ProposalView | undefined => {
+  const proposal = id
+    ? skillProposals.find((p) => p.id === id)
+    : getPendingProposals()[0];
+  if (!proposal) return undefined;
+  const skill = getSkillById(proposal.skillId);
+  if (!skill) return undefined;
+  const project = skill.projectId ? getProjectById(skill.projectId) : undefined;
+  const chatId = proposal.triggeredBy?.chatId;
+  const chat = chatId ? chats.find((c) => c.id === chatId) : undefined;
+  return { proposal, skill, project, chat };
+};
+
+// ─── Triage queue (items + proposals interleaved) ──────────────────────────
+
+export type TriageEntry =
+  | { kind: 'item'; item: Item; project: Project; capturedAt: Date }
+  | { kind: 'proposal'; proposal: SkillProposal; skill: Skill; project?: Project; capturedAt: Date };
+
+export const getTriageQueue = (projectSlug?: string): TriageEntry[] => {
+  const project = projectSlug ? getProjectBySlug(projectSlug) : undefined;
+  const inboxItems: TriageEntry[] = getInbox(project?.id).map((item) => ({
+    kind: 'item' as const,
+    item,
+    project: getProjectById(item.projectId)!,
+    capturedAt: item.createdAt,
+  }));
+  const proposals: TriageEntry[] = getPendingProposals()
+    .filter((p) => {
+      if (!project) return true;
+      const s = getSkillById(p.skillId);
+      return s?.projectId === project.id;
+    })
+    .map((proposal) => {
+      const skill = getSkillById(proposal.skillId)!;
+      return {
+        kind: 'proposal' as const,
+        proposal,
+        skill,
+        project: skill.projectId ? getProjectById(skill.projectId) : undefined,
+        capturedAt: proposal.createdAt,
+      };
+    });
+  return [...inboxItems, ...proposals].sort(
+    (a, b) => b.capturedAt.getTime() - a.capturedAt.getTime(),
+  );
+};
+
+// ─── Workspace counters (NavRail) ──────────────────────────────────────────
+
+export const getTriageBadgeCount = () =>
+  getTotalInboxCount() + getPendingProposals().length;
+
+// ─── Search ────────────────────────────────────────────────────────────────
+
+export type SearchHit = {
+  kind: ItemKind | 'chat';
+  slug: string;
+  title: string;
+  snippet: string;
+  updated: string;
+};
+
+export type SearchGroup = {
+  group: 'Items' | 'Docs' | 'References' | 'Runbooks' | 'Skills' | 'Chats';
+  count: number;
+  rows: SearchHit[];
+};
+
+const haystack = (s: string | undefined) => (s ?? '').toLowerCase();
+const matches = (s: string | undefined, q: string) =>
+  haystack(s).includes(q.toLowerCase());
+
+const buildProjectSlugMap = (): Map<string, string> =>
+  new Map(projects.map((p) => [p.id, p.slug]));
+
+const truncate = (s: string, around: string, span = 120) => {
+  const lower = s.toLowerCase();
+  const i = lower.indexOf(around.toLowerCase());
+  if (i < 0) return s.slice(0, span);
+  const start = Math.max(0, i - 40);
+  const end = Math.min(s.length, i + around.length + span - 40);
+  const left = start > 0 ? '…' : '';
+  const right = end < s.length ? '…' : '';
+  return `${left}${s.slice(start, end)}${right}`;
+};
+
+import { formatRelative } from './time';
+
+export const search = (query: string): SearchGroup[] => {
+  const q = query.trim();
+  if (!q) return [];
+  const slugById = buildProjectSlugMap();
+  const slugOf = (id: string) => slugById.get(id) ?? '';
+
+  const itemHits = items
+    .filter((it) => matches(it.title, q) || matches(it.body, q))
+    .map<SearchHit>((it) => ({
+      kind: it.kind,
+      slug: slugOf(it.projectId),
+      title: it.title,
+      snippet: it.body ? truncate(it.body, q) : it.title,
+      updated: formatRelative(it.updatedAt),
+    }));
+
+  const docHits = docs
+    .filter((d) => matches(d.title, q) || matches(d.body, q))
+    .map<SearchHit>((d) => ({
+      kind: 'doc',
+      slug: slugOf(d.projectId),
+      title: d.title,
+      snippet: truncate(d.body, q),
+      updated: `rev ${d.revision}`,
+    }));
+
+  const refHits = references
+    .filter((r) => matches(r.label, q) || matches(r.notes, q))
+    .map<SearchHit>((r) => ({
+      kind: 'ref',
+      slug: slugOf(r.projectId),
+      title: r.label,
+      snippet: r.url ?? '',
+      updated: formatRelative(r.updatedAt),
+    }));
+
+  const runbookHits = runbooks
+    .filter((r) =>
+      [r.prerequisites, r.setup, r.run, r.deploy, r.troubleshoot, r.notes].some(
+        (s) => matches(s, q),
+      ),
+    )
+    .map<SearchHit>((r) => ({
+      kind: 'doc',
+      slug: slugOf(r.projectId),
+      title: `${getProjectById(r.projectId)?.name} — runbook`,
+      snippet: '…matched in runbook sections…',
+      updated: `rev ${r.revision}`,
+    }));
+
+  const skillHits = skills
+    .filter((s) => matches(s.name, q) || matches(s.body, q))
+    .map<SearchHit>((s) => {
+      const pending = skillProposals.find(
+        (p) => p.skillId === s.id && p.status === 'pending',
+      );
+      return {
+        kind: 'doc',
+        slug: s.projectId ? slugOf(s.projectId) : 'global',
+        title: s.name,
+        snippet: truncate(s.body, q),
+        updated: pending ? `rev ${s.revision + 1} pending` : `rev ${s.revision}`,
+      };
+    });
+
+  const chatHits = chats
+    .filter((c) => matches(c.tagline, q))
+    .map<SearchHit>((c) => ({
+      kind: 'chat',
+      slug: slugOf(c.projectId),
+      title: c.tagline,
+      snippet: c.tagline,
+      updated: formatRelative(c.lastSeenAt),
+    }));
+
+  const out: SearchGroup[] = [
+    { group: 'Items', count: itemHits.length, rows: itemHits.slice(0, 4) },
+    { group: 'Docs', count: docHits.length, rows: docHits.slice(0, 4) },
+    { group: 'References', count: refHits.length, rows: refHits.slice(0, 4) },
+    { group: 'Runbooks', count: runbookHits.length, rows: runbookHits.slice(0, 4) },
+    { group: 'Skills', count: skillHits.length, rows: skillHits.slice(0, 4) },
+    { group: 'Chats', count: chatHits.length, rows: chatHits.slice(0, 4) },
+  ];
+  return out.filter((g) => g.count > 0);
+};
+
+export type SearchStats = { total: number; elapsedMs: number };
+
+export const searchWithStats = (
+  query: string,
+): { groups: SearchGroup[]; stats: SearchStats } => {
+  const t = performance.now();
+  const groups = search(query);
+  const total = groups.reduce((sum, g) => sum + g.count, 0);
+  return { groups, stats: { total, elapsedMs: Math.max(1, Math.round(performance.now() - t)) } };
+};
+
+// NOW re-exported so screens that just need it don't re-import time module.
+export { NOW };

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Lily curled up resting">
+  <title>Lily — curled resting</title>
+  <!-- Cushion -->
+  <ellipse cx="90" cy="155" rx="85" ry="18" fill="#C9A87C" opacity="0.3"/>
+
+  <!-- Main donut curl -->
+  <path d="M 90 40 Q 40 40 30 90 Q 30 140 85 145 Q 140 145 150 100 Q 150 65 130 52 Q 120 70 122 92 Q 122 120 95 125 Q 60 125 58 95 Q 58 65 90 62 Q 115 62 118 50 Q 105 40 90 40 Z" fill="#D9622C"/>
+
+  <!-- Belly shadow -->
+  <path d="M 58 95 Q 58 118 78 124 Q 98 126 114 122 Q 98 118 80 114 Q 65 108 58 95 Z" fill="#A84919" opacity="0.5"/>
+
+  <!-- Back highlight -->
+  <path d="M 40 90 Q 32 70 45 55 Q 55 48 70 48" fill="none" stroke="#A84919" stroke-width="0.8" opacity="0.3"/>
+
+  <!-- Tail wrapping forward -->
+  <path d="M 130 52 Q 145 58 150 75 Q 152 95 142 110 Q 135 120 120 122" fill="none" stroke="#D9622C" stroke-width="10" stroke-linecap="round"/>
+  <path d="M 138 70 Q 142 88 135 105" fill="none" stroke="#A84919" stroke-width="1" opacity="0.4"/>
+
+  <!-- Head resting, tucked -->
+  <path d="M 105 118 Q 98 115 96 122 Q 95 130 100 135 Q 108 138 118 137 Q 128 134 132 127 Q 134 122 130 118 Q 128 123 122 125 Q 114 126 105 124 Q 102 122 105 118 Z" fill="#D9622C"/>
+  <path d="M 108 128 Q 114 132 124 131 Q 130 129 132 127 Q 128 132 120 134 Q 110 134 106 131 Z" fill="#A84919" opacity="0.35"/>
+
+  <!-- Ear draped over -->
+  <path d="M 98 110 Q 88 116 86 128 Q 88 138 96 140 Q 104 138 106 130 Q 108 118 104 110 Q 100 108 98 110 Z" fill="#A84919"/>
+
+  <!-- Nose peeking out -->
+  <ellipse cx="131" cy="126" rx="2.2" ry="1.8" fill="#3A3F45"/>
+
+  <!-- Closed eye peeking -->
+  <path d="M 105 126 Q 108 128 112 127" fill="none" stroke="#3A3F45" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Paws tucked -->
+  <ellipse cx="80" cy="128" rx="6" ry="2.5" fill="#A84919"/>
+  <ellipse cx="92" cy="130" rx="5" ry="2" fill="#A84919"/>
+
+  <!-- Zzz -->
+  <text x="55" y="35" font-family="Oswald, Anton, Impact, sans-serif" font-weight="500" font-size="10" fill="#3A3F45" opacity="0.35">z</text>
+  <text x="62" y="25" font-family="Oswald, Anton, Impact, sans-serif" font-weight="500" font-size="12" fill="#3A3F45" opacity="0.45">z</text>
+  <text x="72" y="14" font-family="Oswald, Anton, Impact, sans-serif" font-weight="500" font-size="14" fill="#3A3F45" opacity="0.55">Z</text>
+</svg>

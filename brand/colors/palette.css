@@ -1,0 +1,40 @@
+/* Pacecraft color system */
+
+:root {
+  /* Primary palette */
+  --color-dust: #C9A87C;
+  --color-moss: #5C7A3E;
+  --color-ember: #D9622C;
+  --color-slate: #3A3F45;
+  --color-bone: #F2EDE0;
+  --color-blaze: #E8B547;
+
+  /* Derived shades */
+  --color-ember-dark: #A84919;
+  --color-slate-dark: #2A2E33;
+  --color-ember-deep: #8A3A14;
+  --color-ember-depth: #6B2E10;
+
+  /* Semantic aliases */
+  --color-bg: var(--color-bone);
+  --color-bg-inverted: var(--color-slate-dark);
+  --color-text: var(--color-slate);
+  --color-text-inverted: var(--color-bone);
+  --color-accent: var(--color-ember);
+  --color-accent-cool: var(--color-moss);
+  --color-accent-punch: var(--color-blaze);
+
+  /* Typography */
+  --font-display: 'Oswald', 'Anton', 'Impact', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: var(--color-slate-dark);
+    --color-bg-inverted: var(--color-bone);
+    --color-text: var(--color-bone);
+    --color-text-inverted: var(--color-slate);
+  }
+}

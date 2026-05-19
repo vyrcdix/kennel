@@ -1,0 +1,221 @@
+/* Kennel design tokens — inherits Pacecraft palette, adapted for tool context */
+
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Core palette */
+  --bone:        #F2EDE0;
+  --slate:       #3A3F45;
+  --slate-dark:  #2A2E33;
+  --moss:        #5C7A3E;
+  --ember:       #D9622C;
+  --dust:        #C9A87C;
+  --blaze:       #E8B547;
+
+  /* Derived shades */
+  --ember-dark:  #A84919;
+  --ember-deep:  #8A3A14;
+  --slate-light: #7A8088;
+
+  /* Surface layering (light) */
+  --surface-0:   #F2EDE0;          /* page bg (bone) */
+  --surface-1:   #ECE6D5;          /* card bg */
+  --surface-2:   #E4DCC7;          /* subtle elevated */
+  --line:        rgba(58,63,69,.14);
+  --line-strong: rgba(58,63,69,.28);
+
+  /* Text */
+  --fg:          #3A3F45;          /* slate */
+  --fg-muted:    rgba(58,63,69,.62);
+  --fg-faint:    rgba(58,63,69,.42);
+
+  /* Type families */
+  --ff-display: 'Oswald', 'Helvetica Neue', sans-serif;
+  --ff-sans:    'Inter', 'Helvetica Neue', sans-serif;
+  --ff-mono:    'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Dark mode tokens — applied via .km-dark on any container */
+.km-dark {
+  --surface-0:   #2A2E33;          /* slate-dark */
+  --surface-1:   #32373D;          /* mid surface */
+  --surface-2:   #3A3F45;          /* slate, third elevation */
+  --line:        rgba(242,237,224,.10);
+  --line-strong: rgba(242,237,224,.22);
+
+  --fg:          #E8E2D2;
+  --fg-muted:    rgba(232,226,210,.62);
+  --fg-faint:    rgba(232,226,210,.40);
+}
+
+/* Reset within artboards */
+.km, .km * { box-sizing: border-box; }
+.km {
+  font-family: var(--ff-sans);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface-0);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display / label types */
+.km-display-lg { font-family: var(--ff-display); font-weight: 500; font-size: 28px; letter-spacing: 0.02em; color: var(--fg); }
+.km-display-md { font-family: var(--ff-display); font-weight: 500; font-size: 20px; letter-spacing: 0.04em; color: var(--fg); }
+.km-display-sm { font-family: var(--ff-display); font-weight: 500; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-muted); }
+.km-body-lg    { font-family: var(--ff-sans); font-weight: 500; font-size: 16px; color: var(--fg); }
+.km-body       { font-family: var(--ff-sans); font-weight: 400; font-size: 14px; color: var(--fg); }
+.km-body-sm    { font-family: var(--ff-sans); font-weight: 400; font-size: 12px; color: var(--fg-muted); }
+.km-mono       { font-family: var(--ff-mono); font-weight: 400; font-size: 12.5px; color: var(--fg); font-feature-settings: "calt" 0; }
+.km-mono-sm    { font-family: var(--ff-mono); font-weight: 400; font-size: 11px; color: var(--fg-muted); letter-spacing: -0.01em; }
+
+/* Logo slot */
+.km-logo-slot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--fg-faint);
+  font-family: var(--ff-mono); font-size: 9px; letter-spacing: 0;
+}
+
+/* Project pill (slug) */
+.km-proj {
+  display: inline-flex; align-items: center;
+  padding: 1px 6px;
+  background: rgba(92,122,62,.15);
+  color: var(--moss);
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  border-radius: 3px;
+  line-height: 1.5;
+}
+.km-dark .km-proj { color: #A4C474; background: rgba(164,196,116,.14); }
+
+/* Free-form tag */
+.km-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 6px;
+  background: rgba(201,168,124,.25);
+  color: var(--fg);
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  border-radius: 3px;
+  line-height: 1.5;
+}
+.km-dark .km-tag { background: rgba(201,168,124,.18); color: var(--fg); }
+
+/* Buttons */
+.km-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--ff-sans);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 6px 11px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  line-height: 1;
+}
+.km-btn-primary {
+  background: var(--ember);
+  color: #FFF6EC;
+  border-color: var(--ember);
+}
+.km-btn-primary:hover { background: var(--ember-dark); border-color: var(--ember-dark); }
+.km-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-muted);
+}
+.km-btn-moss {
+  background: var(--moss);
+  color: #F2EDE0;
+  border-color: var(--moss);
+}
+
+/* Inputs */
+.km-input {
+  font-family: var(--ff-sans);
+  font-size: 13px;
+  padding: 6px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--fg);
+  width: 100%;
+  outline: none;
+}
+.km-input:focus { border-color: var(--ember); }
+.km-input-mono { font-family: var(--ff-mono); font-size: 12.5px; }
+
+/* Dot indicators */
+.km-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+.km-dot-ember  { background: var(--ember); }
+.km-dot-moss   { background: var(--moss); }
+.km-dot-dust   { background: var(--dust); }
+.km-dot-slate  { background: var(--slate-light); opacity: .5; }
+.km-dot-blaze  { background: var(--blaze); }
+
+/* Card */
+.km-card {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+/* Active item ember left border */
+.km-active-row { box-shadow: inset 2px 0 0 var(--ember); }
+
+/* Row hover */
+.km-row { transition: background .15s ease; }
+.km-row:hover { background: rgba(58,63,69,.04); }
+.km-dark .km-row:hover { background: rgba(242,237,224,.04); }
+
+/* Underline links */
+.km-link { color: var(--fg); border-bottom: 1px solid var(--line-strong); cursor: pointer; }
+.km-link-ember { color: var(--ember-deep); border-bottom-color: var(--ember-deep); }
+
+/* Subtle keyboard key */
+.km-kbd {
+  display: inline-block;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  line-height: 1.4;
+}
+
+/* Scroll containers should hide scrollbars in artboards */
+.km-scroll::-webkit-scrollbar { display: none; }
+.km-scroll { scrollbar-width: none; }
+
+/* Field-manual section divider */
+.km-rule {
+  height: 1px;
+  background: var(--line);
+  width: 100%;
+}
+
+/* Skill proposal moss border */
+.km-proposal { box-shadow: inset 2px 0 0 var(--moss); }
+
+/* Pinned indicator */
+.km-pin { color: var(--blaze); }
+
+/* Diff colors */
+.km-diff-add { background: rgba(92,122,62,.14); }
+.km-diff-del { background: rgba(138,58,20,.10); }
+.km-dark .km-diff-add { background: rgba(164,196,116,.10); }
+.km-dark .km-diff-del { background: rgba(217,98,44,.10); }
+
+/* Highlight matched terms in search */
+.km-hl { background: rgba(217,98,44,.20); border-radius: 1px; padding: 0 1px; }
