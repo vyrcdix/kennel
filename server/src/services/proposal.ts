@@ -10,6 +10,7 @@ type ProposalRow = {
   id: string;
   skill_id: string;
   proposed_body: string;
+  applied_body: string | null;
   rationale: string;
   triggered_by: string | null;
   status: 'pending' | 'accepted' | 'rejected' | 'superseded';
@@ -22,6 +23,7 @@ export const rowToProposal = (r: ProposalRow): SkillProposal => ({
   id: r.id,
   skillId: r.skill_id,
   proposedBody: r.proposed_body,
+  appliedBody: r.applied_body ?? undefined,
   rationale: r.rationale,
   triggeredBy: r.triggered_by ? JSON.parse(r.triggered_by) : undefined,
   status: r.status,
@@ -107,55 +109,61 @@ export const reviewProposal = (
   const skill = getSkillById(db, proposal.skillId);
   if (!skill) throw notFound('skill', proposal.skillId);
 
-  const now = nowIso();
-  // Caller edited the body before accepting — persist onto the proposal so the
-  // audit trail reflects what landed (not what Claude originally proposed).
   const edited =
     typeof bodyOverride === 'string' && bodyOverride !== proposal.proposedBody;
-  if (edited) {
-    db.prepare(
-      `UPDATE skill_proposals SET proposed_body = ? WHERE id = ?`,
-    ).run(bodyOverride!, id);
-  }
   const bodyToApply = edited ? bodyOverride! : proposal.proposedBody;
+  const now = nowIso();
 
-  if (decision === 'accept' || decision === 'accept_write') {
-    db.prepare(
-      `UPDATE skill_proposals
-       SET status = 'accepted', decision_note = ?, reviewed_at = ?
-       WHERE id = ?`,
-    ).run(note ?? null, now, id);
-    updateSkillBody(db, skill.id, bodyToApply, true);
-    const verb = [
-      'ACCEPTED',
-      edited && 'EDITED',
-      decision === 'accept_write' && 'WROTE',
-    ].filter(Boolean).join(' · ');
-    logActivity(db, {
-      projectId: skill.projectId ?? proposal.skillId,
-      verb,
-      target: `skill / ${skill.name}`,
-      payload:
-        decision === 'accept_write'
-          ? `rev ${skill.revision + 1} · ${skill.sourcePath ?? 'inline'}`
-          : `rev ${skill.revision + 1}`,
-      actor: 'craig',
-      occurredAt: now,
-    });
-  } else {
-    db.prepare(
-      `UPDATE skill_proposals
-       SET status = 'rejected', decision_note = ?, reviewed_at = ?
-       WHERE id = ?`,
-    ).run(note ?? null, now, id);
-    logActivity(db, {
-      projectId: skill.projectId ?? proposal.skillId,
-      verb: 'REJECTED',
-      target: `skill proposal / ${skill.name}`,
-      payload: note?.trim() ? `"${note.trim().slice(0, 60)}"` : undefined,
-      actor: 'craig',
-      occurredAt: now,
-    });
-  }
+  // Wrap the proposal status update + skill body write + activity log in a
+  // single tx. updateSkillBody's filesystem write is atomic via temp+rename,
+  // so a tx rollback leaves the file in a sound state.
+  const apply = db.transaction(() => {
+    if (decision === 'accept' || decision === 'accept_write') {
+      db.prepare(
+        `UPDATE skill_proposals
+         SET status = 'accepted',
+             decision_note = ?,
+             reviewed_at = ?,
+             applied_body = ?
+         WHERE id = ?`,
+      ).run(note ?? null, now, edited ? bodyOverride! : null, id);
+      updateSkillBody(db, skill.id, bodyToApply, true);
+      // Canonical verb for filtering; qualifiers in payload so downstream
+      // consumers can read them without substring matching.
+      const qualifiers = [
+        edited && 'edited',
+        decision === 'accept_write' && 'wrote to source',
+      ].filter(Boolean) as string[];
+      logActivity(db, {
+        projectId: skill.projectId ?? proposal.skillId,
+        verb: 'ACCEPTED',
+        target: `skill / ${skill.name}`,
+        payload: [
+          `rev ${skill.revision + 1}`,
+          ...(qualifiers.length ? [qualifiers.join(' + ')] : []),
+          ...(decision === 'accept_write' && skill.sourcePath
+            ? [skill.sourcePath]
+            : []),
+        ].join(' · '),
+        actor: 'craig',
+        occurredAt: now,
+      });
+    } else {
+      db.prepare(
+        `UPDATE skill_proposals
+         SET status = 'rejected', decision_note = ?, reviewed_at = ?
+         WHERE id = ?`,
+      ).run(note ?? null, now, id);
+      logActivity(db, {
+        projectId: skill.projectId ?? proposal.skillId,
+        verb: 'REJECTED',
+        target: `skill proposal / ${skill.name}`,
+        payload: note?.trim() ? `"${note.trim().slice(0, 60)}"` : undefined,
+        actor: 'craig',
+        occurredAt: now,
+      });
+    }
+  });
+  apply();
   return getProposalById(db, id)!;
 };

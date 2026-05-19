@@ -98,6 +98,7 @@ export const WeeklyReview = () => {
       setAside: [] as ActivityEntry[],
       letGo: [] as ActivityEntry[],
       converted: [] as ActivityEntry[],
+      skillChanges: [] as ActivityEntry[],
     };
     for (const e of activity) {
       switch (e.verb) {
@@ -110,6 +111,9 @@ export const WeeklyReview = () => {
         case 'FILED':
         case 'ARCHIVED': b.letGo.push(e); break;
         case 'CONVERTED': b.converted.push(e); break;
+        case 'PROPOSED':
+        case 'ACCEPTED':
+        case 'REJECTED': b.skillChanges.push(e); break;
       }
     }
     return b;
@@ -123,6 +127,7 @@ export const WeeklyReview = () => {
     { label: 'set aside', n: buckets.setAside.length },
     { label: 'let go / filed', n: buckets.letGo.length },
     { label: 'converted', n: buckets.converted.length },
+    { label: 'skill changes', n: buckets.skillChanges.length },
   ];
 
   return (
@@ -215,6 +220,9 @@ export const WeeklyReview = () => {
             <ActivityGroup title="Let go / filed" entries={buckets.letGo} />
             <ActivityGroup title="Set aside" entries={buckets.setAside} />
             <ActivityGroup title="Captured" entries={buckets.captured} />
+            {buckets.skillChanges.length > 0 && (
+              <ActivityGroup title="Skill changes" entries={buckets.skillChanges} />
+            )}
             {buckets.converted.length > 0 && (
               <ActivityGroup title="Converted" entries={buckets.converted} />
             )}

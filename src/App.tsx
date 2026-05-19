@@ -14,6 +14,8 @@ import ComponentsBoard from './screens/ComponentsBoard';
 import WeeklyReview from './screens/WeeklyReview';
 import { CaptureModal } from './components/CaptureModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { Toaster } from './components/Toaster';
 import {
   openCreateProject,
   useCaptureModal,
@@ -66,7 +68,9 @@ export const App = () => (
   <BrowserRouter>
     <GlobalShortcuts />
     <ModalHost />
-    <Routes>
+    <Toaster />
+    <ErrorBoundary>
+      <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/project" element={<Navigate to="/project/kennel" replace />} />
       <Route path="/project/:slug" element={<ProjectLanding />} />
@@ -84,7 +88,8 @@ export const App = () => (
       <Route path="/review/weekly" element={<WeeklyReview />} />
       <Route path="/components" element={<ComponentsBoard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </ErrorBoundary>
   </BrowserRouter>
 );
 

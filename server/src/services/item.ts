@@ -372,22 +372,27 @@ export const convertItemToDoc = (
   id: string,
   actor: 'craig' | 'claude' | 'cli' = 'craig',
 ): Item => {
-  const item = getItemById(db, id);
-  if (!item) throw notFound('item', id);
-  const project = getProjectById(db, item.projectId);
-  if (!project) throw notFound('project', item.projectId);
-  const doc = createDoc(
-    db,
-    {
-      projectSlug: project.slug,
-      title: item.title,
-      body: item.body
-        ? item.body
-        : `# ${item.title}\n\n<!-- TODO: flesh out — promoted from item -->\n`,
-    },
-    actor,
-  );
-  return convertItem(db, id, 'doc', { linkedDocId: doc.id }, actor);
+  // Wrap createDoc + convertItem in one tx — if the item UPDATE fails after
+  // the doc row is inserted, we don't end up with an orphan doc.
+  // createDoc's filesystem write is atomic on its own (temp + rename).
+  return db.transaction((): Item => {
+    const item = getItemById(db, id);
+    if (!item) throw notFound('item', id);
+    const project = getProjectById(db, item.projectId);
+    if (!project) throw notFound('project', item.projectId);
+    const doc = createDoc(
+      db,
+      {
+        projectSlug: project.slug,
+        title: item.title,
+        body: item.body
+          ? item.body
+          : `# ${item.title}\n`,
+      },
+      actor,
+    );
+    return convertItem(db, id, 'doc', { linkedDocId: doc.id }, actor);
+  })();
 };
 
 /** Convert an item to a Reference. */
@@ -396,23 +401,25 @@ export const convertItemToReference = (
   id: string,
   actor: 'craig' | 'claude' | 'cli' = 'craig',
 ): Item => {
-  const item = getItemById(db, id);
-  if (!item) throw notFound('item', id);
-  const project = getProjectById(db, item.projectId);
-  if (!project) throw notFound('project', item.projectId);
-  const firstToken = item.body?.trim().split(/\s/)[0];
-  const looksLikeUrl = !!firstToken && /^https?:\/\//.test(firstToken);
-  const reference = createReference(
-    db,
-    {
-      projectSlug: project.slug,
-      label: item.title,
-      url: looksLikeUrl ? firstToken : undefined,
-      notes: looksLikeUrl ? undefined : item.body ?? undefined,
-    },
-    actor,
-  );
-  return convertItem(db, id, 'reference', { linkedReferenceId: reference.id }, actor);
+  return db.transaction((): Item => {
+    const item = getItemById(db, id);
+    if (!item) throw notFound('item', id);
+    const project = getProjectById(db, item.projectId);
+    if (!project) throw notFound('project', item.projectId);
+    const firstToken = item.body?.trim().split(/\s/)[0];
+    const looksLikeUrl = !!firstToken && /^https?:\/\//.test(firstToken);
+    const reference = createReference(
+      db,
+      {
+        projectSlug: project.slug,
+        label: item.title,
+        url: looksLikeUrl ? firstToken : undefined,
+        notes: looksLikeUrl ? undefined : item.body ?? undefined,
+      },
+      actor,
+    );
+    return convertItem(db, id, 'reference', { linkedReferenceId: reference.id }, actor);
+  })();
 };
 
 /** Items that are either kind=crystallization OR state=crystallized. */

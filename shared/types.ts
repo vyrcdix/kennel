@@ -157,7 +157,12 @@ export type Skill = {
 export type SkillProposal = {
   id: string;
   skillId: string;
+  /** What Claude originally proposed. Immutable after creation. */
   proposedBody: string;
+  /** What was actually written to the skill — set when the reviewer edited
+   *  the body before accepting. NULL means the original proposedBody was
+   *  applied verbatim (the common case). */
+  appliedBody?: string;
   rationale: string;
   triggeredBy?: { chatId?: string; itemId?: string; docId?: string };
   status: 'pending' | 'accepted' | 'rejected' | 'superseded';

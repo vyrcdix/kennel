@@ -5,6 +5,15 @@ import App from './App';
 import { api } from './data/api';
 import { startEventStream } from './data/events';
 import { hydrate, type BootstrapPayload } from './data/fixtures';
+import { toastError } from './lib/toast';
+
+// `void X(...)` action calls in row handlers don't have a catch; surface
+// any unhandled rejection as a toast so a flaky network doesn't fail
+// silently. Modals already await + catch their own ValidationErrors so
+// won't double-fire.
+window.addEventListener('unhandledrejection', (e) => {
+  toastError('Action', e.reason);
+});
 
 const BootSplash = ({ error }: { error?: string }) => (
   <div

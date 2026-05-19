@@ -517,7 +517,7 @@ export const TriageQueue = () => {
                           {o.target === 'reference' ? (
                             <Icons.link size={12} />
                           ) : (
-                            <KindIcon kind={o.target === 'doc' ? 'doc' : o.target} />
+                            <KindIcon kind={o.target} />
                           )}{' '}
                           {o.label}
                         </button>

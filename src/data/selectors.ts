@@ -170,12 +170,14 @@ export const getProjectLastTouched = (projectId: string): Date => {
 };
 
 /** Single-pass version that builds the map for every project at once.
- *  O(N items) total instead of O(N) per project. Use this when rendering
- *  a list of projects (dashboard rail). */
+ *  O(N items) total instead of O(N) per project. Skips items in dismissed
+ *  or filed state — a thread doesn't get warmed by its own retired items.
+ *  Threads with no active items get no entry (callers should treat that
+ *  as "no signal," not "ancient"). */
 export const getAllProjectLastTouched = (): Map<string, Date> => {
   const map = new Map<string, Date>();
-  for (const p of projects) map.set(p.id, p.updatedAt);
   for (const it of items) {
+    if (it.state === 'dismissed' || it.state === 'filed') continue;
     const t = it.lastTouchedAt ?? it.updatedAt;
     const current = map.get(it.projectId);
     if (!current || t.getTime() > current.getTime()) map.set(it.projectId, t);
