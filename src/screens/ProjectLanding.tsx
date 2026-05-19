@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { CrystallizationCard } from '../components/CrystallizationCard';
@@ -30,6 +31,7 @@ import {
   getProjectDocs,
   getProjectItems,
   getProjectLastTouched,
+  getProjectReferences,
   getRunbook,
   getSettings,
 } from '../data/selectors';
@@ -157,6 +159,8 @@ export const ProjectLanding = () => {
   const navigate = useNavigate();
   useStoreVersion();
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
+  const [activeTab, setActiveTab] = useState<'items' | 'docs' | 'references'>('items');
+  const [contextOpen, setContextOpen] = useState(false);
   const project = getProjectBySlug(slug);
   if (!project) return <ProjectNotFound slug={slug} />;
 
@@ -164,7 +168,8 @@ export const ProjectLanding = () => {
   const nextUp = getNextUp(project.id, 6);
   const pinnedDocs = getPinnedDocs(project.id);
   const allDocs = getProjectDocs(project.id);
-  const activeItems = getProjectItems(project.id, 'active').slice(0, 4);
+  const allItems = getProjectItems(project.id);
+  const refs = getProjectReferences(project.id);
   const runbook = getRunbook(project.id);
   const fieldNotes = getFieldNotes(project.id);
   const crystallizations = getCrystallizations(project.id);
@@ -233,22 +238,60 @@ export const ProjectLanding = () => {
                   {project.description}
                 </div>
                 {project.context && (
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Icons.arrowDown size={12} />
-                    <span
-                      className="km-link"
-                      style={{ fontSize: 13, borderBottomStyle: 'dashed' }}
+                  <>
+                    <div
+                      onClick={() => setContextOpen((v) => !v)}
+                      style={{
+                        marginTop: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
                     >
-                      show context
-                    </span>
-                    <span className="km-body-sm">
-                      — full markdown shipped to Claude with chat sessions
-                    </span>
-                  </div>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          transform: contextOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                        }}
+                      >
+                        <Icons.arrowDown size={12} />
+                      </span>
+                      <span
+                        className="km-link"
+                        style={{ fontSize: 13, borderBottomStyle: 'dashed' }}
+                      >
+                        {contextOpen ? 'hide context' : 'show context'}
+                      </span>
+                      <span className="km-body-sm">
+                        — full markdown shipped to Claude with chat sessions
+                      </span>
+                    </div>
+                    {contextOpen && (
+                      <div
+                        className="km-body"
+                        style={{
+                          marginTop: 10,
+                          padding: '10px 12px',
+                          background: 'var(--surface-1)',
+                          border: '1px solid var(--line)',
+                          borderRadius: 3,
+                          fontSize: 13,
+                          lineHeight: 1.55,
+                          color: 'var(--fg)',
+                          maxWidth: 760,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {project.context}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button className="km-btn">
+                <button className="km-btn" onClick={() => openCapture(project.slug)}>
                   <Icons.plus size={12} /> New item
                 </button>
                 <button className="km-btn" onClick={openFieldNotes}>
@@ -256,9 +299,6 @@ export const ProjectLanding = () => {
                 </button>
                 <button className="km-btn" onClick={openRunbook}>
                   <Icons.runbook size={12} /> Runbook
-                </button>
-                <button className="km-btn km-btn-ghost">
-                  <Icons.cog size={13} />
                 </button>
               </div>
             </div>
@@ -573,25 +613,107 @@ export const ProjectLanding = () => {
                   borderBottom: '1px solid var(--line)',
                 }}
               >
-                <TabButton label="Items" active />
+                <TabButton
+                  label={`Items · ${allItems.length}`}
+                  active={activeTab === 'items'}
+                  onClick={() => setActiveTab('items')}
+                />
                 <span style={{ width: 18 }} />
-                <TabButton label="Docs" />
+                <TabButton
+                  label={`Docs · ${allDocs.length}`}
+                  active={activeTab === 'docs'}
+                  onClick={() => setActiveTab('docs')}
+                />
                 <span style={{ width: 18 }} />
-                <TabButton label="References" />
+                <TabButton
+                  label={`References · ${refs.length}`}
+                  active={activeTab === 'references'}
+                  onClick={() => setActiveTab('references')}
+                />
                 <span style={{ flex: 1 }} />
-                <span className="km-body-sm" style={{ marginRight: 8 }}>state</span>
-                <span className="km-tag">active</span>
-                <span style={{ width: 6 }} />
-                <span className="km-tag">reflecting</span>
-                <span style={{ width: 12 }} />
-                <button className="km-btn km-btn-ghost">
-                  <Icons.filter size={12} /> Filter
-                </button>
               </div>
               <div>
-                {activeItems.map((item) => (
-                  <NextUpRow key={item.id} item={item} project={project} />
-                ))}
+                {activeTab === 'items' && (
+                  allItems.length === 0 ? (
+                    <div style={{ padding: '14px 16px' }}>
+                      <Mono dim>no items in this thread</Mono>
+                    </div>
+                  ) : (
+                    allItems
+                      .slice(0, 20)
+                      .map((item) => (
+                        <NextUpRow key={item.id} item={item} project={project} />
+                      ))
+                  )
+                )}
+                {activeTab === 'docs' && (
+                  allDocs.length === 0 ? (
+                    <div style={{ padding: '14px 16px' }}>
+                      <Mono dim>no docs in this thread</Mono>
+                    </div>
+                  ) : (
+                    allDocs.map((d) => (
+                      <div
+                        key={d.id}
+                        className="km-row"
+                        onClick={() => navigate(`/doc/${d.id}`)}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '14px 1fr 60px 90px',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: '8px 16px',
+                          borderBottom: '1px solid var(--line)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Icons.doc size={12} />
+                        <span className="km-body" style={{ fontWeight: 500 }}>
+                          {d.title}
+                        </span>
+                        <Mono>rev {d.revision}</Mono>
+                        <Mono dim>{formatRelative(d.updatedAt)}</Mono>
+                      </div>
+                    ))
+                  )
+                )}
+                {activeTab === 'references' && (
+                  refs.length === 0 ? (
+                    <div style={{ padding: '14px 16px' }}>
+                      <Mono dim>no references in this thread</Mono>
+                    </div>
+                  ) : (
+                    refs.map((r) => (
+                      <div
+                        key={r.id}
+                        className="km-row"
+                        onClick={() => {
+                          if (r.url) window.open(r.url, '_blank', 'noopener,noreferrer');
+                        }}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '14px 1fr 90px',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: '8px 16px',
+                          borderBottom: '1px solid var(--line)',
+                          cursor: r.url ? 'pointer' : 'default',
+                        }}
+                      >
+                        <Icons.ext size={12} />
+                        <div style={{ minWidth: 0 }}>
+                          <div className="km-body" style={{ fontWeight: 500 }}>
+                            {r.label}
+                          </div>
+                          {r.url && (
+                            <Mono dim>{r.url}</Mono>
+                          )}
+                        </div>
+                        <Mono dim>{formatRelative(r.updatedAt)}</Mono>
+                      </div>
+                    ))
+                  )
+                )}
               </div>
             </section>
           </div>

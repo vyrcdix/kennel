@@ -207,6 +207,11 @@ export const getDocComments = (docId: string): EntityComment[] =>
 export const getReferenceById = (id: string): Reference | undefined =>
   references.find((r) => r.id === id);
 
+export const getProjectReferences = (projectId: string): Reference[] =>
+  references
+    .filter((r) => r.projectId === projectId)
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
 // ─── Runbooks ──────────────────────────────────────────────────────────────
 
 export const getRunbook = (projectId: string): Runbook | undefined =>
@@ -303,6 +308,10 @@ export type SearchHit = {
   title: string;
   snippet: string;
   updated: string;
+  /** Route or absolute URL to open on Enter / row click. */
+  target: string;
+  /** True when target is an external claudeUrl. */
+  external?: boolean;
 };
 
 export type SearchGroup = {
@@ -345,6 +354,7 @@ export const search = (query: string): SearchGroup[] => {
       title: it.title,
       snippet: it.body ? truncate(it.body, q) : it.title,
       updated: formatRelative(it.updatedAt),
+      target: it.docId ? `/doc/${it.docId}` : `/project/${slugOf(it.projectId)}`,
     }));
 
   const docHits = docs
@@ -355,6 +365,7 @@ export const search = (query: string): SearchGroup[] => {
       title: d.title,
       snippet: truncate(d.body, q),
       updated: `rev ${d.revision}`,
+      target: `/doc/${d.id}`,
     }));
 
   const refHits = references
@@ -365,6 +376,8 @@ export const search = (query: string): SearchGroup[] => {
       title: r.label,
       snippet: r.url ?? '',
       updated: formatRelative(r.updatedAt),
+      target: r.url ?? `/project/${slugOf(r.projectId)}`,
+      external: !!r.url,
     }));
 
   const runbookHits = runbooks
@@ -379,6 +392,7 @@ export const search = (query: string): SearchGroup[] => {
       title: `${getProjectById(r.projectId)?.name} — runbook`,
       snippet: '…matched in runbook sections…',
       updated: `rev ${r.revision}`,
+      target: `/runbook/${slugOf(r.projectId)}`,
     }));
 
   const skillHits = skills
@@ -393,6 +407,11 @@ export const search = (query: string): SearchGroup[] => {
         title: s.name,
         snippet: truncate(s.body, q),
         updated: pending ? `rev ${s.revision + 1} pending` : `rev ${s.revision}`,
+        target: pending
+          ? `/proposal/${pending.id}`
+          : s.projectId
+            ? `/project/${slugOf(s.projectId)}`
+            : '/',
       };
     });
 
@@ -404,6 +423,8 @@ export const search = (query: string): SearchGroup[] => {
       title: c.tagline,
       snippet: c.tagline,
       updated: formatRelative(c.lastSeenAt),
+      target: c.claudeUrl ?? `/project/${slugOf(c.projectId)}`,
+      external: !!c.claudeUrl,
     }));
 
   const out: SearchGroup[] = [

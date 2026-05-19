@@ -74,19 +74,17 @@ const Toggle = ({
   </span>
 );
 
-const settingsNav = [
-  'Profile',
-  'Appearance',
-  'Capture',
-  'Chat tracking',
-  'Reference types',
-  'Backups',
-  'MCP connection',
-  'About',
+type SectionKey = 'appearance' | 'lifecycle' | 'mcp';
+
+const SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'appearance', label: 'Appearance' },
+  { key: 'lifecycle', label: 'Capture & Lifecycle' },
+  { key: 'mcp', label: 'MCP connection' },
 ];
 
 export const SettingsScreen = () => {
   useStoreVersion();
+  const [section, setSection] = useState<SectionKey>('appearance');
   const [mode, setMode] = useTheme();
   const modes: { label: string; value: ThemeMode }[] = [
     { label: 'Light', value: 'light' },
@@ -129,30 +127,36 @@ export const SettingsScreen = () => {
               <div style={{ padding: '0 18px 8px' }}>
                 <Label>Settings</Label>
               </div>
-              {settingsNav.map((s, i) => (
-                <button
-                  key={s}
-                  className="km-row"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    border: 0,
-                    padding: '7px 18px',
-                    background: i === 1 ? 'rgba(217,98,44,.08)' : 'transparent',
-                    boxShadow: i === 1 ? 'inset 2px 0 0 var(--ember)' : 'none',
-                    color: i === 1 ? 'var(--ember-deep)' : 'var(--fg)',
-                    fontSize: 13,
-                    fontFamily: 'var(--ff-sans)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
+              {SECTIONS.map((s) => {
+                const active = section === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => setSection(s.key)}
+                    className="km-row"
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      border: 0,
+                      padding: '7px 18px',
+                      background: active ? 'rgba(217,98,44,.08)' : 'transparent',
+                      boxShadow: active ? 'inset 2px 0 0 var(--ember)' : 'none',
+                      color: active ? 'var(--ember-deep)' : 'var(--fg)',
+                      fontSize: 13,
+                      fontFamily: 'var(--ff-sans)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
             </aside>
 
             <div style={{ flex: 1, padding: '22px 36px 32px', maxWidth: 880 }}>
+              {section === 'appearance' && (
+                <>
               <div className="km-display-lg" style={{ marginBottom: 4 }}>Appearance</div>
               <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
                 Mode and a few small typographic preferences. Density is not a setting — there is one density.
@@ -259,15 +263,15 @@ export const SettingsScreen = () => {
                   control={<Toggle on={false} />}
                 />
               </div>
+                </>
+              )}
 
-              {/* Capture / Lifecycle */}
-              <div
-                className="km-display-lg"
-                style={{ marginTop: 28, marginBottom: 4, fontSize: 22 }}
-              >
+              {section === 'lifecycle' && (
+                <>
+              <div className="km-display-lg" style={{ marginBottom: 4 }}>
                 Capture &amp; Lifecycle
               </div>
-              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 14 }}>
+              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
                 How long an item drifts before it shows up on the aging board, and whether
                 Kennel ever nudges you to file durable outcomes.
               </div>
@@ -329,15 +333,15 @@ export const SettingsScreen = () => {
                   }
                 />
               </div>
+                </>
+              )}
 
-              {/* Quick peek at another section */}
-              <div
-                className="km-display-lg"
-                style={{ marginTop: 28, marginBottom: 4, fontSize: 22 }}
-              >
+              {section === 'mcp' && (
+                <>
+              <div className="km-display-lg" style={{ marginBottom: 4 }}>
                 MCP connection
               </div>
-              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 14 }}>
+              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
                 How Claude clients reach this Kennel. Rotate the token any time a non-Craig surface gets a copy.
               </div>
               <div className="km-card" style={{ padding: '12px 14px' }}>
@@ -365,6 +369,8 @@ export const SettingsScreen = () => {
                   <span />
                 </div>
               </div>
+                </>
+              )}
             </div>
           </div>
         </main>

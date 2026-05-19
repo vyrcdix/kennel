@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { SearchHit } from '../data/selectors';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
@@ -40,6 +41,36 @@ export const GlobalSearch = () => {
   const [query, setQuery] = useState(DEFAULT_QUERY);
   const { groups, stats } = useMemo(() => searchWithStats(query), [query]);
 
+  const close = () => navigate(-1);
+  const openHit = (hit: SearchHit) => {
+    if (hit.external) {
+      window.open(hit.target, '_blank', 'noopener,noreferrer');
+    } else {
+      navigate(hit.target);
+    }
+  };
+  const topHit = groups.flatMap((g) => g.rows)[0];
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key === 'Enter') {
+        const t = e.target as HTMLElement | null;
+        if (t?.tagName === 'INPUT' && topHit) {
+          e.preventDefault();
+          openHit(topHit);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topHit?.target, topHit?.external]);
+
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <ChromeBar />
@@ -61,7 +92,7 @@ export const GlobalSearch = () => {
 
       {/* Modal */}
       <div
-        onClick={() => navigate(-1)}
+        onClick={close}
         style={{
           position: 'absolute',
           inset: 0,
@@ -175,12 +206,14 @@ export const GlobalSearch = () => {
                   <div
                     key={i}
                     className="km-row"
+                    onClick={() => openHit(r)}
                     style={{
                       padding: '8px 18px',
                       display: 'grid',
                       gridTemplateColumns: '18px 110px 1fr 80px',
                       alignItems: 'baseline',
                       gap: 12,
+                      cursor: 'pointer',
                     }}
                   >
                     <KindIcon kind={r.kind as IconKind} />
