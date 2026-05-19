@@ -127,12 +127,22 @@ now show `kennel-prod` as a device.
 
 ### 3. Deploy the code
 
-Switch to the `kennel` user and pull the repo:
+First (still as root) create the install directory and hand it to the
+`kennel` user. The bootstrap created `kennel` with
+`--disabled-password`, so it cannot `sudo` — keep ownership operations
+on the root side.
+
+```sh
+# Still as root
+mkdir -p /opt/kennel
+chown kennel:kennel /opt/kennel
+```
+
+Then switch to the `kennel` user (root can `su` without a password) and
+pull the repo:
 
 ```sh
 su - kennel
-cd /opt
-sudo mkdir -p /opt/kennel && sudo chown kennel:kennel /opt/kennel
 git clone https://github.com/vyrcdix/kennel.git /opt/kennel
 cd /opt/kennel
 npm install
