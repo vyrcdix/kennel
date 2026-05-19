@@ -209,11 +209,13 @@ export const reviewProposal = async (
   id: string,
   decision: ProposalDecision,
   note?: string,
+  bodyOverride?: string,
 ): Promise<void> => {
   const updated = await wrap(() =>
     api.post<SkillProposal>(`/api/skill-proposals/${id}/review`, {
       decision,
       note,
+      bodyOverride,
     }),
   );
   const pidx = skillProposals.findIndex((p) => p.id === id);

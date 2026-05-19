@@ -107,22 +107,48 @@ export const SkillProposal = () => {
   useStoreVersion();
   const view = getProposalView(id);
   const [note, setNote] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
   if (!view) return <NoProposal />;
 
   const { proposal, skill, project, chat } = view;
-  const ops = diffLines(skill.body, proposal.proposedBody);
+  // When entering edit mode, reset the draft to the current proposed body so
+  // each new pass starts from the latest proposal text.
+  const startEdit = () => {
+    setDraft(proposal.proposedBody);
+    setEditing(true);
+  };
+  const cancelEdit = () => setEditing(false);
+  const liveBody = editing ? draft : proposal.proposedBody;
+  const ops = diffLines(skill.body, liveBody);
   const sbs = toSideBySide(ops);
   const { adds, dels } = summary(ops);
   const hunks = countHunks(ops);
   const isPending = proposal.status === 'pending';
+  const isEdited = editing && draft !== proposal.proposedBody;
 
   const decide = (decision: ProposalDecision) => {
-    reviewProposal(proposal.id, decision, note);
+    reviewProposal(
+      proposal.id,
+      decision,
+      note,
+      isEdited ? draft : undefined,
+    );
     // Navigate to next pending if available, else show the empty state.
     const remaining = getPendingProposals().filter((p) => p.id !== proposal.id);
     if (remaining.length > 0) navigate(`/proposal/${remaining[0].id}`);
     else navigate('/proposal');
     setNote('');
+    setEditing(false);
+  };
+
+  const onViewConversation = () => {
+    if (!chat) return;
+    if (chat.claudeUrl) {
+      window.open(chat.claudeUrl, '_blank', 'noopener,noreferrer');
+    } else if (project) {
+      navigate(`/project/${project.slug}`);
+    }
   };
 
   return (
@@ -199,11 +225,49 @@ export const SkillProposal = () => {
                 <span className="km-body-sm">
                   {hunks} hunk{hunks === 1 ? '' : 's'}
                 </span>
+                {isEdited && (
+                  <Mono dim style={{ color: 'var(--ember-deep)' }}>
+                    edited locally · diff is against your edit
+                  </Mono>
+                )}
                 <span style={{ flex: 1 }} />
-                <button className="km-btn km-btn-ghost" style={{ padding: '4px 8px' }}>
-                  collapse unchanged
-                </button>
               </div>
+
+              {editing && (
+                <div style={{ marginBottom: 14 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <Label>Proposed body · editing</Label>
+                    <Mono dim>diff updates live · changes apply on Accept</Mono>
+                  </div>
+                  <textarea
+                    autoFocus
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    rows={Math.max(8, (draft.match(/\n/g)?.length ?? 0) + 2)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      background: 'var(--surface-1)',
+                      border: '1px solid var(--line)',
+                      borderRadius: 4,
+                      fontFamily: 'var(--ff-mono)',
+                      fontSize: 12.5,
+                      lineHeight: 1.6,
+                      color: 'var(--fg)',
+                      resize: 'vertical',
+                      minHeight: 180,
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              )}
 
               <div
                 style={{
@@ -312,12 +376,21 @@ export const SkillProposal = () => {
                   >
                     <Mono>3 turns · {chat.id}</Mono>
                     <span>·</span>
-                    <span
+                    <button
+                      onClick={onViewConversation}
                       className="km-link"
-                      style={{ borderBottomStyle: 'dashed', color: 'var(--ember-deep)' }}
+                      style={{
+                        borderBottomStyle: 'dashed',
+                        color: 'var(--ember-deep)',
+                        background: 'transparent',
+                        border: 0,
+                        padding: 0,
+                        cursor: 'pointer',
+                      }}
+                      title={chat.claudeUrl ?? 'open project to find the chat'}
                     >
-                      view conversation
-                    </span>
+                      view conversation {chat.claudeUrl ? '↗' : '→'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -365,14 +438,30 @@ export const SkillProposal = () => {
                   on disk. The file will reflect rev {skill.revision + 1} immediately.
                 </div>
                 <div className="km-rule" style={{ margin: '10px 0 4px' }} />
-                <button
-                  className="km-btn"
-                  disabled
-                  style={{ justifyContent: 'center', padding: '10px 12px', opacity: 0.5 }}
-                  title="not wired"
-                >
-                  Edit then accept
-                </button>
+                {!editing ? (
+                  <button
+                    className="km-btn"
+                    disabled={!isPending}
+                    onClick={startEdit}
+                    style={{
+                      justifyContent: 'center',
+                      padding: '10px 12px',
+                      opacity: isPending ? 1 : 0.5,
+                      cursor: isPending ? 'pointer' : 'not-allowed',
+                    }}
+                    title="Open the proposed body in an editor before accepting"
+                  >
+                    <Icons.note size={13} /> Edit then accept
+                  </button>
+                ) : (
+                  <button
+                    className="km-btn km-btn-ghost"
+                    onClick={cancelEdit}
+                    style={{ justifyContent: 'center', padding: '10px 12px' }}
+                  >
+                    Cancel edit
+                  </button>
+                )}
                 <button
                   className="km-btn"
                   disabled={!isPending}

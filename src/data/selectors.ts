@@ -231,6 +231,13 @@ export const getProjectChats = (projectId: string): ProjectChats => {
   };
 };
 
+/** Recent non-stale conversations across all projects, newest first. */
+export const getRecentChats = (limit = 6): Chat[] =>
+  chats
+    .filter((c) => c.status === 'active' && !isStale(c.lastSeenAt))
+    .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
+    .slice(0, limit);
+
 // ─── Skills & proposals ────────────────────────────────────────────────────
 
 export const getSkillById = (id: string) => skills.find((s) => s.id === id);

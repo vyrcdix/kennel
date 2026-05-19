@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChatRow } from '../components/ChatRow';
 import { ChromeBar } from '../components/ChromeBar';
 import { KindIcon } from '../components/KindIcon';
 import { NavRail } from '../components/NavRail';
@@ -9,6 +10,7 @@ import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SectionHead } from '../components/SectionHead';
 import { Icons } from '../components/Icon';
+import { RegisterChatModal } from '../components/RegisterChatModal';
 import { ThermalPanel } from '../components/ThermalPanel';
 import { ThermalStamp } from '../components/ThermalStamp';
 import { crystallizeItem, fileItem, touchItem } from '../data/actions';
@@ -21,11 +23,16 @@ import {
   getPinnedProjects,
   getProjectById,
   getProjectLastTouched,
+  getRecentChats,
   getSettings,
 } from '../data/selectors';
 import { panelTemperature, temperatureForDate, type Temp } from '../lib/temperature';
 import { useFocusMode } from '../lib/focusMode';
-import { formatDashboardDate, formatRelative } from '../data/time';
+import {
+  formatDashboardDate,
+  formatRelative,
+  formatRelativeLoose,
+} from '../data/time';
 import { useStoreVersion } from '../data/store';
 import { openCreateProject } from '../lib/modals';
 import type { Item, Project } from '../data/types';
@@ -283,7 +290,9 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const v = useStoreVersion();
   const [focusMode, setFocusMode] = useFocusMode();
+  const [registerChatOpen, setRegisterChatOpen] = useState(false);
   const pinned = getPinnedProjects();
+  const recentChats = getRecentChats(4);
   const nextUp = getNextUp(undefined, 7);
   const inboxRollup = getInboxRollup();
   const settings = getSettings();
@@ -443,6 +452,76 @@ export const Dashboard = () => {
                   ))}
                 </ThermalPanel>
               )}
+
+              {/* Recent conversations — primary input surface per v0.3 */}
+              <section className="km-card" style={{ padding: 0 }}>
+                <SectionHead
+                  title="Recent conversations"
+                  right={
+                    <>
+                      <Mono>
+                        {recentChats.length} active across all threads
+                      </Mono>
+                      <button
+                        className="km-btn km-btn-ghost"
+                        style={{ padding: '3px 8px', fontSize: 12 }}
+                        onClick={() => setRegisterChatOpen(true)}
+                      >
+                        Register new
+                      </button>
+                    </>
+                  }
+                />
+                <div className="km-rule" />
+                {recentChats.length === 0 ? (
+                  <div style={{ padding: '14px 16px' }}>
+                    <Mono dim>no recent conversations · register one to start the trail</Mono>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: '6px 8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                    }}
+                  >
+                    {recentChats.map((c) => {
+                      const project = getProjectById(c.projectId);
+                      return (
+                        <div
+                          key={c.id}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '110px 1fr',
+                            alignItems: 'center',
+                            gap: 10,
+                          }}
+                        >
+                          {project ? (
+                            <ProjectTag slug={project.slug} />
+                          ) : (
+                            <span />
+                          )}
+                          <ChatRow
+                            tagline={c.tagline}
+                            since={formatRelativeLoose(c.lastSeenAt)}
+                            claudeUrl={c.claudeUrl}
+                            onClick={
+                              c.claudeUrl
+                                ? () =>
+                                    window.open(c.claudeUrl!, '_blank', 'noopener,noreferrer')
+                                : project
+                                  ? () => navigate(`/project/${project.slug}`)
+                                  : undefined
+                            }
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
             </div>
 
             {!focusMode && (
@@ -528,6 +607,11 @@ export const Dashboard = () => {
           </div>
         </main>
       </div>
+      <RegisterChatModal
+        open={registerChatOpen}
+        projectSlug={pinned[0]?.slug}
+        onClose={() => setRegisterChatOpen(false)}
+      />
     </div>
   );
 };

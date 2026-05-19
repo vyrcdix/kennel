@@ -2,16 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { Mono } from './Mono';
 import { ProjectTag } from './ProjectTag';
 import { registerChat, ValidationError } from '../data/actions';
+import { getProjects } from '../data/selectors';
 
 const TAGLINE_MAX = 140;
 
 export type RegisterChatModalProps = {
   open: boolean;
+  /** Default project; user can still change inside the modal. */
   projectSlug: string | undefined;
   onClose: () => void;
 };
 
 export const RegisterChatModal = ({ open, projectSlug, onClose }: RegisterChatModalProps) => {
+  const [slug, setSlug] = useState<string>(projectSlug ?? '');
   const [tagline, setTagline] = useState('');
   const [claudeUrl, setClaudeUrl] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -20,13 +23,14 @@ export const RegisterChatModal = ({ open, projectSlug, onClose }: RegisterChatMo
 
   useEffect(() => {
     if (!open) return;
+    setSlug(projectSlug ?? getProjects()[0]?.slug ?? '');
     setTagline('');
     setClaudeUrl('');
     setErrors({});
     setSaving(false);
     const t = setTimeout(() => taglineRef.current?.focus(), 30);
     return () => clearTimeout(t);
-  }, [open]);
+  }, [open, projectSlug]);
 
   useEffect(() => {
     if (!open) return;
@@ -37,15 +41,16 @@ export const RegisterChatModal = ({ open, projectSlug, onClose }: RegisterChatMo
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open || !projectSlug) return null;
+  if (!open) return null;
 
-  const canSubmit = tagline.trim().length > 0 && !saving;
+  const projects = getProjects();
+  const canSubmit = tagline.trim().length > 0 && slug.length > 0 && !saving;
   const submit = async () => {
     if (!canSubmit) return;
     setSaving(true);
     try {
       await registerChat({
-        projectSlug,
+        projectSlug: slug,
         tagline: tagline.trim(),
         claudeUrl: claudeUrl.trim() || undefined,
       });
@@ -103,13 +108,39 @@ export const RegisterChatModal = ({ open, projectSlug, onClose }: RegisterChatMo
             gap: 10,
           }}
         >
-          <ProjectTag slug={projectSlug} />
+          {slug && <ProjectTag slug={slug} />}
           <span className="km-display-sm" style={{ fontSize: 11 }}>
             REGISTER A CONVERSATION
           </span>
         </div>
 
         <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div className="km-display-sm" style={{ fontSize: 11, marginBottom: 5 }}>
+              THREAD
+            </div>
+            <select
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                fontFamily: 'var(--ff-sans)',
+                fontSize: 14,
+                background: 'var(--surface-1)',
+                color: 'var(--fg)',
+                border: '1px solid var(--line)',
+                borderRadius: 3,
+              }}
+            >
+              {projects.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.name} · {p.slug}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <div className="km-display-sm" style={{ fontSize: 11, marginBottom: 5 }}>
               TAGLINE

@@ -92,6 +92,7 @@ export const reviewProposal = (
   id: string,
   decision: ProposalDecision,
   note?: string,
+  bodyOverride?: string,
 ): SkillProposal => {
   if (!['accept', 'accept_write', 'reject'].includes(decision))
     throw validationError({ decision: 'invalid' });
@@ -102,16 +103,34 @@ export const reviewProposal = (
   if (!skill) throw notFound('skill', proposal.skillId);
 
   const now = nowIso();
+  // If the caller edited the body before accepting, persist the edit onto the
+  // proposal first so the activity log + diff history reflect what landed.
+  const edited =
+    typeof bodyOverride === 'string' && bodyOverride !== proposal.proposedBody;
+  if (edited) {
+    db.prepare(
+      `UPDATE skill_proposals SET proposed_body = ? WHERE id = ?`,
+    ).run(bodyOverride!, id);
+  }
+  const bodyToApply = edited ? bodyOverride! : proposal.proposedBody;
+
   if (decision === 'accept' || decision === 'accept_write') {
     db.prepare(
       `UPDATE skill_proposals
        SET status = 'accepted', decision_note = ?, reviewed_at = ?
        WHERE id = ?`,
     ).run(note ?? null, now, id);
-    updateSkillBody(db, skill.id, proposal.proposedBody, true);
+    updateSkillBody(db, skill.id, bodyToApply, true);
     logActivity(db, {
       projectId: skill.projectId ?? proposal.skillId,
-      verb: decision === 'accept_write' ? 'ACCEPTED · WROTE' : 'ACCEPTED',
+      verb:
+        edited && decision === 'accept_write'
+          ? 'ACCEPTED · EDITED · WROTE'
+          : edited
+            ? 'ACCEPTED · EDITED'
+            : decision === 'accept_write'
+              ? 'ACCEPTED · WROTE'
+              : 'ACCEPTED',
       target: `skill / ${skill.name}`,
       payload:
         decision === 'accept_write'
