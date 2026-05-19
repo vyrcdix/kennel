@@ -180,11 +180,50 @@ const TriageRowProposal = ({
   </div>
 );
 
+type KindFilter =
+  | 'idea'
+  | 'note'
+  | 'action'
+  | 'ref'
+  | 'doc'
+  | 'question'
+  | 'crystallization'
+  | 'proposal';
+
+const ITEM_KINDS: KindFilter[] = ['idea', 'note', 'action', 'ref', 'question'];
+
 export const TriageQueue = () => {
   const v = useStoreVersion();
   const projects = getProjects();
   const [projectFilter, setProjectFilter] = useState<string | undefined>(undefined);
-  const queue = useMemo(() => getTriageQueue(projectFilter), [projectFilter, v]);
+  const [kindFilter, setKindFilter] = useState<Set<KindFilter>>(() => new Set());
+  const rawQueue = useMemo(() => getTriageQueue(projectFilter), [projectFilter, v]);
+
+  const toggleKind = (k: KindFilter) =>
+    setKindFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  const clearKindFilter = () => setKindFilter(new Set());
+
+  const queue = useMemo(() => {
+    if (kindFilter.size === 0) return rawQueue;
+    return rawQueue.filter((entry) => {
+      if (entry.kind === 'item') return kindFilter.has(entry.item.kind as KindFilter);
+      return kindFilter.has('proposal');
+    });
+  }, [rawQueue, kindFilter]);
+
+  const kindCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const entry of rawQueue) {
+      const key = entry.kind === 'item' ? entry.item.kind : 'proposal';
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [rawQueue]);
 
   const inboxCount = queue.filter((q) => q.kind === 'item').length;
   const proposalCount = queue.filter((q) => q.kind === 'proposal').length;
@@ -268,11 +307,30 @@ export const TriageQueue = () => {
               ))}
               <span style={{ width: 18 }} />
               <span className="km-display-sm">kind</span>
-              <FilterChip label="idea" />
-              <FilterChip label="note" />
-              <FilterChip label="action" />
-              <FilterChip label="ref" />
-              <FilterChip label="proposal" active />
+              <FilterChip
+                label={kindFilter.size === 0 ? 'all' : `all · clear`}
+                active={kindFilter.size === 0}
+                onClick={clearKindFilter}
+              />
+              {ITEM_KINDS.map((k) => {
+                const count = kindCounts[k] ?? 0;
+                if (count === 0) return null;
+                return (
+                  <FilterChip
+                    key={k}
+                    label={`${k} · ${count}`}
+                    active={kindFilter.has(k)}
+                    onClick={() => toggleKind(k)}
+                  />
+                );
+              })}
+              {(kindCounts.proposal ?? 0) > 0 && (
+                <FilterChip
+                  label={`proposal · ${kindCounts.proposal}`}
+                  active={kindFilter.has('proposal')}
+                  onClick={() => toggleKind('proposal')}
+                />
+              )}
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Mono dim>shortcuts</Mono>

@@ -14,7 +14,12 @@ import {
   getDocComments,
   getProjectById,
 } from '../data/selectors';
-import { addComment, crystallizeItem, saveDoc } from '../data/actions';
+import {
+  addComment,
+  crystallizeItem,
+  saveDoc,
+  setDocPinned,
+} from '../data/actions';
 import { items } from '../data/fixtures';
 import { useStoreVersion } from '../data/store';
 import { renderBlocks } from '../lib/markdown';
@@ -36,6 +41,7 @@ const DocNotFound = ({ id }: { id: string }) => (
 const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>> }) => {
   useStoreVersion();
   const [draft, setDraft] = useState(doc.body);
+  const [previewOnly, setPreviewOnly] = useState(false);
   const dirty = draft !== doc.body;
 
   const saveTimer = useRef<number | undefined>(undefined);
@@ -87,11 +93,21 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               {project && <ProjectTag slug={project.slug} />}
               <Mono>{doc.filePath}</Mono>
-              {doc.pinned && (
-                <span className="km-pin">
-                  <Icons.pin size={12} />
-                </span>
-              )}
+              <button
+                onClick={() => void setDocPinned(doc.id, !doc.pinned)}
+                title={doc.pinned ? 'Unpin from project landing' : 'Pin to project landing'}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: '2px 4px',
+                  cursor: 'pointer',
+                  color: doc.pinned ? 'var(--blaze)' : 'var(--fg-faint)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                <Icons.pin size={12} />
+              </button>
             </div>
             <div
               style={{
@@ -126,11 +142,13 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
                     <Icons.star size={13} /> Promote to crystallization
                   </button>
                 )}
-                <button className="km-btn km-btn-ghost">
-                  <Icons.side size={13} /> Preview only
-                </button>
-                <button className="km-btn">
-                  <Icons.archive size={12} /> Archive
+                <button
+                  className={`km-btn km-btn-ghost${previewOnly ? ' km-btn-active' : ''}`}
+                  onClick={() => setPreviewOnly((v) => !v)}
+                  title={previewOnly ? 'Show source pane' : 'Hide source — preview only'}
+                  style={previewOnly ? { color: 'var(--ember-deep)' } : undefined}
+                >
+                  <Icons.side size={13} /> {previewOnly ? 'Show source' : 'Preview only'}
                 </button>
               </div>
             </div>
@@ -140,31 +158,33 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
             style={{
               flex: 1,
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr 320px',
+              gridTemplateColumns: previewOnly ? '1fr 320px' : '1fr 1fr 320px',
               overflow: 'hidden',
             }}
           >
             {/* Markdown source — editable */}
-            <textarea
-              className="km-scroll"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              spellCheck={false}
-              style={{
-                resize: 'none',
-                overflow: 'auto',
-                padding: '22px 26px',
-                borderRight: '1px solid var(--line)',
-                border: 0,
-                borderRadius: 0,
-                fontFamily: 'var(--ff-mono)',
-                fontSize: 12.5,
-                lineHeight: 1.7,
-                background: 'var(--surface-0)',
-                color: 'var(--fg)',
-                outline: 'none',
-              }}
-            />
+            {!previewOnly && (
+              <textarea
+                className="km-scroll"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                spellCheck={false}
+                style={{
+                  resize: 'none',
+                  overflow: 'auto',
+                  padding: '22px 26px',
+                  borderRight: '1px solid var(--line)',
+                  border: 0,
+                  borderRadius: 0,
+                  fontFamily: 'var(--ff-mono)',
+                  fontSize: 12.5,
+                  lineHeight: 1.7,
+                  background: 'var(--surface-0)',
+                  color: 'var(--fg)',
+                  outline: 'none',
+                }}
+              />
+            )}
 
             <div
               className="km-scroll"

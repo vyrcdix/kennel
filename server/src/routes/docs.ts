@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { DB } from '../db.js';
 import { asyncHandler, notFound, validationError } from '../errors.js';
-import { getDocById, updateDocBody } from '../services/doc.js';
+import { getDocById, setDocPinned, updateDocBody } from '../services/doc.js';
 
 export const docsRouter = (db: DB): Router => {
   const r = Router();
@@ -21,6 +21,15 @@ export const docsRouter = (db: DB): Router => {
       const body = req.body?.body;
       if (typeof body !== 'string') throw validationError({ body: 'required' });
       res.json(updateDocBody(db, req.params.id, body));
+    }),
+  );
+
+  r.patch(
+    '/:id/pin',
+    asyncHandler(async (req, res) => {
+      const pinned = req.body?.pinned;
+      if (typeof pinned !== 'boolean') throw validationError({ pinned: 'required' });
+      res.json(setDocPinned(db, req.params.id, pinned));
     }),
   );
 

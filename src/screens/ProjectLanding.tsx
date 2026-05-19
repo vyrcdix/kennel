@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { CrystallizationCard } from '../components/CrystallizationCard';
+import { EditProjectModal } from '../components/EditProjectModal';
+import { RegisterChatModal } from '../components/RegisterChatModal';
 import { NavRail } from '../components/NavRail';
 import { NextUpRow } from '../components/NextUpRow';
 import { NextStepsStrip } from '../components/NextStepsStrip';
@@ -183,6 +185,8 @@ export const ProjectLanding = () => {
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
   const [activeTab, setActiveTab] = useState<'items' | 'docs' | 'references'>('items');
   const [contextOpen, setContextOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [registerChatOpen, setRegisterChatOpen] = useState(false);
   const project = getProjectBySlug(slug);
   if (!project) return <ProjectNotFound slug={slug} />;
 
@@ -342,6 +346,13 @@ export const ProjectLanding = () => {
                 </button>
                 <button className="km-btn" onClick={openRunbook}>
                   <Icons.runbook size={12} /> Runbook
+                </button>
+                <button
+                  className="km-btn km-btn-ghost"
+                  onClick={() => setEditOpen(true)}
+                  title="Edit thread details"
+                >
+                  <Icons.cog size={13} />
                 </button>
               </div>
             </div>
@@ -620,6 +631,13 @@ export const ProjectLanding = () => {
                         {activeChats.length} active · {staleChats.length} stale
                       </Mono>
                       <ThermalStamp temp={chatsTemp} since={chatsSince} />
+                      <button
+                        className="km-btn km-btn-ghost"
+                        style={{ padding: '3px 8px', fontSize: 12 }}
+                        onClick={() => setRegisterChatOpen(true)}
+                      >
+                        Register new
+                      </button>
                     </>
                   }
                 />
@@ -637,7 +655,13 @@ export const ProjectLanding = () => {
                       key={c.id}
                       tagline={c.tagline}
                       since={formatRelativeLoose(c.lastSeenAt)}
-                      claudeUrl={!!c.claudeUrl}
+                      claudeUrl={c.claudeUrl}
+                      onClick={
+                        c.claudeUrl
+                          ? () =>
+                              window.open(c.claudeUrl!, '_blank', 'noopener,noreferrer')
+                          : undefined
+                      }
                     />
                   ))}
                   {staleChats.length > 0 && (
@@ -650,7 +674,13 @@ export const ProjectLanding = () => {
                           key={c.id}
                           tagline={c.tagline}
                           since={formatRelativeLoose(c.lastSeenAt)}
-                          claudeUrl={!!c.claudeUrl}
+                          claudeUrl={c.claudeUrl}
+                          onClick={
+                            c.claudeUrl
+                              ? () =>
+                                  window.open(c.claudeUrl!, '_blank', 'noopener,noreferrer')
+                              : undefined
+                          }
                           stale
                         />
                       ))}
@@ -776,6 +806,16 @@ export const ProjectLanding = () => {
           </div>
         </main>
       </div>
+      <EditProjectModal
+        open={editOpen}
+        project={project}
+        onClose={() => setEditOpen(false)}
+      />
+      <RegisterChatModal
+        open={registerChatOpen}
+        projectSlug={project.slug}
+        onClose={() => setRegisterChatOpen(false)}
+      />
     </div>
   );
 };

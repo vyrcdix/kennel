@@ -18,6 +18,7 @@ import {
 import { notify } from './store';
 import { api, ApiError, materializeDates } from './api';
 import type {
+  Chat,
   EntityComment,
   EntityType,
   FieldNotes,
@@ -144,6 +145,16 @@ export const saveDoc = async (id: string, body: string): Promise<void> => {
   notify();
 };
 
+export const setDocPinned = async (id: string, pinned: boolean): Promise<void> => {
+  const updated = await wrap(() =>
+    api.patch(`/api/docs/${id}/pin`, { pinned }),
+  );
+  const idx = docs.findIndex((d) => d.id === id);
+  if (idx >= 0) docs[idx] = updated as typeof docs[number];
+  refreshRecentActivity();
+  notify();
+};
+
 // ─── Comments ────────────────────────────────────────────────────────────
 
 export const addComment = async (
@@ -206,6 +217,20 @@ export const reviewProposal = async (
 
 // ─── Chats ───────────────────────────────────────────────────────────────
 
+export type RegisterChatInput = {
+  projectSlug: string;
+  tagline: string;
+  claudeUrl?: string;
+};
+
+export const registerChat = async (input: RegisterChatInput): Promise<Chat> => {
+  const created = await wrap(() => api.post<Chat>('/api/chats', input));
+  chats.push(created);
+  refreshRecentActivity();
+  notify();
+  return created;
+};
+
 export const touchChat = async (id: string): Promise<void> => {
   const updated = await wrap(() => api.post(`/api/chats/${id}/touch`));
   const idx = chats.findIndex((c) => c.id === id);
@@ -264,6 +289,30 @@ export const togglePin = async (projectId: string): Promise<void> => {
   notify();
 };
 
+export type UpdateProjectPatch = {
+  name?: string;
+  description?: string;
+  context?: string | null;
+  color?: ProjectColor | null;
+  pinned?: boolean;
+};
+
+export const updateProject = async (
+  projectId: string,
+  patch: UpdateProjectPatch,
+): Promise<Project | undefined> => {
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) return undefined;
+  const updated = await wrap(() =>
+    api.patch<Project>(`/api/projects/${project.slug}`, patch),
+  );
+  const idx = projects.findIndex((p) => p.id === projectId);
+  if (idx >= 0) projects[idx] = updated;
+  refreshRecentActivity();
+  notify();
+  return updated;
+};
+
 // ─── Runbooks ────────────────────────────────────────────────────────────
 
 export const updateRunbookUrl = async (projectId: string, url: string): Promise<void> => {
@@ -274,6 +323,32 @@ export const updateRunbookUrl = async (projectId: string, url: string): Promise<
   );
   const idx = runbooks.findIndex((r) => r.projectId === projectId);
   if (idx >= 0) runbooks[idx] = updated;
+  notify();
+};
+
+export type RunbookSection =
+  | 'prerequisites'
+  | 'setup'
+  | 'run'
+  | 'deploy'
+  | 'troubleshoot'
+  | 'notes';
+
+export const updateRunbookSection = async (
+  projectId: string,
+  section: RunbookSection,
+  value: string,
+): Promise<void> => {
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) return;
+  const updated = await wrap(() =>
+    api.patch<Runbook>(`/api/projects/${project.slug}/runbook`, {
+      [section]: value,
+    }),
+  );
+  const idx = runbooks.findIndex((r) => r.projectId === projectId);
+  if (idx >= 0) runbooks[idx] = updated;
+  refreshRecentActivity();
   notify();
 };
 

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
@@ -7,33 +7,21 @@ import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { Rev } from '../components/Rev';
 import { Icons } from '../components/Icon';
-import {
-  getProjectBySlug,
-  getRunbook,
-} from '../data/selectors';
+import { updateRunbookSection, updateRunbookUrl } from '../data/actions';
+import type { RunbookSection } from '../data/actions';
+import { getProjectBySlug, getRunbook } from '../data/selectors';
+import { useStoreVersion } from '../data/store';
 import { formatTime } from '../data/time';
 import { renderBlocks } from '../lib/markdown';
 
-const RunSection = ({ label, children }: { label: string; children: ReactNode }) => (
-  <section
-    style={{
-      display: 'flex',
-      gap: 32,
-      padding: '18px 0',
-      borderBottom: '1px solid var(--line)',
-    }}
-  >
-    <div style={{ width: 180, flex: '0 0 180px' }}>
-      <Label>{label}</Label>
-    </div>
-    <div style={{ flex: 1, maxWidth: 760 }}>{children}</div>
-  </section>
-);
-
-const renderSection = (md: string | undefined) =>
-  md
-    ? renderBlocks(md)
-    : <p className="km-body" style={{ margin: 0, color: 'var(--fg-muted)' }}>empty.</p>;
+const SECTIONS: { key: RunbookSection; label: string }[] = [
+  { key: 'prerequisites', label: 'Prerequisites' },
+  { key: 'setup', label: 'Setup' },
+  { key: 'run', label: 'Run' },
+  { key: 'deploy', label: 'Deploy' },
+  { key: 'troubleshoot', label: 'Troubleshoot' },
+  { key: 'notes', label: 'Notes' },
+];
 
 const NotFound = ({ slug }: { slug: string }) => (
   <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -48,12 +36,124 @@ const NotFound = ({ slug }: { slug: string }) => (
   </div>
 );
 
+type SectionRowProps = {
+  projectId: string;
+  section: RunbookSection;
+  label: string;
+  value: string | undefined;
+  editing: boolean;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+};
+
+const SectionRow = ({
+  projectId,
+  section,
+  label,
+  value,
+  editing,
+  onStartEdit,
+  onCancelEdit,
+}: SectionRowProps) => {
+  const [draft, setDraft] = useState<string>(value ?? '');
+  // Reset the draft each time we enter edit mode for this section.
+  // (Mount key in parent ensures this is fresh when `editing` flips.)
+  const save = async () => {
+    await updateRunbookSection(projectId, section, draft);
+    onCancelEdit();
+  };
+  return (
+    <section
+      style={{
+        display: 'flex',
+        gap: 32,
+        padding: '18px 0',
+        borderBottom: '1px solid var(--line)',
+      }}
+    >
+      <div style={{ width: 180, flex: '0 0 180px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Label>{label}</Label>
+          {!editing && (
+            <button
+              className="km-btn km-btn-ghost"
+              onClick={onStartEdit}
+              style={{ padding: '2px 6px', fontSize: 11 }}
+              title="Edit section"
+            >
+              edit
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ flex: 1, maxWidth: 760 }}>
+        {editing ? (
+          <>
+            <textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={Math.max(6, (draft.match(/\n/g)?.length ?? 0) + 2)}
+              style={{
+                width: '100%',
+                padding: '12px 14px',
+                background: 'var(--surface-1)',
+                border: '1px solid var(--line)',
+                borderRadius: 4,
+                fontFamily: 'var(--ff-mono)',
+                fontSize: 12.5,
+                lineHeight: 1.7,
+                color: 'var(--fg)',
+                resize: 'vertical',
+                minHeight: 160,
+                outline: 'none',
+              }}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  void save();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onCancelEdit();
+                }
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <button className="km-btn km-btn-primary" onClick={() => void save()}>
+                Save
+              </button>
+              <button className="km-btn km-btn-ghost" onClick={onCancelEdit}>
+                Cancel
+              </button>
+              <Mono dim>⌘↵ to save · esc to cancel</Mono>
+            </div>
+          </>
+        ) : value ? (
+          renderBlocks(value)
+        ) : (
+          <p className="km-body" style={{ margin: 0, color: 'var(--fg-muted)' }}>
+            empty — click edit to add.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+};
+
 export const RunbookView = () => {
+  useStoreVersion();
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
+  const [editing, setEditing] = useState<RunbookSection | null>(null);
   const project = getProjectBySlug(slug);
   const runbook = project ? getRunbook(project.id) : undefined;
   const [url, setUrl] = useState(runbook?.url ?? '');
   if (!project || !runbook) return <NotFound slug={slug} />;
+
+  const commitUrl = async () => {
+    if (url === (runbook.url ?? '')) return;
+    await updateRunbookUrl(project.id, url);
+  };
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -98,10 +198,21 @@ export const RunbookView = () => {
                   <Mono>updated {formatTime(runbook.updatedAt)} by C</Mono>
                 </div>
               </div>
-              <button className="km-btn">
+              <button
+                className="km-btn"
+                onClick={() => {
+                  const md = SECTIONS.map((s) => {
+                    const v = runbook[s.key];
+                    return v ? `## ${s.label}\n\n${v}\n` : '';
+                  })
+                    .filter(Boolean)
+                    .join('\n');
+                  void navigator.clipboard?.writeText(md);
+                }}
+                title="Copy runbook as markdown"
+              >
                 <Icons.copy size={12} /> Copy as md
               </button>
-              <button className="km-btn km-btn-primary">Edit</button>
             </div>
           </div>
 
@@ -123,6 +234,10 @@ export const RunbookView = () => {
                 className="km-input km-input-mono"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
+                onBlur={() => void commitUrl()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                }}
                 placeholder="https://… or http://localhost:port"
                 style={{ flex: 1 }}
               />
@@ -148,12 +263,18 @@ export const RunbookView = () => {
             </div>
           </section>
 
-          <RunSection label="Prerequisites">{renderSection(runbook.prerequisites)}</RunSection>
-          <RunSection label="Setup">{renderSection(runbook.setup)}</RunSection>
-          <RunSection label="Run">{renderSection(runbook.run)}</RunSection>
-          <RunSection label="Deploy">{renderSection(runbook.deploy)}</RunSection>
-          <RunSection label="Troubleshoot">{renderSection(runbook.troubleshoot)}</RunSection>
-          <RunSection label="Notes">{renderSection(runbook.notes)}</RunSection>
+          {SECTIONS.map((s) => (
+            <SectionRow
+              key={`${s.key}-${editing === s.key ? 'edit' : 'view'}-${runbook.revision}`}
+              projectId={project.id}
+              section={s.key}
+              label={s.label}
+              value={runbook[s.key]}
+              editing={editing === s.key}
+              onStartEdit={() => setEditing(s.key)}
+              onCancelEdit={() => setEditing(null)}
+            />
+          ))}
         </main>
       </div>
     </div>

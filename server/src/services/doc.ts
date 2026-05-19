@@ -131,6 +131,29 @@ export const createDoc = (db: DB, input: CreateDocInput, actor: 'craig' | 'claud
   return getDocById(db, id)!;
 };
 
+export const setDocPinned = (db: DB, id: string, pinned: boolean): Doc => {
+  const existing = getDocById(db, id);
+  if (!existing) throw notFound('doc', id);
+  if (existing.pinned === pinned) return existing;
+
+  const now = nowIso();
+  db.prepare('UPDATE docs SET pinned = ?, updated_at = ? WHERE id = ?').run(
+    pinned ? 1 : 0,
+    now,
+    id,
+  );
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'doc',
+    entityId: id,
+    verb: pinned ? 'PINNED' : 'UNPINNED',
+    target: `doc / ${existing.title}`,
+    actor: 'craig',
+    occurredAt: now,
+  });
+  return getDocById(db, id)!;
+};
+
 export const updateDocBody = (db: DB, id: string, body: string): Doc => {
   const existing = getDocById(db, id);
   if (!existing) throw notFound('doc', id);
