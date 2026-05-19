@@ -109,6 +109,30 @@ export const crystallizeItem = async (
   return updated;
 };
 
+export type ConvertTarget =
+  | 'idea'
+  | 'note'
+  | 'action'
+  | 'ref'
+  | 'question'
+  | 'doc'
+  | 'reference';
+
+export const convertItem = async (
+  id: string,
+  target: ConvertTarget,
+): Promise<Item> => {
+  const updated = await wrap(() =>
+    api.post<Item>(`/api/items/${id}/convert`, { target }),
+  );
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
+  // Side-effects (new doc / ref) reach us on the next SSE refetch.
+  refreshRecentActivity();
+  notify();
+  return updated;
+};
+
 export const fileItem = async (id: string): Promise<Item> => {
   const updated = await wrap(() => api.post<Item>(`/api/items/${id}/file`));
   const idx = items.findIndex((i) => i.id === id);

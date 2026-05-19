@@ -11,6 +11,7 @@ import SkillProposal from './screens/SkillProposal';
 import GlobalSearch from './screens/GlobalSearch';
 import SettingsScreen from './screens/SettingsScreen';
 import ComponentsBoard from './screens/ComponentsBoard';
+import WeeklyReview from './screens/WeeklyReview';
 import { CaptureModal } from './components/CaptureModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
 import {
@@ -18,6 +19,7 @@ import {
   useCaptureModal,
   useCreateProjectModal,
 } from './lib/modals';
+import { toggleFocusMode } from './lib/focusMode';
 
 const GlobalShortcuts = () => {
   const navigate = useNavigate();
@@ -32,6 +34,11 @@ const GlobalShortcuts = () => {
       if (mod && e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         openCreateProject();
+        return;
+      }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        toggleFocusMode();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -74,6 +81,7 @@ export const App = () => (
       <Route path="/proposal/:id" element={<SkillProposal />} />
       <Route path="/search" element={<GlobalSearch />} />
       <Route path="/settings" element={<SettingsScreen />} />
+      <Route path="/review/weekly" element={<WeeklyReview />} />
       <Route path="/components" element={<ComponentsBoard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

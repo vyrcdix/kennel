@@ -289,6 +289,93 @@ export const listAging = (db: DB, thresholdDays: number, projectId?: string): It
   return rows.map(rowToItem);
 };
 
+const CONVERTIBLE_KINDS: ItemKind[] = [
+  'idea',
+  'note',
+  'action',
+  'ref',
+  'question',
+];
+
+export type ConvertTarget = ItemKind | 'doc' | 'reference';
+
+/** Convert an item to another shape. Same-kind targets are no-ops.
+ *  - Kind targets (idea/note/action/ref/question): just flip `kind` and move
+ *    to 'active' if currently in inbox, so the item leaves the sort queue.
+ *  - target='doc': caller is expected to create the Doc separately and pass
+ *    its id via opts.linkedDocId; we set the item's docId and dismiss it.
+ *  - target='reference': same idea via opts.linkedReferenceId.
+ *
+ *  Cross-entity creation is wired in the route handler so the doc / ref
+ *  services own their own activity log + content writes. */
+export const convertItem = (
+  db: DB,
+  id: string,
+  target: ConvertTarget,
+  opts: { linkedDocId?: string; linkedReferenceId?: string } = {},
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const item = getItemById(db, id);
+  if (!item) throw notFound('item', id);
+
+  const now = nowIso();
+
+  if (target === 'doc') {
+    if (!opts.linkedDocId) throw validationError({ linkedDocId: 'required' });
+    db.prepare(
+      `UPDATE items SET kind = 'doc', doc_id = ?, state = 'dismissed', updated_at = ?, last_touched_at = ? WHERE id = ?`,
+    ).run(opts.linkedDocId, now, now, id);
+    logActivity(db, {
+      projectId: item.projectId,
+      entityType: 'item',
+      entityId: id,
+      verb: 'CONVERTED',
+      target: `${item.kind} → doc / ${item.title}`,
+      actor,
+      occurredAt: now,
+    });
+    return getItemById(db, id)!;
+  }
+
+  if (target === 'reference') {
+    if (!opts.linkedReferenceId)
+      throw validationError({ linkedReferenceId: 'required' });
+    db.prepare(
+      `UPDATE items SET kind = 'ref', reference_id = ?, state = 'dismissed', updated_at = ?, last_touched_at = ? WHERE id = ?`,
+    ).run(opts.linkedReferenceId, now, now, id);
+    logActivity(db, {
+      projectId: item.projectId,
+      entityType: 'item',
+      entityId: id,
+      verb: 'CONVERTED',
+      target: `${item.kind} → reference / ${item.title}`,
+      actor,
+      occurredAt: now,
+    });
+    return getItemById(db, id)!;
+  }
+
+  // Same-entity kind change.
+  if (!CONVERTIBLE_KINDS.includes(target)) {
+    throw validationError({ target: 'unsupported_kind' });
+  }
+  if (item.kind === target) return item;
+  const newState = item.state === 'inbox' ? 'active' : item.state;
+  db.prepare(
+    `UPDATE items SET kind = ?, state = ?, updated_at = ?, last_touched_at = ? WHERE id = ?`,
+  ).run(target, newState, now, now, id);
+  logActivity(db, {
+    projectId: item.projectId,
+    entityType: 'item',
+    entityId: id,
+    verb: 'CONVERTED',
+    target: `${item.kind} → ${target} / ${item.title}`,
+    actor,
+    occurredAt: now,
+  });
+  return getItemById(db, id)!;
+};
+
 /** Items that are either kind=crystallization OR state=crystallized. */
 export const listCrystallizations = (db: DB, projectId?: string): Item[] => {
   const sql = `

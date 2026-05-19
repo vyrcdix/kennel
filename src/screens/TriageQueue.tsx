@@ -11,7 +11,7 @@ import {
   getTriageQueue,
   type TriageEntry,
 } from '../data/selectors';
-import { transitionItem } from '../data/actions';
+import { convertItem, transitionItem, type ConvertTarget } from '../data/actions';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
 import type { Item, ItemState, Project } from '../data/types';
@@ -39,18 +39,34 @@ const FilterChip = ({
   </span>
 );
 
+const CONVERT_OPTIONS: { target: ConvertTarget; label: string }[] = [
+  { target: 'idea', label: 'idea' },
+  { target: 'note', label: 'note' },
+  { target: 'action', label: 'action' },
+  { target: 'ref', label: 'ref' },
+  { target: 'question', label: 'question' },
+  { target: 'doc', label: 'doc' },
+  { target: 'reference', label: 'reference' },
+];
+
 const TriageRowItem = ({
   item,
   project,
   selected,
+  convertOpen,
   onClick,
   onAction,
+  onToggleConvert,
+  onConvert,
 }: {
   item: Item;
   project: Project;
   selected: boolean;
+  convertOpen: boolean;
   onClick: () => void;
   onAction: (to: ItemState) => void;
+  onToggleConvert: () => void;
+  onConvert: (target: ConvertTarget) => void;
 }) => {
   const stop = (e: React.MouseEvent) => e.stopPropagation();
   return (
@@ -117,7 +133,11 @@ const TriageRowItem = ({
           <button className="km-btn" onClick={(e) => { stop(e); onAction('reflecting'); }}>
             Set aside <span className="km-kbd" style={{ marginLeft: 4 }}>P</span>
           </button>
-          <button className="km-btn" onClick={stop} title="convert (not wired)">
+          <button
+            className={`km-btn${convertOpen ? ' km-btn-active' : ''}`}
+            onClick={(e) => { stop(e); onToggleConvert(); }}
+            style={convertOpen ? { color: 'var(--ember-deep)' } : undefined}
+          >
             Convert <span className="km-kbd" style={{ marginLeft: 4 }}>C</span>
           </button>
           <button className="km-btn" onClick={(e) => { stop(e); onAction('crystallized'); }}>
@@ -129,6 +149,35 @@ const TriageRowItem = ({
           >
             Let go <span className="km-kbd" style={{ marginLeft: 4 }}>X</span>
           </button>
+        </div>
+      )}
+      {selected && convertOpen && (
+        <div
+          onClick={stop}
+          style={{
+            marginTop: 10,
+            marginLeft: 22,
+            padding: '8px 10px',
+            background: 'var(--surface-1)',
+            border: '1px solid var(--line)',
+            borderRadius: 3,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Mono dim>convert to →</Mono>
+          {CONVERT_OPTIONS.filter((o) => o.target !== item.kind).map((o) => (
+            <button
+              key={o.target}
+              className="km-btn km-btn-ghost"
+              onClick={() => onConvert(o.target)}
+              style={{ padding: '3px 8px', fontSize: 11.5 }}
+            >
+              {o.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -229,6 +278,7 @@ export const TriageQueue = () => {
   const proposalCount = queue.filter((q) => q.kind === 'proposal').length;
 
   const [selectedId, setSelectedId] = useState<string>('');
+  const [convertOpen, setConvertOpen] = useState(false);
 
   // Selected item leaves the queue after an action; reselect the first remaining.
   useEffect(() => {
@@ -269,11 +319,26 @@ export const TriageQueue = () => {
         case 'p': if (selected) transitionItem(selected.item.id, 'reflecting'); break;
         case 'd': if (selected) transitionItem(selected.item.id, 'crystallized'); break;
         case 'x': if (selected) transitionItem(selected.item.id, 'dismissed'); break;
+        case 'c': if (selected) setConvertOpen((v) => !v); break;
+        case 'escape':
+          if (convertOpen) setConvertOpen(false);
+          break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [queue, selectedId, selected]);
+  }, [queue, selectedId, selected, convertOpen]);
+
+  // Close the popover whenever the selection changes.
+  useEffect(() => {
+    setConvertOpen(false);
+  }, [selectedId]);
+
+  const doConvert = (target: ConvertTarget) => {
+    if (!selected) return;
+    setConvertOpen(false);
+    void convertItem(selected.item.id, target);
+  };
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -338,8 +403,9 @@ export const TriageQueue = () => {
                 <span className="km-kbd">K</span>
                 <span className="km-kbd">A</span>
                 <span className="km-kbd">P</span>
-                <span className="km-kbd">X</span>
+                <span className="km-kbd">C</span>
                 <span className="km-kbd">D</span>
+                <span className="km-kbd">X</span>
               </div>
             </div>
           </div>
@@ -371,8 +437,15 @@ export const TriageQueue = () => {
                       item={entry.item}
                       project={entry.project}
                       selected={entry.item.id === selectedId}
+                      convertOpen={convertOpen && entry.item.id === selectedId}
                       onClick={() => setSelectedId(entry.item.id)}
                       onAction={(to) => transitionItem(entry.item.id, to)}
+                      onToggleConvert={() => setConvertOpen((v) => !v)}
+                      onConvert={(target) => {
+                        setSelectedId(entry.item.id);
+                        setConvertOpen(false);
+                        void convertItem(entry.item.id, target);
+                      }}
                     />
                   );
                 }
@@ -435,19 +508,27 @@ export const TriageQueue = () => {
                   >
                     <Label style={{ marginBottom: 8 }}>Convert to</Label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      <button className="km-btn">
-                        <Icons.check size={12} /> action
-                      </button>
-                      <button className="km-btn">
-                        <Icons.doc size={12} /> doc
-                      </button>
-                      <button className="km-btn">
-                        <Icons.note size={12} /> note
-                      </button>
-                      <button className="km-btn">
-                        <Icons.link size={12} /> reference
-                      </button>
+                      {CONVERT_OPTIONS.filter((o) => o.target !== selected.item.kind).map((o) => (
+                        <button
+                          key={o.target}
+                          className="km-btn"
+                          onClick={() => doConvert(o.target)}
+                        >
+                          {o.target === 'doc' ? (
+                            <Icons.doc size={12} />
+                          ) : o.target === 'reference' ? (
+                            <Icons.link size={12} />
+                          ) : (
+                            <Icons.check size={12} />
+                          )}{' '}
+                          {o.label}
+                        </button>
+                      ))}
                     </div>
+                    <Mono dim>
+                      idea/note/action/ref/question swap kinds in place · doc & reference create
+                      a new entity and dismiss the source
+                    </Mono>
                   </div>
                 </>
               ) : (

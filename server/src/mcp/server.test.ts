@@ -22,6 +22,7 @@ const EXPECTED_TOOLS = [
   'touch_item',
   'crystallize_item',
   'file_item',
+  'convert_item',
   'list_queue',
   'list_next_up',
   'list_aging',

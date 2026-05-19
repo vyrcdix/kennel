@@ -194,87 +194,16 @@ export const SettingsScreen = () => {
                   }
                 />
                 <SettingsRow
-                  label="Accent emphasis"
-                  hint="Kennel leans on moss for structure and ember for action. Dialing this up biases ember toward more surfaces; down biases moss."
-                  control={
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        maxWidth: 360,
-                      }}
-                    >
-                      <Mono dim>quiet</Mono>
-                      <div
-                        style={{
-                          flex: 1,
-                          height: 4,
-                          background: 'var(--surface-2)',
-                          borderRadius: 2,
-                          position: 'relative',
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '40%',
-                            height: '100%',
-                            background: 'var(--ember)',
-                            borderRadius: 2,
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: -4,
-                            left: '40%',
-                            width: 12,
-                            height: 12,
-                            borderRadius: '50%',
-                            background: 'var(--ember)',
-                            transform: 'translateX(-50%)',
-                          }}
-                        />
-                      </div>
-                      <Mono dim>warm</Mono>
-                    </div>
-                  }
-                />
-                <SettingsRow
-                  label="Monospace family"
-                  hint="Used for slugs, timestamps, revisions, runbook commands."
-                  control={
-                    <div style={{ display: 'inline-flex' }}>
-                      <SegBtn label="JetBrains Mono" active />
-                      <SegBtn label="IBM Plex Mono" />
-                      <SegBtn label="Berkeley Mono" />
-                    </div>
-                  }
-                />
-                <SettingsRow
-                  label="Relative timestamps"
-                  hint="Within 24h, show '2h ago'. Beyond, show absolute. Recommend leaving on."
-                  control={<Toggle on />}
-                />
-                <SettingsRow
-                  label="Focus mode shortcut"
-                  hint="Hides everything except Next Up and a single project."
+                  label="Focus mode"
+                  hint="Hides the pinned-project rail and side panels on the dashboard so only the In focus list is visible."
                   control={
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className="km-kbd">⌘</span>
                       <span className="km-kbd">⇧</span>
                       <span className="km-kbd">F</span>
-                      <Mono dim>change</Mono>
+                      <Mono dim>toggle</Mono>
                     </div>
                   }
-                />
-                <SettingsRow
-                  label="Reduce motion"
-                  hint="Disables the 200–300ms ease on state changes."
-                  control={<Toggle on={false} />}
                 />
               </div>
                 </>
@@ -390,41 +319,78 @@ export const SettingsScreen = () => {
                 </>
               )}
 
-              {section === 'mcp' && (
-                <>
-              <div className="km-display-lg" style={{ marginBottom: 4 }}>
-                MCP connection
-              </div>
-              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
-                How Claude clients reach this Kennel. Rotate the token any time a non-Craig surface gets a copy.
-              </div>
-              <div className="km-card" style={{ padding: '12px 14px' }}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '120px 1fr 80px',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}
-                >
-                  <Mono dim>url</Mono>
-                  <Mono>https://kennel.dixon.run/mcp</Mono>
-                  <span className="km-link" style={{ textAlign: 'right', fontSize: 12 }}>copy</span>
-                  <Mono dim>token</Mono>
-                  <Mono>knl_sk_••••••••••••••••mZ4q</Mono>
-                  <span
-                    className="km-link"
-                    style={{ textAlign: 'right', fontSize: 12, color: 'var(--ember-deep)' }}
-                  >
-                    rotate
-                  </span>
-                  <Mono dim>last reach</Mono>
-                  <Mono>14:32 from claude-desktop / mac · ok</Mono>
-                  <span />
-                </div>
-              </div>
-                </>
-              )}
+              {section === 'mcp' && (() => {
+                const mcpUrl =
+                  typeof window !== 'undefined'
+                    ? `${window.location.protocol}//${window.location.hostname}:8421/mcp`
+                    : 'http://127.0.0.1:8421/mcp';
+                const tokenSet = false; // KENNEL_MCP_TOKEN is unset in dev
+                return (
+                  <>
+                    <div className="km-display-lg" style={{ marginBottom: 4 }}>
+                      MCP connection
+                    </div>
+                    <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
+                      How Claude clients reach this Kennel. Token rotation happens via
+                      the <Mono>KENNEL_MCP_TOKEN</Mono> env var; the UI flow lands when
+                      auth is wired (backlog #1).
+                    </div>
+                    <div className="km-card" style={{ padding: '12px 14px' }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '120px 1fr 80px',
+                          alignItems: 'center',
+                          gap: 12,
+                        }}
+                      >
+                        <Mono dim>url</Mono>
+                        <Mono>{mcpUrl}</Mono>
+                        <button
+                          className="km-link"
+                          onClick={() => void navigator.clipboard?.writeText(mcpUrl)}
+                          style={{
+                            textAlign: 'right',
+                            fontSize: 12,
+                            border: 0,
+                            background: 'transparent',
+                            cursor: 'pointer',
+                            color: 'var(--ember-deep)',
+                          }}
+                          title="Copy MCP URL"
+                        >
+                          copy
+                        </button>
+                        <Mono dim>token</Mono>
+                        <Mono>{tokenSet ? 'knl_sk_••••••••••••••••' : 'none · dev'}</Mono>
+                        <span
+                          className="km-link"
+                          style={{
+                            textAlign: 'right',
+                            fontSize: 12,
+                            color: 'var(--fg-faint)',
+                            cursor: 'not-allowed',
+                          }}
+                          title="Not wired — set KENNEL_MCP_TOKEN env var on the server to enable bearer auth"
+                        >
+                          rotate
+                        </span>
+                        <Mono dim>transport</Mono>
+                        <Mono>streamable http · session-keyed</Mono>
+                        <span />
+                      </div>
+                    </div>
+                    <div
+                      className="km-body-sm"
+                      style={{ color: 'var(--fg-muted)', marginTop: 12, lineHeight: 1.55, maxWidth: 600 }}
+                    >
+                      Register this URL in Claude Desktop or Claude Code via{' '}
+                      <Mono>{'{"mcpServers":{"kennel":{"url":"…"}}}'}</Mono>. See{' '}
+                      <Mono>docs/mcp-setup.md</Mono> for the full setup walkthrough.
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </main>

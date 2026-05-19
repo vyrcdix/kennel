@@ -24,6 +24,7 @@ import {
   getSettings,
 } from '../data/selectors';
 import { panelTemperature, temperatureForDate, type Temp } from '../lib/temperature';
+import { useFocusMode } from '../lib/focusMode';
 import { formatDashboardDate, formatRelative } from '../data/time';
 import { useStoreVersion } from '../data/store';
 import { openCreateProject } from '../lib/modals';
@@ -281,6 +282,7 @@ const NoProjectsState = () => (
 export const Dashboard = () => {
   const navigate = useNavigate();
   const v = useStoreVersion();
+  const [focusMode, setFocusMode] = useFocusMode();
   const pinned = getPinnedProjects();
   const nextUp = getNextUp(undefined, 7);
   const inboxRollup = getInboxRollup();
@@ -338,40 +340,59 @@ export const Dashboard = () => {
               <Mono>{formatDashboardDate()}</Mono>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button className="km-btn">
-                <Icons.eye size={12} /> Focus mode
+              <button
+                className={`km-btn${focusMode ? ' km-btn-active' : ''}`}
+                onClick={() => setFocusMode(!focusMode)}
+                title="⌘⇧F · hide side panels and project rail"
+                style={focusMode ? { color: 'var(--ember-deep)' } : undefined}
+              >
+                <Icons.eye size={12} /> {focusMode ? 'Focus on' : 'Focus mode'}
               </button>
-              <button className="km-btn">
+              <button
+                className="km-btn"
+                onClick={() => navigate('/review/weekly')}
+                title="A 7-day sweep of what got captured, crystallized, picked up, and let go"
+              >
                 <Icons.filter size={12} /> Weekly review
               </button>
             </div>
           </div>
 
           {/* Project rail */}
-          <Label style={{ marginBottom: 10 }}>Pinned projects</Label>
-          <div
-            className="km-scroll"
-            style={{
-              display: 'flex',
-              gap: 10,
-              overflowX: 'auto',
-              paddingBottom: 16,
-              marginBottom: 18,
-            }}
-          >
-            {pinned.map((p, i) => (
-              <ProjectCard
-                key={p.id}
-                project={p}
-                active={i === 0}
-                temp={temperatureForDate(getProjectLastTouched(p.id), settings)}
-                counts={countsById.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 }}
-              />
-            ))}
-          </div>
+          {!focusMode && (
+            <>
+              <Label style={{ marginBottom: 10 }}>Pinned projects</Label>
+              <div
+                className="km-scroll"
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  overflowX: 'auto',
+                  paddingBottom: 16,
+                  marginBottom: 18,
+                }}
+              >
+                {pinned.map((p, i) => (
+                  <ProjectCard
+                    key={p.id}
+                    project={p}
+                    active={i === 0}
+                    temp={temperatureForDate(getProjectLastTouched(p.id), settings)}
+                    counts={countsById.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Next up + side panels */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: focusMode ? '1fr' : '1.6fr 1fr',
+              gap: 24,
+            }}
+          >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <ThermalPanel temp={inFocusTemp}>
                 <SectionHead
@@ -424,6 +445,7 @@ export const Dashboard = () => {
               )}
             </div>
 
+            {!focusMode && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Inbox roll-up */}
               <section className="km-card" style={{ padding: 0 }}>
@@ -502,6 +524,7 @@ export const Dashboard = () => {
                 )}
               </section>
             </div>
+            )}
           </div>
         </main>
       </div>

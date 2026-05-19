@@ -2,16 +2,20 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DB } from '../../db.js';
 import {
+  convertItem,
   createItem,
   crystallizeItem,
   fileItem,
+  getItemById,
   listNextUp,
   listQueue,
   touchItem,
   transitionItem,
 } from '../../services/item.js';
 import { listProposals } from '../../services/proposal.js';
-import { getProjectBySlug } from '../../services/project.js';
+import { getProjectById, getProjectBySlug } from '../../services/project.js';
+import { createDoc } from '../../services/doc.js';
+import { createReference } from '../../services/reference.js';
 import { notFound } from '../../errors.js';
 import { errorResult, jsonResult } from '../result.js';
 
@@ -158,6 +162,53 @@ export const registerItemTools = (server: McpServer, db: DB) => {
     async ({ itemId }) => {
       try {
         return jsonResult(fileItem(db, itemId, 'claude'));
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  server.tool(
+    'convert_item',
+    'Convert an item into another shape. Targets idea/note/action/ref/question change the item\'s kind in place (and move it from inbox to active). Targets doc/reference create a new entity, link it from the source item, and dismiss the source.',
+    {
+      itemId: z.string(),
+      target: z.enum(['idea', 'note', 'action', 'ref', 'question', 'doc', 'reference']),
+    },
+    async ({ itemId, target }) => {
+      try {
+        const item = getItemById(db, itemId);
+        if (!item) throw notFound('item', itemId);
+        if (target === 'doc') {
+          const project = getProjectById(db, item.projectId);
+          if (!project) throw notFound('project', item.projectId);
+          const doc = createDoc(db, {
+            projectSlug: project.slug,
+            title: item.title,
+            body: item.body
+              ? item.body
+              : `# ${item.title}\n\nPromoted from item.\n`,
+          }, 'claude');
+          return jsonResult(
+            convertItem(db, itemId, 'doc', { linkedDocId: doc.id }, 'claude'),
+          );
+        }
+        if (target === 'reference') {
+          const project = getProjectById(db, item.projectId);
+          if (!project) throw notFound('project', item.projectId);
+          const looksLikeUrl =
+            item.body && /^https?:\/\//.test(item.body.trim().split(/\s/)[0]);
+          const reference = createReference(db, {
+            projectSlug: project.slug,
+            label: item.title,
+            url: looksLikeUrl ? item.body!.trim().split(/\s/)[0] : undefined,
+            notes: looksLikeUrl ? undefined : item.body ?? undefined,
+          }, 'claude');
+          return jsonResult(
+            convertItem(db, itemId, 'reference', { linkedReferenceId: reference.id }, 'claude'),
+          );
+        }
+        return jsonResult(convertItem(db, itemId, target, {}, 'claude'));
       } catch (err) {
         return errorResult(err);
       }
