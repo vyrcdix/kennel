@@ -190,16 +190,7 @@ export const GlobalSearch = () => {
                   <Mono>{group.count} matches</Mono>
                   <span style={{ flex: 1 }} />
                   {group.count > group.rows.length && (
-                    <span
-                      className="km-link"
-                      style={{
-                        fontSize: 12,
-                        borderBottomStyle: 'dashed',
-                        color: 'var(--ember-deep)',
-                      }}
-                    >
-                      see all
-                    </span>
+                    <Mono dim>+{group.count - group.rows.length} more · refine query</Mono>
                   )}
                 </div>
                 {group.rows.map((r, i) => (
