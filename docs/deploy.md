@@ -193,10 +193,30 @@ ReadWritePaths=/opt/kennel
 [Install]
 WantedBy=multi-user.target
 EOF
+```
 
-# paste your token in
+Now paste your token into the file. The simplest, history-safe way is
+`nano`:
+
+```sh
+nano /etc/systemd/system/kennel.service
+# find the line: Environment=KENNEL_MCP_TOKEN=PASTE_TOKEN_HERE
+# replace PASTE_TOKEN_HERE with your token
+# Ctrl+O, Enter, Ctrl+X
+```
+
+Or if you'd rather scripts (token will live in bash_history — fine if
+that's your own shell, not fine on a shared box):
+
+```sh
+YOUR_TOKEN=<paste-it-here>
 sed -i "s/PASTE_TOKEN_HERE/$YOUR_TOKEN/" /etc/systemd/system/kennel.service
+unset YOUR_TOKEN
+```
 
+Then enable and start:
+
+```sh
 systemctl daemon-reload
 systemctl enable --now kennel
 systemctl status kennel    # should show 'active (running)'
