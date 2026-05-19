@@ -1,7 +1,14 @@
-# Deploying Kennel
+# Deploying Steep
 
-Kennel is single-user. This doc gives you the recommended path
-(Hetzner + Tailscale + Caddy) plus alternates and rollback notes.
+> **Brand vs. codename.** The repo, env vars (`KENNEL_MCP_TOKEN`),
+> systemd unit (`kennel.service`), and DB file (`kennel.db`) keep the
+> internal codename `kennel`. **Steep** is the user-facing brand: the
+> in-app wordmark, the public domain `steep.work`, and the language
+> in this doc.
+
+Steep is single-user. This doc gives you the recommended path
+(Hetzner + Tailscale + Caddy at `steep.work`) plus alternates and
+rollback notes.
 
 > **TL;DR.** A ~€5/month box, Tailscale for network, a systemd unit
 > that runs the Node server, and Caddy fronting it on the Tailscale
@@ -16,10 +23,10 @@ Kennel is single-user. This doc gives you the recommended path
    ┌─ phone / claude.ai / laptop ─┐
    │       (Tailscale client)     │
    └───────────────┬──────────────┘
-                   │  HTTPS via Tailscale
+                   │  HTTPS
                    ▼
    ┌──────────────────────────────────────┐
-   │  kennel.<your-tailnet>.ts.net        │
+   │           steep.work                 │
    │  ┌──────── Caddy (443) ──────────┐   │
    │  │  reverse_proxy → 127.0.0.1:8421 │ │
    │  └────────────────┬─────────────┘   │
@@ -50,7 +57,13 @@ Kennel is single-user. This doc gives you the recommended path
 
 ---
 
-## Path A — Hetzner + Tailscale + Caddy (recommended)
+## Path A — Hetzner + Tailscale + Caddy (private)
+
+> **If you have `steep.work` (or any domain) registered, skip to
+> [Path B](#path-b--public-domain--caddy).** Path B uses the real
+> domain end-to-end and is the simplest path when you already have
+> DNS. Path A here stays private to your tailnet — useful when you
+> want to keep the server off the public internet entirely.
 
 ### 1. Provision the VPS
 
@@ -315,7 +328,9 @@ fix it locally, push a hotfix, redeploy.
 
 ## Path B — Public domain + Caddy
 
-Identical to Path A except:
+Use this when you have a real domain (e.g. `steep.work`). Same VPS,
+same systemd unit, same backups as Path A — only the network layer
+changes.
 
 1. Skip the Tailscale `bind`. Caddy listens on `:443`.
 2. Open the firewall:
@@ -323,19 +338,31 @@ Identical to Path A except:
    ufw allow 80
    ufw allow 443
    ```
-3. Point a DNS `A` record (`kennel.your-domain.com`) at the VPS IP.
+3. Point a DNS `A` record (`steep.work`) at the VPS IP. (At Porkbun:
+   Domain Management → DNS Records → add `A · @ · <your-ip>`. Set TTL
+   to 600 while you're iterating, raise to 3600 once stable.)
 4. Use a public Caddyfile:
    ```caddy
-   kennel.your-domain.com {
+   steep.work {
        reverse_proxy 127.0.0.1:8421 {
            flush_interval -1
        }
    }
    ```
+   Caddy issues the Let's Encrypt cert automatically on first request.
 5. Set a long `KENNEL_MCP_TOKEN` — it's the only thing between the
-   public internet and your data.
+   public internet and your data. (The env var keeps the codename;
+   the value is what protects you.)
 
-Domains: $12/yr at Cloudflare Registrar or Porkbun.
+Test from off-network:
+```sh
+curl -s -o /dev/null -w "%{http_code}\n" https://steep.work/api/projects \
+  -H "Authorization: Bearer $TOKEN"
+# expect 200
+```
+
+Then point Claude Desktop / Code at `https://steep.work/mcp` with the
+bearer header.
 
 ---
 

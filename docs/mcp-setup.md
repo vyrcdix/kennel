@@ -1,6 +1,11 @@
-# Registering the Kennel MCP server with Claude
+# Registering the Steep MCP server with Claude
 
-Kennel exposes a Model Context Protocol server at
+> Internal codename: `kennel`. The repo, env vars (`KENNEL_MCP_TOKEN`),
+> and DB file (`kennel.db`) all keep that name. **Steep** is the brand
+> the user sees: the in-app wordmark, the public URL
+> (`steep.work`), and the language in this doc.
+
+Steep exposes a Model Context Protocol server at
 `http://127.0.0.1:8421/mcp` over the **Streamable HTTP** transport. Any
 Claude client that speaks MCP can connect: Claude Desktop, Claude Code,
 Claude Mobile.
@@ -98,7 +103,7 @@ Clients then pass the token in their config:
 {
   "mcpServers": {
     "kennel": {
-      "url": "https://kennel.your-tailnet.ts.net/mcp",
+      "url": "https://steep.work/mcp",
       "headers": {
         "Authorization": "Bearer knl_sk_<long-random-string>"
       }

@@ -37,7 +37,7 @@ export const ChromeBar = ({
         >
           <span className="km-logo-slot">LOGO</span>
           <span className="km-display-md" style={{ fontSize: 16, letterSpacing: '.08em' }}>
-            KENNEL
+            STEEP
           </span>
         </div>
         {projectChip}

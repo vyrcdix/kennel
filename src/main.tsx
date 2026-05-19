@@ -30,7 +30,7 @@ const BootSplash = ({ error }: { error?: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <span className="km-logo-slot">LOGO</span>
       <span className="km-display-md" style={{ fontSize: 16, letterSpacing: '.08em' }}>
-        KENNEL
+        STEEP
       </span>
     </div>
     <span className="km-mono-sm" style={{ color: 'var(--fg-muted)' }}>

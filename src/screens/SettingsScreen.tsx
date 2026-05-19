@@ -216,7 +216,7 @@ export const SettingsScreen = () => {
               </div>
               <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
                 How long an item drifts before it shows up on the aging board, and whether
-                Kennel ever nudges you to file durable outcomes.
+                Steep ever nudges you to file durable outcomes.
               </div>
               <div style={{ borderBottom: '1px solid var(--line)' }}>
                 <SettingsRow
@@ -331,7 +331,7 @@ export const SettingsScreen = () => {
                       MCP connection
                     </div>
                     <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
-                      How Claude clients reach this Kennel. Token rotation happens via
+                      How Claude clients reach this Steep. Token rotation happens via
                       the <Mono>KENNEL_MCP_TOKEN</Mono> env var; the UI flow lands when
                       auth is wired (backlog #1).
                     </div>
