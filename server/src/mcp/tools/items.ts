@@ -3,19 +3,18 @@ import { z } from 'zod';
 import type { DB } from '../../db.js';
 import {
   convertItem,
+  convertItemToDoc,
+  convertItemToReference,
   createItem,
   crystallizeItem,
   fileItem,
-  getItemById,
   listNextUp,
   listQueue,
   touchItem,
   transitionItem,
 } from '../../services/item.js';
 import { listProposals } from '../../services/proposal.js';
-import { getProjectById, getProjectBySlug } from '../../services/project.js';
-import { createDoc } from '../../services/doc.js';
-import { createReference } from '../../services/reference.js';
+import { getProjectBySlug } from '../../services/project.js';
 import { notFound } from '../../errors.js';
 import { errorResult, jsonResult } from '../result.js';
 
@@ -177,37 +176,9 @@ export const registerItemTools = (server: McpServer, db: DB) => {
     },
     async ({ itemId, target }) => {
       try {
-        const item = getItemById(db, itemId);
-        if (!item) throw notFound('item', itemId);
-        if (target === 'doc') {
-          const project = getProjectById(db, item.projectId);
-          if (!project) throw notFound('project', item.projectId);
-          const doc = createDoc(db, {
-            projectSlug: project.slug,
-            title: item.title,
-            body: item.body
-              ? item.body
-              : `# ${item.title}\n\nPromoted from item.\n`,
-          }, 'claude');
-          return jsonResult(
-            convertItem(db, itemId, 'doc', { linkedDocId: doc.id }, 'claude'),
-          );
-        }
-        if (target === 'reference') {
-          const project = getProjectById(db, item.projectId);
-          if (!project) throw notFound('project', item.projectId);
-          const looksLikeUrl =
-            item.body && /^https?:\/\//.test(item.body.trim().split(/\s/)[0]);
-          const reference = createReference(db, {
-            projectSlug: project.slug,
-            label: item.title,
-            url: looksLikeUrl ? item.body!.trim().split(/\s/)[0] : undefined,
-            notes: looksLikeUrl ? undefined : item.body ?? undefined,
-          }, 'claude');
-          return jsonResult(
-            convertItem(db, itemId, 'reference', { linkedReferenceId: reference.id }, 'claude'),
-          );
-        }
+        if (target === 'doc') return jsonResult(convertItemToDoc(db, itemId, 'claude'));
+        if (target === 'reference')
+          return jsonResult(convertItemToReference(db, itemId, 'claude'));
         return jsonResult(convertItem(db, itemId, target, {}, 'claude'));
       } catch (err) {
         return errorResult(err);

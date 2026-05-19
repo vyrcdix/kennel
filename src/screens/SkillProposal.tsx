@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
@@ -107,39 +107,40 @@ export const SkillProposal = () => {
   useStoreVersion();
   const view = getProposalView(id);
   const [note, setNote] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  // null = not editing; string = editing, draft body. Collapses two
+  // useStates into one source of truth.
+  const [draft, setDraft] = useState<string | null>(null);
+  const editing = draft !== null;
+  const skillBody = view?.skill.body ?? '';
+  const proposedBody = view?.proposal.proposedBody ?? '';
+  const liveBody = draft ?? proposedBody;
+  // diffLines is the expensive part — recompute only when its inputs change.
+  const ops = useMemo(
+    () => diffLines(skillBody, liveBody),
+    [skillBody, liveBody],
+  );
+  const sbs = useMemo(() => toSideBySide(ops), [ops]);
+  const { adds, dels } = useMemo(() => summary(ops), [ops]);
+  const hunks = useMemo(() => countHunks(ops), [ops]);
   if (!view) return <NoProposal />;
 
   const { proposal, skill, project, chat } = view;
-  // When entering edit mode, reset the draft to the current proposed body so
-  // each new pass starts from the latest proposal text.
-  const startEdit = () => {
-    setDraft(proposal.proposedBody);
-    setEditing(true);
-  };
-  const cancelEdit = () => setEditing(false);
-  const liveBody = editing ? draft : proposal.proposedBody;
-  const ops = diffLines(skill.body, liveBody);
-  const sbs = toSideBySide(ops);
-  const { adds, dels } = summary(ops);
-  const hunks = countHunks(ops);
+  const startEdit = () => setDraft(proposal.proposedBody);
+  const cancelEdit = () => setDraft(null);
   const isPending = proposal.status === 'pending';
-  const isEdited = editing && draft !== proposal.proposedBody;
+  const isEdited = draft !== null && draft !== proposal.proposedBody;
 
   const decide = (decision: ProposalDecision) => {
     reviewProposal(
       proposal.id,
       decision,
-      note,
-      isEdited ? draft : undefined,
+      { note, bodyOverride: isEdited ? draft! : undefined },
     );
-    // Navigate to next pending if available, else show the empty state.
     const remaining = getPendingProposals().filter((p) => p.id !== proposal.id);
     if (remaining.length > 0) navigate(`/proposal/${remaining[0].id}`);
     else navigate('/proposal');
     setNote('');
-    setEditing(false);
+    setDraft(null);
   };
 
   const onViewConversation = () => {

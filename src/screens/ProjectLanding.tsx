@@ -18,7 +18,12 @@ import { Rev } from '../components/Rev';
 import { SectionHead } from '../components/SectionHead';
 import { ChatRow } from '../components/ChatRow';
 import { Icons } from '../components/Icon';
-import { panelTemperature, temperatureForDate } from '../lib/temperature';
+import {
+  panelTemperature,
+  temperatureForDate,
+  TOP_EDGE_BY_TEMP,
+  type Temp,
+} from '../lib/temperature';
 import {
   crystallizeItem,
   fileItem,
@@ -52,22 +57,17 @@ import type { Doc, Item } from '../data/types';
 
 const DAY = 86400_000;
 
-const TOP_EDGE_BY_TEMP: Record<string, string> = {
-  fresh: 'var(--ember-deep)',
-  active: 'var(--line)',
-  aging: 'var(--dust)',
-  dormant: 'var(--slate-light)',
-};
-
 const PinnedDocCard = ({
   doc,
   temp,
   onClick,
 }: {
   doc: Doc;
-  temp: 'fresh' | 'active' | 'aging' | 'dormant';
+  temp: Temp;
   onClick: () => void;
-}) => (
+}) => {
+  const edge = TOP_EDGE_BY_TEMP[temp];
+  return (
   <div
     className="km-card"
     onClick={onClick}
@@ -78,9 +78,7 @@ const PinnedDocCard = ({
       flexDirection: 'column',
       gap: 6,
       cursor: 'pointer',
-      borderTop: temp === 'active'
-        ? '1px solid var(--line)'
-        : `2px solid ${TOP_EDGE_BY_TEMP[temp]}`,
+      borderTop: `${edge.width}px solid ${edge.color}`,
       opacity: temp === 'dormant' ? 0.82 : 1,
     }}
   >
@@ -118,7 +116,8 @@ const PinnedDocCard = ({
     </div>
     <Mono>rev {doc.revision}</Mono>
   </div>
-);
+  );
+};
 
 const AgingStripRow = ({ item }: { item: Item }) => {
   const last = item.lastTouchedAt ?? item.updatedAt;
@@ -225,10 +224,9 @@ export const ProjectLanding = () => {
   const fieldNotesSince = formatRelative(fieldNotes?.updatedAt ?? new Date(0));
   const runbookTemp = temperatureForDate(runbook?.updatedAt, settings);
   const runbookSince = formatRelative(runbook?.updatedAt ?? new Date(0));
-  const allChats = [...activeChats, ...staleChats];
-  const newestChat = allChats.sort(
-    (a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime(),
-  )[0];
+  // activeChats and staleChats are pre-sorted by lastSeenAt DESC; first
+  // active beats any stale.
+  const newestChat = activeChats[0] ?? staleChats[0];
   const chatsTemp = temperatureForDate(newestChat?.lastSeenAt, settings);
   const chatsSince = formatRelative(newestChat?.lastSeenAt ?? new Date(0));
 

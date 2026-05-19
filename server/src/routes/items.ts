@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import type { DB } from '../db.js';
-import { asyncHandler, notFound, validationError } from '../errors.js';
+import { asyncHandler, validationError } from '../errors.js';
 import {
   convertItem,
+  convertItemToDoc,
+  convertItemToReference,
   createItem,
   crystallizeItem,
   fileItem,
@@ -11,9 +13,6 @@ import {
   touchItem,
   transitionItem,
 } from '../services/item.js';
-import { createDoc } from '../services/doc.js';
-import { createReference } from '../services/reference.js';
-import { getProjectById } from '../services/project.js';
 
 export const itemsRouter = (db: DB): Router => {
   const r = Router();
@@ -82,41 +81,16 @@ export const itemsRouter = (db: DB): Router => {
     asyncHandler(async (req, res) => {
       const target = req.body?.target;
       if (typeof target !== 'string') throw validationError({ target: 'required' });
-      const item = getItemById(db, req.params.id);
-      if (!item) throw notFound('item', req.params.id);
-
+      const itemId = req.params.id;
       if (target === 'doc') {
-        const project = getProjectById(db, item.projectId);
-        if (!project) throw notFound('project', item.projectId);
-        const doc = createDoc(db, {
-          projectSlug: project.slug,
-          title: item.title,
-          body: item.body
-            ? item.body
-            : `# ${item.title}\n\nPromoted from item.\n`,
-        });
-        res.json(convertItem(db, req.params.id, 'doc', { linkedDocId: doc.id }));
+        res.json(convertItemToDoc(db, itemId));
         return;
       }
       if (target === 'reference') {
-        const project = getProjectById(db, item.projectId);
-        if (!project) throw notFound('project', item.projectId);
-        const looksLikeUrl =
-          item.body && /^https?:\/\//.test(item.body.trim().split(/\s/)[0]);
-        const reference = createReference(db, {
-          projectSlug: project.slug,
-          label: item.title,
-          url: looksLikeUrl ? item.body!.trim().split(/\s/)[0] : undefined,
-          notes: looksLikeUrl ? undefined : item.body ?? undefined,
-        });
-        res.json(
-          convertItem(db, req.params.id, 'reference', {
-            linkedReferenceId: reference.id,
-          }),
-        );
+        res.json(convertItemToReference(db, itemId));
         return;
       }
-      res.json(convertItem(db, req.params.id, target as never));
+      res.json(convertItem(db, itemId, target as never));
     }),
   );
 

@@ -17,16 +17,21 @@ import { crystallizeItem, fileItem, touchItem } from '../data/actions';
 import {
   getAgingItems,
   getAllProjectCounts,
+  getAllProjectLastTouched,
   getCrystallizedThisWeek,
   getInboxRollup,
   getNextUp,
   getPinnedProjects,
   getProjectById,
-  getProjectLastTouched,
   getRecentChats,
   getSettings,
 } from '../data/selectors';
-import { panelTemperature, temperatureForDate, type Temp } from '../lib/temperature';
+import {
+  panelTemperature,
+  temperatureForDate,
+  TOP_EDGE_BY_TEMP,
+  type Temp,
+} from '../lib/temperature';
 import { useFocusMode } from '../lib/focusMode';
 import {
   formatDashboardDate,
@@ -38,13 +43,6 @@ import { openCreateProject } from '../lib/modals';
 import type { Item, Project } from '../data/types';
 
 const DAY = 86400_000;
-
-const TOP_EDGE_BY_TEMP: Record<Temp, { color: string; width: number }> = {
-  fresh:   { color: 'var(--ember-deep)',  width: 2 },
-  active:  { color: 'var(--line)',        width: 1 },
-  aging:   { color: 'var(--dust)',        width: 2 },
-  dormant: { color: 'var(--slate-light)', width: 2 },
-};
 
 type ProjectCardProps = {
   project: Project;
@@ -308,6 +306,7 @@ export const Dashboard = () => {
     crystallizedWeek[0]?.doneAt ?? crystallizedWeek[0]?.updatedAt ?? new Date(0),
   );
   const countsById = useMemo(() => getAllProjectCounts(), [v]);
+  const lastTouchedById = useMemo(() => getAllProjectLastTouched(), [v]);
   const projectsById = useMemo(
     () => new Map(pinned.map((p) => [p.id, p])),
     [pinned],
@@ -386,7 +385,7 @@ export const Dashboard = () => {
                     key={p.id}
                     project={p}
                     active={i === 0}
-                    temp={temperatureForDate(getProjectLastTouched(p.id), settings)}
+                    temp={temperatureForDate(lastTouchedById.get(p.id), settings)}
                     counts={countsById.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 }}
                   />
                 ))}

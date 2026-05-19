@@ -514,12 +514,10 @@ export const TriageQueue = () => {
                           className="km-btn"
                           onClick={() => doConvert(o.target)}
                         >
-                          {o.target === 'doc' ? (
-                            <Icons.doc size={12} />
-                          ) : o.target === 'reference' ? (
+                          {o.target === 'reference' ? (
                             <Icons.link size={12} />
                           ) : (
-                            <Icons.check size={12} />
+                            <KindIcon kind={o.target === 'doc' ? 'doc' : o.target} />
                           )}{' '}
                           {o.label}
                         </button>

@@ -3,6 +3,9 @@ import { logActivity } from '../activity.js';
 import { notFound, validationError } from '../errors.js';
 import { newId } from '../ids.js';
 import { fromIso, nowIso } from '../time.js';
+import { createDoc } from './doc.js';
+import { createReference } from './reference.js';
+import { getProjectById } from './project.js';
 import type { Item, ItemKind, ItemState } from '../../../shared/types.js';
 
 type ItemRow = {
@@ -299,15 +302,13 @@ const CONVERTIBLE_KINDS: ItemKind[] = [
 
 export type ConvertTarget = ItemKind | 'doc' | 'reference';
 
-/** Convert an item to another shape. Same-kind targets are no-ops.
- *  - Kind targets (idea/note/action/ref/question): just flip `kind` and move
- *    to 'active' if currently in inbox, so the item leaves the sort queue.
- *  - target='doc': caller is expected to create the Doc separately and pass
- *    its id via opts.linkedDocId; we set the item's docId and dismiss it.
- *  - target='reference': same idea via opts.linkedReferenceId.
- *
- *  Cross-entity creation is wired in the route handler so the doc / ref
- *  services own their own activity log + content writes. */
+/** Convert an item to another shape.
+ *  - Kind targets (idea/note/action/ref/question): flip `kind` and lift out of
+ *    inbox to 'active'.
+ *  - target='doc' / 'reference': orchestrated by `convertItemToDoc` /
+ *    `convertItemToReference` below, which create the new entity and call
+ *    back into this function with the link id.
+ *  Same-kind targets are silent no-ops. */
 export const convertItem = (
   db: DB,
   id: string,
@@ -317,63 +318,101 @@ export const convertItem = (
 ): Item => {
   const item = getItemById(db, id);
   if (!item) throw notFound('item', id);
-
   const now = nowIso();
 
-  if (target === 'doc') {
-    if (!opts.linkedDocId) throw validationError({ linkedDocId: 'required' });
-    db.prepare(
-      `UPDATE items SET kind = 'doc', doc_id = ?, state = 'dismissed', updated_at = ?, last_touched_at = ? WHERE id = ?`,
-    ).run(opts.linkedDocId, now, now, id);
+  const finish = (sql: string, params: unknown[], suffix: string): Item => {
+    db.prepare(sql).run(...params, now, now, id);
     logActivity(db, {
       projectId: item.projectId,
       entityType: 'item',
       entityId: id,
       verb: 'CONVERTED',
-      target: `${item.kind} → doc / ${item.title}`,
+      target: `${item.kind} → ${suffix} / ${item.title}`,
       actor,
       occurredAt: now,
     });
     return getItemById(db, id)!;
+  };
+
+  if (target === 'doc') {
+    if (!opts.linkedDocId) throw validationError({ linkedDocId: 'required' });
+    return finish(
+      `UPDATE items SET kind = 'doc', doc_id = ?, state = 'dismissed', updated_at = ?, last_touched_at = ? WHERE id = ?`,
+      [opts.linkedDocId],
+      'doc',
+    );
   }
 
   if (target === 'reference') {
     if (!opts.linkedReferenceId)
       throw validationError({ linkedReferenceId: 'required' });
-    db.prepare(
+    return finish(
       `UPDATE items SET kind = 'ref', reference_id = ?, state = 'dismissed', updated_at = ?, last_touched_at = ? WHERE id = ?`,
-    ).run(opts.linkedReferenceId, now, now, id);
-    logActivity(db, {
-      projectId: item.projectId,
-      entityType: 'item',
-      entityId: id,
-      verb: 'CONVERTED',
-      target: `${item.kind} → reference / ${item.title}`,
-      actor,
-      occurredAt: now,
-    });
-    return getItemById(db, id)!;
+      [opts.linkedReferenceId],
+      'reference',
+    );
   }
 
-  // Same-entity kind change.
   if (!CONVERTIBLE_KINDS.includes(target)) {
     throw validationError({ target: 'unsupported_kind' });
   }
   if (item.kind === target) return item;
   const newState = item.state === 'inbox' ? 'active' : item.state;
-  db.prepare(
+  return finish(
     `UPDATE items SET kind = ?, state = ?, updated_at = ?, last_touched_at = ? WHERE id = ?`,
-  ).run(target, newState, now, now, id);
-  logActivity(db, {
-    projectId: item.projectId,
-    entityType: 'item',
-    entityId: id,
-    verb: 'CONVERTED',
-    target: `${item.kind} → ${target} / ${item.title}`,
+    [target, newState],
+    target,
+  );
+};
+
+/** Convert an item to a Doc — orchestrates createDoc + convertItem so the
+ *  route and MCP tool both call one function. */
+export const convertItemToDoc = (
+  db: DB,
+  id: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const item = getItemById(db, id);
+  if (!item) throw notFound('item', id);
+  const project = getProjectById(db, item.projectId);
+  if (!project) throw notFound('project', item.projectId);
+  const doc = createDoc(
+    db,
+    {
+      projectSlug: project.slug,
+      title: item.title,
+      body: item.body
+        ? item.body
+        : `# ${item.title}\n\n<!-- TODO: flesh out — promoted from item -->\n`,
+    },
     actor,
-    occurredAt: now,
-  });
-  return getItemById(db, id)!;
+  );
+  return convertItem(db, id, 'doc', { linkedDocId: doc.id }, actor);
+};
+
+/** Convert an item to a Reference. */
+export const convertItemToReference = (
+  db: DB,
+  id: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const item = getItemById(db, id);
+  if (!item) throw notFound('item', id);
+  const project = getProjectById(db, item.projectId);
+  if (!project) throw notFound('project', item.projectId);
+  const firstToken = item.body?.trim().split(/\s/)[0];
+  const looksLikeUrl = !!firstToken && /^https?:\/\//.test(firstToken);
+  const reference = createReference(
+    db,
+    {
+      projectSlug: project.slug,
+      label: item.title,
+      url: looksLikeUrl ? firstToken : undefined,
+      notes: looksLikeUrl ? undefined : item.body ?? undefined,
+    },
+    actor,
+  );
+  return convertItem(db, id, 'reference', { linkedReferenceId: reference.id }, actor);
 };
 
 /** Items that are either kind=crystallization OR state=crystallized. */

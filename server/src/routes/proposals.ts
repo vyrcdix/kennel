@@ -17,10 +17,10 @@ export const proposalsRouter = (db: DB): Router => {
     '/:id/review',
     asyncHandler(async (req, res) => {
       const decision = req.body?.decision as ProposalDecision;
-      const note = req.body?.note as string | undefined;
+      const note = typeof req.body?.note === 'string' ? req.body.note : undefined;
       const bodyOverride =
         typeof req.body?.bodyOverride === 'string' ? req.body.bodyOverride : undefined;
-      res.json(reviewProposal(db, req.params.id, decision, note, bodyOverride));
+      res.json(reviewProposal(db, req.params.id, decision, { note, bodyOverride }));
     }),
   );
 

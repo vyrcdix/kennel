@@ -16,7 +16,7 @@ import {
   getSettings,
 } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
-import { daysAgo, formatRelative } from '../data/time';
+import { daysAgo, formatDate, formatRelative } from '../data/time';
 import type { ActivityEntry, Item } from '../data/types';
 
 const DAY = 86_400_000;
@@ -80,39 +80,49 @@ const ActivityRow = ({ entry }: { entry: ActivityEntry }) => (
   </div>
 );
 
-const formatDate = (d: Date) => {
-  const month = d.toLocaleString('en-US', { month: 'short' }).toLowerCase();
-  return `${month} ${d.getDate()}`;
-};
-
 export const WeeklyReview = () => {
   useStoreVersion();
   const navigate = useNavigate();
-  const since = daysAgo(PERIOD_DAYS);
-  const now = new Date();
+  // Stabilise `since` across renders so the activity memo actually caches.
+  const since = useMemo(() => daysAgo(PERIOD_DAYS), []);
+  const now = useMemo(() => new Date(), []);
   const activity = useMemo(() => getActivitySince(since), [since]);
   const settings = getSettings();
   const aging = getAgingItems(settings.agingThresholdDays);
 
-  // Filter by verb buckets. Free-string verbs, so include the v0.1 ARCHIVED
-  // alias under "let go / filed" too.
-  const verbIs = (e: ActivityEntry, ...verbs: string[]) =>
-    verbs.includes(e.verb);
-
-  const captured = activity.filter((e) => verbIs(e, 'CAPTURED'));
-  const pickedUp = activity.filter((e) => verbIs(e, 'PICKED UP', 'ACTIVATED'));
-  const setAside = activity.filter((e) => verbIs(e, 'SET ASIDE', 'PARKED'));
-  const letGo = activity.filter((e) => verbIs(e, 'LET GO', 'FILED', 'ARCHIVED'));
-  const converted = activity.filter((e) => verbIs(e, 'CONVERTED'));
+  // Free-string verbs from server, with v0.1 aliases folded in.
+  const buckets = useMemo(() => {
+    const b = {
+      captured: [] as ActivityEntry[],
+      pickedUp: [] as ActivityEntry[],
+      setAside: [] as ActivityEntry[],
+      letGo: [] as ActivityEntry[],
+      converted: [] as ActivityEntry[],
+    };
+    for (const e of activity) {
+      switch (e.verb) {
+        case 'CAPTURED': b.captured.push(e); break;
+        case 'PICKED UP':
+        case 'ACTIVATED': b.pickedUp.push(e); break;
+        case 'SET ASIDE':
+        case 'PARKED': b.setAside.push(e); break;
+        case 'LET GO':
+        case 'FILED':
+        case 'ARCHIVED': b.letGo.push(e); break;
+        case 'CONVERTED': b.converted.push(e); break;
+      }
+    }
+    return b;
+  }, [activity]);
   const crystallizedItems = useMemo(() => getCrystallizedThisWeek(), []);
 
   const summary = [
-    { label: 'captured', n: captured.length },
-    { label: 'picked up', n: pickedUp.length },
+    { label: 'captured', n: buckets.captured.length },
+    { label: 'picked up', n: buckets.pickedUp.length },
     { label: 'crystallized', n: crystallizedItems.length },
-    { label: 'set aside', n: setAside.length },
-    { label: 'let go / filed', n: letGo.length },
-    { label: 'converted', n: converted.length },
+    { label: 'set aside', n: buckets.setAside.length },
+    { label: 'let go / filed', n: buckets.letGo.length },
+    { label: 'converted', n: buckets.converted.length },
   ];
 
   return (
@@ -201,12 +211,12 @@ export const WeeklyReview = () => {
 
           {/* Activity by verb */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-            <ActivityGroup title="Picked up" entries={pickedUp} />
-            <ActivityGroup title="Let go / filed" entries={letGo} />
-            <ActivityGroup title="Set aside" entries={setAside} />
-            <ActivityGroup title="Captured" entries={captured} />
-            {converted.length > 0 && (
-              <ActivityGroup title="Converted" entries={converted} />
+            <ActivityGroup title="Picked up" entries={buckets.pickedUp} />
+            <ActivityGroup title="Let go / filed" entries={buckets.letGo} />
+            <ActivityGroup title="Set aside" entries={buckets.setAside} />
+            <ActivityGroup title="Captured" entries={buckets.captured} />
+            {buckets.converted.length > 0 && (
+              <ActivityGroup title="Converted" entries={buckets.converted} />
             )}
           </div>
 

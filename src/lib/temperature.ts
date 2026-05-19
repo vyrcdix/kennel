@@ -14,6 +14,16 @@ import type { Item, Settings } from '../data/types';
 
 export type Temp = 'fresh' | 'active' | 'aging' | 'dormant';
 
+/** Top-edge treatment used by ThermalPanel and the small "doc card" /
+ *  "project rail" variants. `active` falls through to the default 1px
+ *  line; the other levels get a 2px coloured edge. */
+export const TOP_EDGE_BY_TEMP: Record<Temp, { color: string; width: number }> = {
+  fresh:   { color: 'var(--ember-deep)',  width: 2 },
+  active:  { color: 'var(--line)',        width: 1 },
+  aging:   { color: 'var(--dust)',        width: 2 },
+  dormant: { color: 'var(--slate-light)', width: 2 },
+};
+
 const DAY = 86_400_000;
 
 /** Pure: a single date → temperature, given thresholds. */

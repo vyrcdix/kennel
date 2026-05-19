@@ -46,7 +46,7 @@ describe('reviewProposal', () => {
 
   test('reject leaves skill body alone', () => {
     const { skillId, proposalId } = seedSkillProposal();
-    const after = reviewProposal(db, proposalId, 'reject', 'not this round');
+    const after = reviewProposal(db, proposalId, 'reject', { note: 'not this round' });
     expect(after.status).toBe('rejected');
     expect(after.decisionNote).toBe('not this round');
     const skill = getSkillById(db, skillId)!;

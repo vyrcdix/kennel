@@ -3,7 +3,6 @@
 // translate it into the domain exceptions screens already handle.
 
 import {
-  activity,
   chats,
   comments,
   docs,
@@ -81,7 +80,6 @@ export const transitionItem = async (id: string, to: ItemState): Promise<Item> =
   );
   const idx = items.findIndex((i) => i.id === id);
   if (idx >= 0) items[idx] = updated;
-  refreshRecentActivity();
   notify();
   return updated;
 };
@@ -104,7 +102,6 @@ export const crystallizeItem = async (
   );
   const idx = items.findIndex((i) => i.id === id);
   if (idx >= 0) items[idx] = updated;
-  refreshRecentActivity();
   notify();
   return updated;
 };
@@ -128,7 +125,6 @@ export const convertItem = async (
   const idx = items.findIndex((i) => i.id === id);
   if (idx >= 0) items[idx] = updated;
   // Side-effects (new doc / ref) reach us on the next SSE refetch.
-  refreshRecentActivity();
   notify();
   return updated;
 };
@@ -137,7 +133,6 @@ export const fileItem = async (id: string): Promise<Item> => {
   const updated = await wrap(() => api.post<Item>(`/api/items/${id}/file`));
   const idx = items.findIndex((i) => i.id === id);
   if (idx >= 0) items[idx] = updated;
-  refreshRecentActivity();
   notify();
   return updated;
 };
@@ -152,7 +147,6 @@ export type CaptureInput = {
 export const captureItem = async (input: CaptureInput): Promise<Item> => {
   const created = await wrap(() => api.post<Item>('/api/items', input));
   items.unshift(created);
-  refreshRecentActivity();
   notify();
   return created;
 };
@@ -165,7 +159,6 @@ export const saveDoc = async (id: string, body: string): Promise<void> => {
   const updated = await wrap(() => api.put(`/api/docs/${id}`, { body }));
   const idx = docs.findIndex((d) => d.id === id);
   if (idx >= 0) docs[idx] = updated as typeof docs[number];
-  refreshRecentActivity();
   notify();
 };
 
@@ -175,7 +168,6 @@ export const setDocPinned = async (id: string, pinned: boolean): Promise<void> =
   );
   const idx = docs.findIndex((d) => d.id === id);
   if (idx >= 0) docs[idx] = updated as typeof docs[number];
-  refreshRecentActivity();
   notify();
 };
 
@@ -196,7 +188,6 @@ export const addComment = async (
     ),
   );
   comments.push(created);
-  refreshRecentActivity();
   notify();
   return created;
 };
@@ -205,17 +196,21 @@ export const addComment = async (
 
 export type ProposalDecision = 'accept' | 'accept_write' | 'reject';
 
+export type ReviewProposalOpts = {
+  note?: string;
+  bodyOverride?: string;
+};
+
 export const reviewProposal = async (
   id: string,
   decision: ProposalDecision,
-  note?: string,
-  bodyOverride?: string,
+  opts: ReviewProposalOpts = {},
 ): Promise<void> => {
   const updated = await wrap(() =>
     api.post<SkillProposal>(`/api/skill-proposals/${id}/review`, {
       decision,
-      note,
-      bodyOverride,
+      note: opts.note,
+      bodyOverride: opts.bodyOverride,
     }),
   );
   const pidx = skillProposals.findIndex((p) => p.id === id);
@@ -237,7 +232,6 @@ export const reviewProposal = async (
       }
     }
   }
-  refreshRecentActivity();
   notify();
 };
 
@@ -252,7 +246,6 @@ export type RegisterChatInput = {
 export const registerChat = async (input: RegisterChatInput): Promise<Chat> => {
   const created = await wrap(() => api.post<Chat>('/api/chats', input));
   chats.push(created);
-  refreshRecentActivity();
   notify();
   return created;
 };
@@ -278,7 +271,6 @@ export type CreateProjectInput = {
 export const createProject = async (input: CreateProjectInput): Promise<Project> => {
   const created = await wrap(() => api.post<Project>('/api/projects', input));
   projects.push(created);
-  refreshRecentActivity();
   notify();
   return created;
 };
@@ -334,7 +326,6 @@ export const updateProject = async (
   );
   const idx = projects.findIndex((p) => p.id === projectId);
   if (idx >= 0) projects[idx] = updated;
-  refreshRecentActivity();
   notify();
   return updated;
 };
@@ -374,7 +365,6 @@ export const updateRunbookSection = async (
   );
   const idx = runbooks.findIndex((r) => r.projectId === projectId);
   if (idx >= 0) runbooks[idx] = updated;
-  refreshRecentActivity();
   notify();
 };
 
@@ -398,7 +388,6 @@ export const updateFieldNotes = async (
   const idx = fieldNotes.findIndex((f) => f.projectId === updated.projectId);
   if (idx >= 0) fieldNotes[idx] = updated;
   else fieldNotes.push(updated);
-  refreshRecentActivity();
   notify();
   return updated;
 };
@@ -417,27 +406,6 @@ export const updateSettings = async (patch: SettingsPatch): Promise<Settings> =>
   settings.current = updated;
   notify();
   return updated;
-};
-
-// ─── Helpers ─────────────────────────────────────────────────────────────
-
-/** After a write, fetch the latest few activity entries so the dashboard
- *  reflects what the server logged. Cheap (~few rows). */
-const refreshRecentActivity = async () => {
-  try {
-    const since = new Date(Date.now() - 24 * 3600_000).toISOString();
-    const fresh = await api.get<typeof activity>(
-      `/api/activity?since=${encodeURIComponent(since)}`,
-    );
-    const existing = new Set(activity.map((a) => a.id));
-    const merged = [
-      ...fresh.filter((a) => !existing.has(a.id)),
-      ...activity,
-    ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
-    activity.splice(0, activity.length, ...merged);
-  } catch {
-    /* ignore — activity feed lags by one keystroke at worst */
-  }
 };
 
 // Re-export materializeDates for test convenience

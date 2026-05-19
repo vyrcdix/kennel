@@ -169,6 +169,20 @@ export const getProjectLastTouched = (projectId: string): Date => {
   return max;
 };
 
+/** Single-pass version that builds the map for every project at once.
+ *  O(N items) total instead of O(N) per project. Use this when rendering
+ *  a list of projects (dashboard rail). */
+export const getAllProjectLastTouched = (): Map<string, Date> => {
+  const map = new Map<string, Date>();
+  for (const p of projects) map.set(p.id, p.updatedAt);
+  for (const it of items) {
+    const t = it.lastTouchedAt ?? it.updatedAt;
+    const current = map.get(it.projectId);
+    if (!current || t.getTime() > current.getTime()) map.set(it.projectId, t);
+  }
+  return map;
+};
+
 // ─── Activity ──────────────────────────────────────────────────────────────
 
 export const getActivitySince = (since: Date): ActivityEntry[] =>
