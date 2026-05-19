@@ -166,6 +166,12 @@ export const makeTestFixture = (): BootstrapPayload => {
     comments: [],
     activity: [],
     tags: [],
+    fieldNotes: [],
+    settings: {
+      agingThresholdDays: 21,
+      filingPromptDays: 0,
+      createdAt: now(),
+      updatedAt: now(),
+    },
   };
-  void now;
 };

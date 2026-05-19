@@ -3,14 +3,21 @@
 // and stored as TEXT in SQLite. The server converts at the DB boundary; the
 // client converts at the HTTP boundary via materializeDates().
 
-export type ItemKind = 'idea' | 'note' | 'action' | 'doc' | 'ref';
+export type ItemKind =
+  | 'idea'
+  | 'note'
+  | 'action'
+  | 'doc'
+  | 'ref'
+  | 'question'
+  | 'crystallization';
 
 export type ItemState =
   | 'inbox'
   | 'active'
-  | 'parked'
-  | 'done'
-  | 'archived'
+  | 'reflecting'
+  | 'crystallized'
+  | 'filed'
   | 'dismissed';
 
 export type ProjectStatus = 'active' | 'paused' | 'archived';
@@ -51,6 +58,27 @@ export type Item = {
   docId?: string;
   referenceId?: string;
   hash?: string;
+  lastTouchedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type Settings = {
+  agingThresholdDays: number;
+  filingPromptDays: 0 | 90 | 180;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type FieldNotes = {
+  id: string;
+  projectId: string;
+  premise?: string;
+  whatIKnow?: string;
+  openQuestions?: string;
+  sources?: string;
+  crystallizations?: string;
+  revision: number;
   createdAt: Date;
   updatedAt: Date;
 };

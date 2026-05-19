@@ -5,16 +5,19 @@ import { errorMiddleware } from './errors.js';
 import { mcpAuth } from './mcp/auth.js';
 import { mcpRouter } from './mcp/transport.js';
 import { activityRouter } from './routes/activity.js';
+import { agingRouter, crystallizationsRouter } from './routes/aging.js';
 import { bootstrapRouter } from './routes/bootstrap.js';
 import { eventsRouter } from './routes/events.js';
 import { chatsRouter } from './routes/chats.js';
 import { commentsRouter } from './routes/comments.js';
 import { docsRouter } from './routes/docs.js';
+import { fieldNotesRouter } from './routes/fieldNotes.js';
 import { itemsRouter } from './routes/items.js';
 import { projectsRouter } from './routes/projects.js';
 import { proposalsRouter } from './routes/proposals.js';
 import { runbooksRouter } from './routes/runbooks.js';
 import { searchRouter } from './routes/search.js';
+import { settingsRouter } from './routes/settings.js';
 import { runSeedIfEmpty } from './seed.js';
 
 const PORT = Number(process.env.PORT ?? 8421);
@@ -42,8 +45,12 @@ app.use('/api/skill-proposals', proposalsRouter(db));
 app.use('/api/entities/:type/:id/comments', commentsRouter(db));
 app.use('/api', runbooksRouter(db));
 app.use('/api/activity', activityRouter(db));
+app.use('/api/aging', agingRouter(db));
+app.use('/api/crystallizations', crystallizationsRouter(db));
 app.use('/api/events', eventsRouter());
 app.use('/api/search', searchRouter(db));
+app.use('/api/settings', settingsRouter(db));
+app.use('/api', fieldNotesRouter(db));
 
 app.use(errorMiddleware);
 

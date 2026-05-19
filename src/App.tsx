@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import AgingBoard from './screens/AgingBoard';
 import Dashboard from './screens/Dashboard';
+import FieldNotesView from './screens/FieldNotesView';
 import ProjectLanding from './screens/ProjectLanding';
 import TriageQueue from './screens/TriageQueue';
 import DocEditor from './screens/DocEditor';
@@ -66,6 +68,8 @@ export const App = () => (
       <Route path="/doc/:id" element={<DocEditor />} />
       <Route path="/runbook" element={<Navigate to="/runbook/kennel" replace />} />
       <Route path="/runbook/:slug" element={<RunbookView />} />
+      <Route path="/project/:slug/field-notes" element={<FieldNotesView />} />
+      <Route path="/aging" element={<AgingBoard />} />
       <Route path="/proposal" element={<SkillProposal />} />
       <Route path="/proposal/:id" element={<SkillProposal />} />
       <Route path="/search" element={<GlobalSearch />} />

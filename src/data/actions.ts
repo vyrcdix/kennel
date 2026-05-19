@@ -7,9 +7,11 @@ import {
   chats,
   comments,
   docs,
+  fieldNotes,
   items,
   projects,
   runbooks,
+  settings,
   skillProposals,
   skills,
 } from './fixtures';
@@ -18,12 +20,14 @@ import { api, ApiError, materializeDates } from './api';
 import type {
   EntityComment,
   EntityType,
+  FieldNotes,
   Item,
   ItemKind,
   ItemState,
   Project,
   ProjectColor,
   Runbook,
+  Settings,
   Skill,
   SkillProposal,
 } from './types';
@@ -76,7 +80,38 @@ export const transitionItem = async (id: string, to: ItemState): Promise<Item> =
   );
   const idx = items.findIndex((i) => i.id === id);
   if (idx >= 0) items[idx] = updated;
-  // Refresh activity log opportunistically (last entry is the one we just made)
+  refreshRecentActivity();
+  notify();
+  return updated;
+};
+
+export const touchItem = async (id: string): Promise<void> => {
+  await wrap(() => api.post(`/api/items/${id}/touch`));
+  const item = items.find((i) => i.id === id);
+  if (item) item.lastTouchedAt = new Date();
+  notify();
+};
+
+export type CrystallizeOpts = { promoteKind?: boolean; sourcesFrom?: string[] };
+
+export const crystallizeItem = async (
+  id: string,
+  opts: CrystallizeOpts = {},
+): Promise<Item> => {
+  const updated = await wrap(() =>
+    api.post<Item>(`/api/items/${id}/crystallize`, opts),
+  );
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
+  refreshRecentActivity();
+  notify();
+  return updated;
+};
+
+export const fileItem = async (id: string): Promise<Item> => {
+  const updated = await wrap(() => api.post<Item>(`/api/items/${id}/file`));
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
   refreshRecentActivity();
   notify();
   return updated;
@@ -240,6 +275,45 @@ export const updateRunbookUrl = async (projectId: string, url: string): Promise<
   const idx = runbooks.findIndex((r) => r.projectId === projectId);
   if (idx >= 0) runbooks[idx] = updated;
   notify();
+};
+
+// ─── Field notes ─────────────────────────────────────────────────────────
+
+export type FieldNotesPatch = {
+  premise?: string | null;
+  whatIKnow?: string | null;
+  openQuestions?: string | null;
+  sources?: string | null;
+  crystallizations?: string | null;
+};
+
+export const updateFieldNotes = async (
+  projectSlug: string,
+  patch: FieldNotesPatch,
+): Promise<FieldNotes> => {
+  const updated = await wrap(() =>
+    api.put<FieldNotes>(`/api/projects/${projectSlug}/field-notes`, patch),
+  );
+  const idx = fieldNotes.findIndex((f) => f.projectId === updated.projectId);
+  if (idx >= 0) fieldNotes[idx] = updated;
+  else fieldNotes.push(updated);
+  refreshRecentActivity();
+  notify();
+  return updated;
+};
+
+// ─── Settings ────────────────────────────────────────────────────────────
+
+export type SettingsPatch = {
+  agingThresholdDays?: number;
+  filingPromptDays?: 0 | 90 | 180;
+};
+
+export const updateSettings = async (patch: SettingsPatch): Promise<Settings> => {
+  const updated = await wrap(() => api.patch<Settings>('/api/settings', patch));
+  settings.current = updated;
+  notify();
+  return updated;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────

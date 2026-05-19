@@ -38,7 +38,7 @@ describe('item rollups', () => {
   test('counts only count items in this project', () => {
     const kennel = getProjectBySlug('kennel')!;
     const counts = getProjectCounts(kennel.id);
-    expect(counts.inbox + counts.active + counts.parked + counts.done).toBeGreaterThan(0);
+    expect(counts.inbox + counts.active + counts.reflecting + counts.crystallized).toBeGreaterThan(0);
   });
 
   test('inbox rollup excludes zero-inbox projects, sorts desc', () => {

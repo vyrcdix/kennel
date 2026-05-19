@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
 import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SegBtn } from '../components/SegBtn';
+import { updateSettings } from '../data/actions';
+import { getSettings } from '../data/selectors';
+import { useStoreVersion } from '../data/store';
 import { useTheme, type ThemeMode } from '../lib/theme';
 
 const SettingsRow = ({
@@ -82,12 +86,28 @@ const settingsNav = [
 ];
 
 export const SettingsScreen = () => {
+  useStoreVersion();
   const [mode, setMode] = useTheme();
   const modes: { label: string; value: ThemeMode }[] = [
     { label: 'Light', value: 'light' },
     { label: 'Dark', value: 'dark' },
     { label: 'System', value: 'system' },
   ];
+
+  const settings = getSettings();
+  const [agingDraft, setAgingDraft] = useState(settings.agingThresholdDays);
+  useEffect(() => setAgingDraft(settings.agingThresholdDays), [settings.agingThresholdDays]);
+  const commitAging = () => {
+    const n = Math.round(agingDraft);
+    if (n >= 7 && n <= 180 && n !== settings.agingThresholdDays) {
+      void updateSettings({ agingThresholdDays: n });
+    } else {
+      setAgingDraft(settings.agingThresholdDays);
+    }
+  };
+  const setFilingPromptDays = (n: 0 | 90 | 180) => {
+    if (n !== settings.filingPromptDays) void updateSettings({ filingPromptDays: n });
+  };
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -237,6 +257,76 @@ export const SettingsScreen = () => {
                   label="Reduce motion"
                   hint="Disables the 200–300ms ease on state changes."
                   control={<Toggle on={false} />}
+                />
+              </div>
+
+              {/* Capture / Lifecycle */}
+              <div
+                className="km-display-lg"
+                style={{ marginTop: 28, marginBottom: 4, fontSize: 22 }}
+              >
+                Capture &amp; Lifecycle
+              </div>
+              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 14 }}>
+                How long an item drifts before it shows up on the aging board, and whether
+                Kennel ever nudges you to file durable outcomes.
+              </div>
+              <div style={{ borderBottom: '1px solid var(--line)' }}>
+                <SettingsRow
+                  label="Aging threshold"
+                  hint="Items untouched for longer than this appear on the Aging board. 7–180 days."
+                  control={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="number"
+                        min={7}
+                        max={180}
+                        value={agingDraft}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n)) setAgingDraft(n);
+                        }}
+                        onBlur={commitAging}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
+                        style={{
+                          width: 72,
+                          padding: '4px 8px',
+                          fontFamily: 'var(--ff-mono)',
+                          fontSize: 13,
+                          background: 'var(--surface-1)',
+                          color: 'var(--fg)',
+                          border: '1px solid var(--line)',
+                          borderRadius: 3,
+                        }}
+                      />
+                      <Mono dim>days · default 21</Mono>
+                    </div>
+                  }
+                />
+                <SettingsRow
+                  label="Filing prompts"
+                  hint="Periodic nudges to file long-untouched items. Off by default — Aging covers most of this."
+                  control={
+                    <div style={{ display: 'inline-flex' }}>
+                      <SegBtn
+                        label="Never"
+                        active={settings.filingPromptDays === 0}
+                        onClick={() => setFilingPromptDays(0)}
+                      />
+                      <SegBtn
+                        label="After 90d"
+                        active={settings.filingPromptDays === 90}
+                        onClick={() => setFilingPromptDays(90)}
+                      />
+                      <SegBtn
+                        label="After 180d"
+                        active={settings.filingPromptDays === 180}
+                        onClick={() => setFilingPromptDays(180)}
+                      />
+                    </div>
+                  }
                 />
               </div>
 

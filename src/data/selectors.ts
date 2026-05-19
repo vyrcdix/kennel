@@ -43,18 +43,22 @@ export const getProjectBySlug = (slug: string) =>
 export type ProjectCounts = {
   inbox: number;
   active: number;
-  parked: number;
-  done: number;
+  reflecting: number;
+  crystallized: number;
 };
 
-const COUNTED_STATES: ReadonlySet<string> = new Set(['inbox', 'active', 'parked', 'done']);
+const empty = (): ProjectCounts => ({ inbox: 0, active: 0, reflecting: 0, crystallized: 0 });
+
+const COUNTED_STATES: ReadonlySet<string> = new Set([
+  'inbox', 'active', 'reflecting', 'crystallized',
+]);
 
 /** Single pass over items[] producing per-project counts for every project.
  *  Callers iterating projects (NavRail, Dashboard, inbox rollup) should use
  *  this and look up by id instead of calling getProjectCounts() per project. */
 export const getAllProjectCounts = (): Map<string, ProjectCounts> => {
   const map = new Map<string, ProjectCounts>();
-  for (const p of projects) map.set(p.id, { inbox: 0, active: 0, parked: 0, done: 0 });
+  for (const p of projects) map.set(p.id, empty());
   for (const it of items) {
     const counts = map.get(it.projectId);
     if (!counts || !COUNTED_STATES.has(it.state)) continue;
@@ -64,25 +68,69 @@ export const getAllProjectCounts = (): Map<string, ProjectCounts> => {
 };
 
 export const getProjectCounts = (projectId: string): ProjectCounts =>
-  getAllProjectCounts().get(projectId) ?? { inbox: 0, active: 0, parked: 0, done: 0 };
+  getAllProjectCounts().get(projectId) ?? empty();
 
 // ─── Items ─────────────────────────────────────────────────────────────────
 
-const rankCmp = (a: Item, b: Item) => {
-  const r = a.rank - b.rank;
-  if (r !== 0) return r;
-  const ad = a.dueAt?.getTime() ?? Infinity;
-  const bd = b.dueAt?.getTime() ?? Infinity;
-  if (ad !== bd) return ad - bd;
-  return b.updatedAt.getTime() - a.updatedAt.getTime();
+/** v0.3: rank by recency of touch, then manual rank. */
+const touchCmp = (a: Item, b: Item) => {
+  const at = (a.lastTouchedAt ?? a.updatedAt).getTime();
+  const bt = (b.lastTouchedAt ?? b.updatedAt).getTime();
+  if (at !== bt) return bt - at;
+  return a.rank - b.rank;
 };
 
 export const getNextUp = (projectId?: string, limit = 20) => {
   const candidates = items.filter(
     (it) => it.state === 'active' && (!projectId || it.projectId === projectId),
   );
-  return candidates.sort(rankCmp).slice(0, limit);
+  return candidates.sort(touchCmp).slice(0, limit);
 };
+
+/** Items past the aging threshold (state not in {filed, dismissed, inbox}). */
+export const getAgingItems = (thresholdDays: number, projectId?: string) => {
+  const cutoff = Date.now() - thresholdDays * 86400_000;
+  return items
+    .filter(
+      (it) =>
+        it.state !== 'filed' &&
+        it.state !== 'dismissed' &&
+        it.state !== 'inbox' &&
+        (!projectId || it.projectId === projectId) &&
+        (it.lastTouchedAt ?? it.updatedAt).getTime() < cutoff,
+    )
+    .sort(
+      (a, b) =>
+        (a.lastTouchedAt ?? a.updatedAt).getTime() -
+        (b.lastTouchedAt ?? b.updatedAt).getTime(),
+    );
+};
+
+/** Items that are crystallizations (kind or state). */
+export const getCrystallizations = (projectId?: string) =>
+  items
+    .filter(
+      (it) =>
+        (it.kind === 'crystallization' || it.state === 'crystallized') &&
+        (!projectId || it.projectId === projectId),
+    )
+    .sort((a, b) => (b.doneAt ?? b.updatedAt).getTime() - (a.doneAt ?? a.updatedAt).getTime());
+
+/** Items that crystallized in the last 7 days. */
+export const getCrystallizedThisWeek = () => {
+  const cutoff = Date.now() - 7 * 86400_000;
+  return getCrystallizations().filter(
+    (it) => (it.doneAt ?? it.updatedAt).getTime() >= cutoff,
+  );
+};
+
+import { fieldNotes, settings } from './fixtures';
+import type { FieldNotes } from './types';
+
+export const getFieldNotes = (projectId: string): FieldNotes | undefined =>
+  fieldNotes.find((f) => f.projectId === projectId);
+
+export const getSettings = () => settings.current;
 
 export const getInbox = (projectId?: string) =>
   items
@@ -106,7 +154,20 @@ export const getItemById = (id: string) => items.find((it) => it.id === id);
 export const getProjectItems = (projectId: string, state?: Item['state']) =>
   items
     .filter((it) => it.projectId === projectId && (!state || it.state === state))
-    .sort(rankCmp);
+    .sort(touchCmp);
+
+/** Latest moment anything in this thread was touched (project update or
+ *  any item's lastTouchedAt). Powers the "last touched X ago" header. */
+export const getProjectLastTouched = (projectId: string): Date => {
+  const project = getProjectById(projectId);
+  let max = project?.updatedAt ?? new Date(0);
+  for (const it of items) {
+    if (it.projectId !== projectId) continue;
+    const t = it.lastTouchedAt ?? it.updatedAt;
+    if (t.getTime() > max.getTime()) max = t;
+  }
+  return max;
+};
 
 // ─── Activity ──────────────────────────────────────────────────────────────
 

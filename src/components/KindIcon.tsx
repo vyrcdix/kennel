@@ -12,6 +12,11 @@ const map: Record<IconKind, (p?: { size?: number }) => JSX.Element> = {
   doc: Icons.doc,
   ref: Icons.link,
   chat: Icons.chat,
+  // v0.3 additions — Question reuses the bulb (a different render-time treatment
+  // overrides this in screens that want the ember "?" glyph); Crystallization
+  // reuses the doc icon (with moss accent + DURABLE stamp applied at use site).
+  question: Icons.bulb,
+  crystallization: Icons.doc,
 };
 
 export type KindIconProps = { kind: IconKind; size?: number; muted?: boolean };

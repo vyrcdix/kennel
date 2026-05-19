@@ -101,7 +101,7 @@ const TriageRowItem = ({
             className="km-btn km-btn-primary"
             onClick={(e) => { stop(e); onAction('active'); }}
           >
-            Activate{' '}
+            Pick up{' '}
             <span
               className="km-kbd"
               style={{
@@ -114,20 +114,20 @@ const TriageRowItem = ({
               A
             </span>
           </button>
-          <button className="km-btn" onClick={(e) => { stop(e); onAction('parked'); }}>
-            Park <span className="km-kbd" style={{ marginLeft: 4 }}>P</span>
+          <button className="km-btn" onClick={(e) => { stop(e); onAction('reflecting'); }}>
+            Set aside <span className="km-kbd" style={{ marginLeft: 4 }}>P</span>
           </button>
           <button className="km-btn" onClick={stop} title="convert (not wired)">
             Convert <span className="km-kbd" style={{ marginLeft: 4 }}>C</span>
           </button>
-          <button className="km-btn" onClick={(e) => { stop(e); onAction('done'); }}>
+          <button className="km-btn" onClick={(e) => { stop(e); onAction('crystallized'); }}>
             Done <span className="km-kbd" style={{ marginLeft: 4 }}>D</span>
           </button>
           <button
             className="km-btn km-btn-ghost"
             onClick={(e) => { stop(e); onAction('dismissed'); }}
           >
-            Dismiss <span className="km-kbd" style={{ marginLeft: 4 }}>X</span>
+            Let go <span className="km-kbd" style={{ marginLeft: 4 }}>X</span>
           </button>
         </div>
       )}
@@ -227,8 +227,8 @@ export const TriageQueue = () => {
           break;
         }
         case 'a': if (selected) transitionItem(selected.item.id, 'active'); break;
-        case 'p': if (selected) transitionItem(selected.item.id, 'parked'); break;
-        case 'd': if (selected) transitionItem(selected.item.id, 'done'); break;
+        case 'p': if (selected) transitionItem(selected.item.id, 'reflecting'); break;
+        case 'd': if (selected) transitionItem(selected.item.id, 'crystallized'); break;
         case 'x': if (selected) transitionItem(selected.item.id, 'dismissed'); break;
       }
     };
@@ -245,7 +245,7 @@ export const TriageQueue = () => {
           {/* Header */}
           <div style={{ padding: '18px 28px 12px', borderBottom: '1px solid var(--line)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 10 }}>
-              <div className="km-display-lg">Triage queue</div>
+              <div className="km-display-lg">Sort</div>
               <Mono>
                 {inboxCount} inbox · {proposalCount} proposals ·{' '}
                 {projectFilter ?? 'global'} view

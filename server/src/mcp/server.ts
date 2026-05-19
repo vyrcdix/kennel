@@ -1,17 +1,20 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DB } from '../db.js';
 import { registerActivityTools } from './tools/activity.js';
+import { registerAgingTools } from './tools/aging.js';
 import { registerChatTools } from './tools/chats.js';
 import { registerCommentTools } from './tools/comments.js';
 import { registerDocTools } from './tools/docs.js';
+import { registerFieldNotesTools } from './tools/fieldNotes.js';
 import { registerItemTools } from './tools/items.js';
 import { registerProjectTools } from './tools/projects.js';
 import { registerProposalTools } from './tools/proposals.js';
+import { registerReferenceTools } from './tools/references.js';
 import { registerRunbookTools } from './tools/runbooks.js';
 import { registerSearchTools } from './tools/search.js';
+import { registerSettingsTools } from './tools/settings.js';
 import { registerSkillTools } from './tools/skills.js';
 import { registerTagTools } from './tools/tags.js';
-import { registerReferenceTools } from './tools/references.js';
 
 /** Build a fresh McpServer with all Kennel tools registered. Called per
  *  session — the SDK requires each transport to bind to its own server
@@ -19,7 +22,7 @@ import { registerReferenceTools } from './tools/references.js';
 export const createMcpServer = (db: DB): McpServer => {
   const server = new McpServer({
     name: 'kennel',
-    version: '0.1.0',
+    version: '0.3.0',
   });
 
   registerProjectTools(server, db);
@@ -34,6 +37,9 @@ export const createMcpServer = (db: DB): McpServer => {
   registerSkillTools(server, db);
   registerTagTools(server, db);
   registerReferenceTools(server, db);
+  registerAgingTools(server, db);
+  registerFieldNotesTools(server, db);
+  registerSettingsTools(server, db);
 
   return server;
 };

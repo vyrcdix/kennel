@@ -103,19 +103,19 @@ export const ComponentsBoard = () => (
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <StateDot state="active" />
-          <span className="km-body-sm">active</span>
+          <span className="km-body-sm">in focus</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <StateDot state="parked" />
-          <span className="km-body-sm">parked</span>
+          <StateDot state="reflecting" />
+          <span className="km-body-sm">reflecting</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <StateDot state="done" />
-          <span className="km-body-sm">done</span>
+          <StateDot state="crystallized" />
+          <span className="km-body-sm">crystallized</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <StateDot state="archived" />
-          <span className="km-body-sm">archived</span>
+          <StateDot state="filed" />
+          <span className="km-body-sm">filed</span>
         </span>
       </CRow>
 

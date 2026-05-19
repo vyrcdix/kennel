@@ -9,17 +9,23 @@ The MCP server runs inside the same process as the HTTP API — start
 the server once with `npm --prefix server run dev` (or `npm start` in
 production) and both surfaces are available.
 
-## Tools exposed (v0.2 — 27 tools)
+## Tools exposed (v0.3 — 36 tools)
 
 **Projects** — `list_projects`, `get_project`, `create_project`,
 `update_project`, `close_out_project`.
 
-**Items / triage** — `create_item`, `transition_item`, `list_queue`,
-`list_next_up`.
+**Items / sort** — `create_item`, `transition_item`, `touch_item`,
+`crystallize_item`, `file_item`, `list_queue`, `list_next_up`,
+`list_aging`, `list_crystallizations`. `transition_item` accepts old
+state names (`parked`, `done`, `archived`) as soft aliases for backward
+compatibility; output uses the v0.3 vocabulary (`reflecting`,
+`crystallized`, `filed`).
 
 **Docs** — `read_doc`, `write_doc`.
 
 **Runbooks** — `get_runbook`, `upsert_runbook`.
+
+**Field notes** — `read_field_notes`, `write_field_notes`.
 
 **Chats** — `list_chats`, `register_chat`, `update_chat_tagline`.
 
@@ -28,6 +34,8 @@ production) and both surfaces are available.
 
 **References / tags / comments** — `create_reference`, `list_tags`,
 `apply_tag`, `remove_tag`, `add_comment`.
+
+**Settings** — `get_settings`, `update_settings`.
 
 **Activity / search** — `recent_activity`, `search`.
 
@@ -122,7 +130,7 @@ curl -s -X POST http://127.0.0.1:8421/mcp \
   -H "mcp-session-id: $SID" \
   -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
 
-# 3. List tools — should return all 27
+# 3. List tools — should return all 36
 curl -s -X POST http://127.0.0.1:8421/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
@@ -140,8 +148,6 @@ curl -s -X POST http://127.0.0.1:8421/mcp \
 
 ## What's deferred
 
-- **`archive_item`** — redundant with `transition_item` (just pass
-  `to: 'archived'`). Skipped.
 - **MCP resources / prompts.** Tools cover the read/write surface;
   resources/prompts can come later — e.g. exposing the markdown
   content directory as a browsable resource tree.

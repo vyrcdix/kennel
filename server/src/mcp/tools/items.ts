@@ -3,8 +3,11 @@ import { z } from 'zod';
 import type { DB } from '../../db.js';
 import {
   createItem,
+  crystallizeItem,
+  fileItem,
   listNextUp,
   listQueue,
+  touchItem,
   transitionItem,
 } from '../../services/item.js';
 import { listProposals } from '../../services/proposal.js';
@@ -12,8 +15,13 @@ import { getProjectBySlug } from '../../services/project.js';
 import { notFound } from '../../errors.js';
 import { errorResult, jsonResult } from '../result.js';
 
-const KIND = z.enum(['idea', 'note', 'action', 'doc', 'ref']);
-const STATE = z.enum(['inbox', 'active', 'parked', 'done', 'archived', 'dismissed']);
+const KIND = z.enum(['idea', 'note', 'action', 'doc', 'ref', 'question', 'crystallization']);
+// Accept the v0.3 vocabulary plus the old v0.1 aliases ('parked'/'done'/'archived');
+// the service normalises before applying. Tool descriptions advertise only v0.3.
+const STATE = z.enum([
+  'inbox', 'active', 'reflecting', 'crystallized', 'filed', 'dismissed',
+  'parked', 'done', 'archived',
+]);
 
 const resolveProjectId = (db: DB, opts: { projectId?: string; projectSlug?: string }): string | undefined => {
   if (opts.projectId) return opts.projectId;
@@ -59,7 +67,7 @@ export const registerItemTools = (server: McpServer, db: DB) => {
 
   server.tool(
     'transition_item',
-    'Move an item between states: inbox / active / parked / done / archived / dismissed. Enforces legal transitions and logs activity.',
+    'Move an item between states: inbox / active / reflecting / crystallized / filed / dismissed. (Old aliases parked/done/archived also accepted, normalised to v0.3.) Logs activity.',
     {
       itemId: z.string().describe('The item id.'),
       to: STATE,
@@ -93,7 +101,7 @@ export const registerItemTools = (server: McpServer, db: DB) => {
 
   server.tool(
     'list_next_up',
-    'Active items ranked for attention. Use this to answer "what should I be working on?".',
+    'Active items ranked for attention, ordered by recency of touch then manual rank. Use this to answer "what have I been thinking about lately?".',
     {
       projectSlug: z.string().optional(),
       limit: z.number().int().min(1).max(50).optional().default(10),
@@ -102,6 +110,54 @@ export const registerItemTools = (server: McpServer, db: DB) => {
       try {
         const projectId = resolveProjectId(db, { projectSlug });
         return jsonResult(listNextUp(db, projectId, limit));
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  server.tool(
+    'touch_item',
+    'Bump an item\'s last_touched_at without changing its state. Use to "pick up" something on the Aging board without a full state transition.',
+    { itemId: z.string() },
+    async ({ itemId }) => {
+      try {
+        touchItem(db, itemId);
+        return jsonResult({ ok: true });
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  server.tool(
+    'crystallize_item',
+    'Promote an item to a durable Crystallization. Sets state=crystallized; pass promoteKind=true to also flip kind→crystallization (the item starts rendering with the DURABLE stamp and moss border). Optional sourcesFrom records the lineage.',
+    {
+      itemId: z.string(),
+      promoteKind: z.boolean().optional()
+        .describe('If true, the item\'s kind becomes "crystallization". Defaults false (only state changes).'),
+      sourcesFrom: z.array(z.string()).optional()
+        .describe('IDs of items / docs / chats that fed this crystallization. Surfaced as "from N items, M chats".'),
+    },
+    async ({ itemId, promoteKind, sourcesFrom }) => {
+      try {
+        return jsonResult(
+          crystallizeItem(db, itemId, { promoteKind, sourcesFrom }, 'claude'),
+        );
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  server.tool(
+    'file_item',
+    'Soft-archive an item. Sets state=filed; the item drops from default surfaces but stays searchable.',
+    { itemId: z.string() },
+    async ({ itemId }) => {
+      try {
+        return jsonResult(fileItem(db, itemId, 'claude'));
       } catch (err) {
         return errorResult(err);
       }

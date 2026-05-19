@@ -1,31 +1,36 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
+import { KindIcon } from '../components/KindIcon';
 import { NavRail } from '../components/NavRail';
 import { NextUpRow } from '../components/NextUpRow';
 import { ProjectTag } from '../components/ProjectTag';
 import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SectionHead } from '../components/SectionHead';
-import { ActivityEntry as ActivityEntryRow } from '../components/ActivityEntry';
-import { toActorWho } from '../components/Actor';
 import { Icons } from '../components/Icon';
+import { crystallizeItem, fileItem, touchItem } from '../data/actions';
 import {
+  getAgingItems,
   getAllProjectCounts,
+  getCrystallizedThisWeek,
   getInboxRollup,
   getNextUp,
   getPinnedProjects,
-  getYesterdayActivity,
+  getProjectById,
+  getSettings,
 } from '../data/selectors';
-import { formatDashboardDate, formatTime } from '../data/time';
+import { formatDashboardDate, formatRelative } from '../data/time';
 import { useStoreVersion } from '../data/store';
 import { openCreateProject } from '../lib/modals';
-import type { ActivityEntry, Project } from '../data/types';
+import type { Item, Project } from '../data/types';
+
+const DAY = 86400_000;
 
 type ProjectCardProps = {
   project: Project;
   active?: boolean;
-  counts: { inbox: number; active: number; parked: number; done: number };
+  counts: { inbox: number; active: number; reflecting: number; crystallized: number };
 };
 
 const ProjectCard = ({ project, active, counts }: ProjectCardProps) => {
@@ -92,7 +97,7 @@ const ProjectCard = ({ project, active, counts }: ProjectCardProps) => {
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span className="km-dot km-dot-dust" />
-          <Mono>{counts.parked}</Mono>
+          <Mono>{counts.reflecting}</Mono>
         </span>
         <span style={{ flex: 1 }} />
         <span
@@ -116,16 +121,109 @@ const ProjectCard = ({ project, active, counts }: ProjectCardProps) => {
   );
 };
 
-const renderActivity = (a: ActivityEntry) => (
-  <ActivityEntryRow
-    key={a.id}
-    time={formatTime(a.occurredAt)}
-    who={toActorWho(a.actor)}
-    verb={a.verb}
-    target={a.target}
-    payload={a.payload ?? ''}
-  />
-);
+const AgingDashboardRow = ({ item }: { item: Item }) => {
+  const navigate = useNavigate();
+  const project = getProjectById(item.projectId);
+  const last = item.lastTouchedAt ?? item.updatedAt;
+  const days = Math.floor((Date.now() - last.getTime()) / DAY);
+  return (
+    <div
+      className="km-row"
+      onClick={() => navigate('/aging')}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '14px 90px 1fr 70px auto',
+        alignItems: 'center',
+        gap: 10,
+        padding: '7px 14px',
+        opacity: 0.82,
+        cursor: 'pointer',
+        borderBottom: '1px solid var(--line)',
+      }}
+    >
+      <KindIcon kind={item.kind} />
+      {project && <ProjectTag slug={project.slug} />}
+      <span
+        className="km-body"
+        style={{
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          fontSize: 13,
+        }}
+      >
+        {item.title}
+      </span>
+      <Mono>{days}d cold</Mono>
+      <div
+        style={{ display: 'flex', gap: 4 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          className="km-btn km-btn-ghost"
+          onClick={() => touchItem(item.id)}
+          style={{ padding: '2px 7px', fontSize: 10.5 }}
+          title="Pick up"
+        >
+          Pick up
+        </button>
+        <button
+          className="km-btn km-btn-ghost"
+          onClick={() => crystallizeItem(item.id, { promoteKind: true })}
+          style={{ padding: '2px 7px', fontSize: 10.5 }}
+          title="Crystallize"
+        >
+          Crystallize
+        </button>
+        <button
+          className="km-btn km-btn-ghost"
+          onClick={() => fileItem(item.id)}
+          style={{ padding: '2px 7px', fontSize: 10.5, color: 'var(--ember-deep)' }}
+          title="Let go"
+        >
+          Let go
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const CrystallizedRow = ({ item }: { item: Item }) => {
+  const navigate = useNavigate();
+  const project = getProjectById(item.projectId);
+  return (
+    <div
+      onClick={() => item.docId && navigate(`/doc/${item.docId}`)}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '14px 90px 1fr auto',
+        alignItems: 'center',
+        gap: 10,
+        padding: '7px 14px',
+        borderBottom: '1px solid var(--line)',
+        cursor: item.docId ? 'pointer' : 'default',
+      }}
+    >
+      <span style={{ color: 'var(--moss)' }}>
+        <Icons.star size={12} />
+      </span>
+      {project && <ProjectTag slug={project.slug} />}
+      <span
+        className="km-body"
+        style={{
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          fontSize: 13,
+          fontWeight: 500,
+        }}
+      >
+        {item.title}
+      </span>
+      <Mono>{formatRelative(item.doneAt ?? item.updatedAt)}</Mono>
+    </div>
+  );
+};
 
 const NoProjectsState = () => (
   <main
@@ -171,7 +269,9 @@ export const Dashboard = () => {
   const pinned = getPinnedProjects();
   const nextUp = getNextUp(undefined, 7);
   const inboxRollup = getInboxRollup();
-  const yesterday = getYesterdayActivity(4);
+  const settings = getSettings();
+  const aging = getAgingItems(settings.agingThresholdDays);
+  const crystallizedWeek = getCrystallizedThisWeek();
   const totalActive = nextUp.length;
   const countsById = useMemo(() => getAllProjectCounts(), [v]);
   const projectsById = useMemo(
@@ -241,27 +341,52 @@ export const Dashboard = () => {
                 key={p.id}
                 project={p}
                 active={i === 0}
-                counts={countsById.get(p.id) ?? { inbox: 0, active: 0, parked: 0, done: 0 }}
+                counts={countsById.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 }}
               />
             ))}
           </div>
 
           {/* Next up + side panels */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24 }}>
-            <section className="km-card" style={{ padding: 0 }}>
-              <SectionHead
-                title="Next up"
-                right={<Mono>{totalActive} active · ranked</Mono>}
-              />
-              <div className="km-rule" />
-              {nextUp.map((item, i) => {
-                const project = projectsById.get(item.projectId);
-                if (!project) return null;
-                return (
-                  <NextUpRow key={item.id} item={item} project={project} selected={i < 2} />
-                );
-              })}
-            </section>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <section className="km-card" style={{ padding: 0 }}>
+                <SectionHead
+                  title="In focus"
+                  right={<Mono>{totalActive} active · by last touched</Mono>}
+                />
+                <div className="km-rule" />
+                {nextUp.map((item, i) => {
+                  const project = projectsById.get(item.projectId);
+                  if (!project) return null;
+                  return (
+                    <NextUpRow key={item.id} item={item} project={project} selected={i < 2} />
+                  );
+                })}
+              </section>
+
+              {/* Crystallized this week — moss accent strip, hide when empty */}
+              {crystallizedWeek.length > 0 && (
+                <section
+                  className="km-card"
+                  style={{ padding: 0, borderColor: 'rgba(92,122,62,.35)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px' }}>
+                    <span style={{ color: 'var(--moss)', marginRight: 8 }}>
+                      <Icons.star size={13} />
+                    </span>
+                    <span className="km-display-sm" style={{ color: 'var(--moss)' }}>
+                      CRYSTALLIZED THIS WEEK
+                    </span>
+                    <span style={{ flex: 1 }} />
+                    <Mono dim>{crystallizedWeek.length} durable outcomes</Mono>
+                  </div>
+                  <div className="km-rule" />
+                  {crystallizedWeek.slice(0, 4).map((item) => (
+                    <CrystallizedRow key={item.id} item={item} />
+                  ))}
+                </section>
+              )}
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Inbox roll-up */}
@@ -276,7 +401,7 @@ export const Dashboard = () => {
                         style={{ padding: '4px 6px' }}
                         onClick={() => navigate('/triage')}
                       >
-                        Triage all <Icons.arrowR size={12} />
+                        Sort all <Icons.arrowR size={12} />
                       </button>
                     </>
                   }
@@ -300,30 +425,45 @@ export const Dashboard = () => {
                       <span style={{ flex: 1 }} />
                       <Mono>{count}</Mono>
                       <span className="km-mono-sm" style={{ color: 'var(--ember-deep)' }}>
-                        triage
+                        sort
                       </span>
                     </div>
                   ))}
                 </div>
               </section>
 
-              {/* Yesterday */}
-              <section className="km-card" style={{ padding: 0 }}>
+              {/* Aging — let go? (replaces Yesterday) */}
+              <section
+                className="km-card"
+                style={{ padding: 0, background: 'rgba(201,168,124,.06)' }}
+              >
                 <SectionHead
-                  title="Yesterday"
-                  right={<Mono>{yesterday.length} events · collapsed</Mono>}
+                  title="Aging — let go?"
+                  right={
+                    <>
+                      <Mono>
+                        {aging.length} untouched ≥ {settings.agingThresholdDays}d
+                      </Mono>
+                      <button
+                        className="km-btn km-btn-ghost"
+                        style={{ padding: '4px 6px' }}
+                        onClick={() => navigate('/aging')}
+                      >
+                        Review all <Icons.arrowR size={12} />
+                      </button>
+                    </>
+                  }
                 />
                 <div className="km-rule" />
-                <div
-                  style={{
-                    padding: '8px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 3,
-                  }}
-                >
-                  {yesterday.map(renderActivity)}
-                </div>
+                {aging.length === 0 ? (
+                  <div style={{ padding: '14px 16px' }}>
+                    <Mono dim>nothing's gone cold — everything's been touched recently</Mono>
+                  </div>
+                ) : (
+                  aging.slice(0, 4).map((item) => (
+                    <AgingDashboardRow key={item.id} item={item} />
+                  ))
+                )}
               </section>
             </div>
           </div>

@@ -117,7 +117,7 @@ const PROJECTS: ProjectSeed[] = [
 type ItemSeed = {
   projectSlug: string;
   kind: 'idea' | 'note' | 'action' | 'doc' | 'ref';
-  state: 'inbox' | 'active' | 'parked' | 'done';
+  state: 'inbox' | 'active' | 'reflecting' | 'crystallized';
   title: string;
   body?: string;
   hash?: string;
@@ -145,11 +145,11 @@ const ITEMS: ItemSeed[] = [
   { projectSlug: 'kennel', kind: 'note',   state: 'active', title: 'Audit copy for second-person nouns ("your", "yours")', rank: 11 },
   { projectSlug: 'kennel', kind: 'action', state: 'active', title: 'Add Esc-closes-modal handler to global search', dueMs: 6 * DAY, dueAhead: true, rank: 12 },
   // kennel : parked (5)
-  { projectSlug: 'kennel', kind: 'idea',   state: 'parked', title: 'Per-project density override', rank: 20 },
-  { projectSlug: 'kennel', kind: 'idea',   state: 'parked', title: 'Quote-of-the-day on empty-canvas state', rank: 21 },
-  { projectSlug: 'kennel', kind: 'note',   state: 'parked', title: 'Tag autocomplete: keyboard vs typeahead', rank: 22 },
-  { projectSlug: 'kennel', kind: 'action', state: 'parked', title: 'Investigate sqlite-vec for similar-item lookup', rank: 23 },
-  { projectSlug: 'kennel', kind: 'idea',   state: 'parked', title: 'Click-and-drag select for batch triage', rank: 24 },
+  { projectSlug: 'kennel', kind: 'idea',   state: 'reflecting', title: 'Per-project density override', rank: 20 },
+  { projectSlug: 'kennel', kind: 'idea',   state: 'reflecting', title: 'Quote-of-the-day on empty-canvas state', rank: 21 },
+  { projectSlug: 'kennel', kind: 'note',   state: 'reflecting', title: 'Tag autocomplete: keyboard vs typeahead', rank: 22 },
+  { projectSlug: 'kennel', kind: 'action', state: 'reflecting', title: 'Investigate sqlite-vec for similar-item lookup', rank: 23 },
+  { projectSlug: 'kennel', kind: 'idea',   state: 'reflecting', title: 'Click-and-drag select for batch triage', rank: 24 },
   // kennel : inbox (7)
   { projectSlug: 'kennel', kind: 'idea',  state: 'inbox', title: 'Move chats panel above pinned docs?', body: "Chats panel currently lives at the bottom of the project landing page and feels right that it's quiet, but feels wrong that it's lower. Maybe the answer is to keep it at the bottom but make stale chats render at even lower opacity.\n\nTension: chats should be discoverable but should not feel central.", createdMsAgo: 2 * MIN },
   { projectSlug: 'kennel', kind: 'note',  state: 'inbox', title: 'Concerns about FTS5 ranking on short titles', createdMsAgo: 3 * HOUR },
@@ -159,15 +159,15 @@ const ITEMS: ItemSeed[] = [
   { projectSlug: 'kennel', kind: 'ref',   state: 'inbox', title: 'Obsidian — graph view interaction inspiration', refKey: 'obsidian-graph', createdMsAgo: 7 * HOUR },
   { projectSlug: 'kennel', kind: 'idea',  state: 'inbox', title: 'Yesterday rollup should collapse same-actor consecutive entries', createdMsAgo: 4 * DAY },
   // kennel : done (1)
-  { projectSlug: 'kennel', kind: 'action', state: 'done', title: 'Port tokens.css to src/styles/', updatedMsAgo: 5 * HOUR },
+  { projectSlug: 'kennel', kind: 'action', state: 'crystallized', title: 'Port tokens.css to src/styles/', updatedMsAgo: 5 * HOUR },
 
   // picnic-engage
   { projectSlug: 'picnic-engage', kind: 'doc',    state: 'active', title: 'Draft Q3 outreach plan', hash: 'rev 7', dueMs: 1 * DAY, dueAhead: true, docKey: 'q3-outreach', rank: 1 },
   { projectSlug: 'picnic-engage', kind: 'action', state: 'active', title: 'Send revised copy to A. Klein before Friday standup', dueMs: 2 * DAY, dueAhead: true, rank: 2 },
   { projectSlug: 'picnic-engage', kind: 'idea',   state: 'active', title: 'Paused branch should expire after 6 weeks, not 8', rank: 3 },
   { projectSlug: 'picnic-engage', kind: 'note',   state: 'active', title: 'OOO auto-replies were getting bucketed as opted-out', rank: 4 },
-  { projectSlug: 'picnic-engage', kind: 'ref',    state: 'parked', title: 'Stripe — billing tiers reference', refKey: 'stripe-tiers', rank: 10 },
-  { projectSlug: 'picnic-engage', kind: 'note',   state: 'parked', title: 'Q2 retro themes worth carrying forward', rank: 11 },
+  { projectSlug: 'picnic-engage', kind: 'ref',    state: 'reflecting', title: 'Stripe — billing tiers reference', refKey: 'stripe-tiers', rank: 10 },
+  { projectSlug: 'picnic-engage', kind: 'note',   state: 'reflecting', title: 'Q2 retro themes worth carrying forward', rank: 11 },
   { projectSlug: 'picnic-engage', kind: 'ref',    state: 'inbox', title: 'Stripe — billing tiers reference', createdMsAgo: 14 * MIN },
   { projectSlug: 'picnic-engage', kind: 'action', state: 'inbox', title: 'Send revised copy to A. Klein before Friday standup', createdMsAgo: 1 * DAY },
   { projectSlug: 'picnic-engage', kind: 'idea',   state: 'inbox', title: 'Cap re-check loop at 3 attempts not 4', createdMsAgo: 20 * HOUR },
@@ -175,7 +175,7 @@ const ITEMS: ItemSeed[] = [
   // pacecraft
   { projectSlug: 'pacecraft', kind: 'action', state: 'active', title: 'Revise voice section for Kennel adaptation', dueMs: 4 * DAY, dueAhead: true, rank: 1 },
   { projectSlug: 'pacecraft', kind: 'doc',    state: 'active', title: 'Pacecraft brand guide — palette inheritance notes', hash: 'rev 11', rank: 2 },
-  { projectSlug: 'pacecraft', kind: 'note',   state: 'parked', title: 'Mascot-free empty states — copy patterns audit', rank: 10 },
+  { projectSlug: 'pacecraft', kind: 'note',   state: 'reflecting', title: 'Mascot-free empty states — copy patterns audit', rank: 10 },
 
   // klein-advisory
   { projectSlug: 'klein-advisory', kind: 'note', state: 'active', title: 'Prep Q2 retro talking points', dueMs: 7 * DAY, dueAhead: true, rank: 1 },
@@ -183,9 +183,9 @@ const ITEMS: ItemSeed[] = [
 
   // reading-stack
   { projectSlug: 'reading-stack', kind: 'ref', state: 'active', title: 'Reread §3 of Cal Newport on capture friction', refKey: 'newport-capture', rank: 1 },
-  { projectSlug: 'reading-stack', kind: 'ref', state: 'parked', title: "Christensen — Innovator's Dilemma", rank: 10 },
-  { projectSlug: 'reading-stack', kind: 'ref', state: 'parked', title: 'Latour — Reassembling the Social', rank: 11 },
-  { projectSlug: 'reading-stack', kind: 'ref', state: 'parked', title: 'Hofstadter — Surfaces & Essences', rank: 12 },
+  { projectSlug: 'reading-stack', kind: 'ref', state: 'reflecting', title: "Christensen — Innovator's Dilemma", rank: 10 },
+  { projectSlug: 'reading-stack', kind: 'ref', state: 'reflecting', title: 'Latour — Reassembling the Social', rank: 11 },
+  { projectSlug: 'reading-stack', kind: 'ref', state: 'reflecting', title: 'Hofstadter — Surfaces & Essences', rank: 12 },
   { projectSlug: 'reading-stack', kind: 'ref', state: 'inbox',  title: 'Newport on capture friction · §3', createdMsAgo: 1 * HOUR },
   { projectSlug: 'reading-stack', kind: 'ref', state: 'inbox',  title: 'Linear changelog · keyboard model', createdMsAgo: 2 * DAY },
   { projectSlug: 'reading-stack', kind: 'ref', state: 'inbox',  title: 'Stripe Docs — programmable customer pricing', createdMsAgo: 1 * DAY },
@@ -530,8 +530,8 @@ export const seedAll = (db: DB) => {
     // Items — link doc/ref refs if present
     const insertItem = db.prepare(
       `INSERT INTO items
-       (id, project_id, kind, state, title, body, hash, due_at, rank, doc_id, reference_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, project_id, kind, state, title, body, hash, due_at, rank, doc_id, reference_id, created_at, updated_at, last_touched_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     let itemSeq = 0;
     for (const it of ITEMS) {
@@ -553,6 +553,7 @@ export const seedAll = (db: DB) => {
         it.docKey ? docKeyToId.get(it.docKey) ?? null : null,
         it.refKey ? refKeyToId.get(it.refKey) ?? null : null,
         created,
+        updated,
         updated,
       );
     }

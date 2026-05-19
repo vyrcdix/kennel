@@ -3,13 +3,13 @@ import type { DB } from '../db.js';
 import { asyncHandler, validationError } from '../errors.js';
 import {
   createItem,
+  crystallizeItem,
+  fileItem,
   getItemById,
   listItems,
+  touchItem,
   transitionItem,
 } from '../services/item.js';
-import type { ItemState } from '../../../shared/types.js';
-
-const STATES: ItemState[] = ['inbox', 'active', 'parked', 'done', 'archived', 'dismissed'];
 
 export const itemsRouter = (db: DB): Router => {
   const r = Router();
@@ -41,9 +41,35 @@ export const itemsRouter = (db: DB): Router => {
   r.post(
     '/:id/transition',
     asyncHandler(async (req, res) => {
-      const to = req.body?.to as ItemState | undefined;
-      if (!to || !STATES.includes(to)) throw validationError({ to: 'invalid' });
+      const to = req.body?.to;
+      if (typeof to !== 'string') throw validationError({ to: 'required' });
       res.json(transitionItem(db, req.params.id, to));
+    }),
+  );
+
+  r.post(
+    '/:id/touch',
+    asyncHandler(async (req, res) => {
+      touchItem(db, req.params.id);
+      res.status(204).end();
+    }),
+  );
+
+  r.post(
+    '/:id/crystallize',
+    asyncHandler(async (req, res) => {
+      const promoteKind = req.body?.promoteKind === true;
+      const sourcesFrom = Array.isArray(req.body?.sourcesFrom)
+        ? req.body.sourcesFrom
+        : undefined;
+      res.json(crystallizeItem(db, req.params.id, { promoteKind, sourcesFrom }));
+    }),
+  );
+
+  r.post(
+    '/:id/file',
+    asyncHandler(async (req, res) => {
+      res.json(fileItem(db, req.params.id));
     }),
   );
 

@@ -19,12 +19,19 @@ const EXPECTED_TOOLS = [
   'close_out_project',
   'create_item',
   'transition_item',
+  'touch_item',
+  'crystallize_item',
+  'file_item',
   'list_queue',
   'list_next_up',
+  'list_aging',
+  'list_crystallizations',
   'read_doc',
   'write_doc',
   'get_runbook',
   'upsert_runbook',
+  'read_field_notes',
+  'write_field_notes',
   'list_chats',
   'register_chat',
   'update_chat_tagline',
@@ -39,6 +46,8 @@ const EXPECTED_TOOLS = [
   'apply_tag',
   'remove_tag',
   'create_reference',
+  'get_settings',
+  'update_settings',
 ];
 
 beforeEach(async () => {

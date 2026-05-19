@@ -8,10 +8,12 @@ import type {
   Chat,
   Doc,
   EntityComment,
+  FieldNotes,
   Item,
   Project,
   Reference,
   Runbook,
+  Settings,
   Skill,
   SkillProposal,
   Tag,
@@ -22,6 +24,7 @@ export const items: Item[] = [];
 export const docs: Doc[] = [];
 export const references: Reference[] = [];
 export const runbooks: Runbook[] = [];
+export const fieldNotes: FieldNotes[] = [];
 export const chats: Chat[] = [];
 export const skills: Skill[] = [];
 export const skillProposals: SkillProposal[] = [];
@@ -29,18 +32,31 @@ export const comments: EntityComment[] = [];
 export const activity: ActivityEntry[] = [];
 export const tags: Tag[] = [];
 
+const DEFAULT_SETTINGS: Settings = {
+  agingThresholdDays: 21,
+  filingPromptDays: 0,
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+};
+
+// Settings is a single object rather than an array. The store keeps one
+// mutable holder so selectors can read settings.current synchronously.
+export const settings: { current: Settings } = { current: DEFAULT_SETTINGS };
+
 export type BootstrapPayload = {
   projects: Project[];
   items: Item[];
   docs: Doc[];
   references: Reference[];
   runbooks: Runbook[];
+  fieldNotes: FieldNotes[];
   chats: Chat[];
   skills: Skill[];
   skillProposals: SkillProposal[];
   comments: EntityComment[];
   activity: ActivityEntry[];
   tags: Tag[];
+  settings: Settings;
 };
 
 const replace = <T>(target: T[], source: T[]) => {
@@ -55,11 +71,13 @@ export const hydrate = (payload: BootstrapPayload) => {
   replace(docs, payload.docs);
   replace(references, payload.references);
   replace(runbooks, payload.runbooks);
+  replace(fieldNotes, payload.fieldNotes ?? []);
   replace(chats, payload.chats);
   replace(skills, payload.skills);
   replace(skillProposals, payload.skillProposals);
   replace(comments, payload.comments);
   replace(activity, payload.activity);
   replace(tags, payload.tags);
+  settings.current = payload.settings ?? DEFAULT_SETTINGS;
   notify();
 };

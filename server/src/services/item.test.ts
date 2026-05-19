@@ -43,13 +43,23 @@ describe('createItem', () => {
 });
 
 describe('transitionItem', () => {
-  test('moves state and sets done_at on done', () => {
+  test('picks up an item, crystallizes it, sets done_at', () => {
     const it = createItem(db, { projectId, kind: 'action', title: 'do thing' });
     const active = transitionItem(db, it.id, 'active');
     expect(active.state).toBe('active');
-    const done = transitionItem(db, it.id, 'done');
-    expect(done.state).toBe('done');
+    const done = transitionItem(db, it.id, 'crystallized');
+    expect(done.state).toBe('crystallized');
     expect(done.doneAt).toBeInstanceOf(Date);
+  });
+
+  test('accepts legacy aliases (parked / done / archived → reflecting / crystallized / filed)', () => {
+    const it = createItem(db, { projectId, kind: 'idea', title: 'aliased' });
+    const reflecting = transitionItem(db, it.id, 'parked');
+    expect(reflecting.state).toBe('reflecting');
+    const crystallized = transitionItem(db, it.id, 'done');
+    expect(crystallized.state).toBe('crystallized');
+    const filed = transitionItem(db, it.id, 'archived');
+    expect(filed.state).toBe('filed');
   });
 
   test('no-op when state unchanged (no extra activity)', () => {

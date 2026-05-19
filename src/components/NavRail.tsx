@@ -99,7 +99,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
       {allProjects.map((p) => {
         const isActive = activeProjectSlug === p.slug;
         const counts = getProjectCounts(p.id);
-        const total = counts.active + counts.parked;
+        const total = counts.active + counts.reflecting;
         return (
           <button
             key={p.slug}

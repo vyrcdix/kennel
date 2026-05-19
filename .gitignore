@@ -12,6 +12,7 @@ dist-ssr
 
 # Server runtime artifacts
 server/kennel.db
+server/kennel.db.bak
 server/kennel.db-journal
 server/kennel.db-wal
 server/kennel.db-shm

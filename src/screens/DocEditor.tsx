@@ -14,7 +14,8 @@ import {
   getDocComments,
   getProjectById,
 } from '../data/selectors';
-import { addComment, saveDoc } from '../data/actions';
+import { addComment, crystallizeItem, saveDoc } from '../data/actions';
+import { items } from '../data/fixtures';
 import { useStoreVersion } from '../data/store';
 import { renderBlocks } from '../lib/markdown';
 import { formatTime } from '../data/time';
@@ -66,6 +67,14 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
 
   const project = getProjectById(doc.projectId);
   const comments = getDocComments(doc.id);
+  const linkedItem = items.find((i) => i.docId === doc.id);
+  const promoted =
+    !!linkedItem &&
+    (linkedItem.kind === 'crystallization' || linkedItem.state === 'crystallized');
+  const onPromote = () => {
+    if (!linkedItem) return;
+    void crystallizeItem(linkedItem.id, { promoteKind: true });
+  };
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -92,12 +101,31 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
                 gap: 24,
               }}
             >
-              <div className="km-display-lg">{doc.title}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="km-display-lg">{doc.title}</span>
+                {promoted && (
+                  <span
+                    className="km-display-sm"
+                    style={{ color: 'var(--moss)', fontSize: 10 }}
+                  >
+                    DURABLE
+                  </span>
+                )}
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <Rev n={doc.revision} />
                 <Mono>
                   {dirty ? `editing · ⌘S to save` : `saved ${formatTime(doc.updatedAt)}`}
                 </Mono>
+                {!promoted && (
+                  <button
+                    className="km-btn km-btn-ghost"
+                    onClick={onPromote}
+                    title="Promote to a crystallization"
+                  >
+                    <Icons.star size={13} /> Promote to crystallization
+                  </button>
+                )}
                 <button className="km-btn km-btn-ghost">
                   <Icons.side size={13} /> Preview only
                 </button>
