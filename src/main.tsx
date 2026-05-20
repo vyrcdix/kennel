@@ -1,9 +1,10 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/tokens.css';
 import App from './App';
-import { api } from './data/api';
-import { startEventStream } from './data/events';
+import LoginScreen from './screens/LoginScreen';
+import { ApiError, api, setUnauthorizedHandler } from './data/api';
+import { startEventStream, stopEventStream } from './data/events';
 import { hydrate, type BootstrapPayload } from './data/fixtures';
 import { toastError } from './lib/toast';
 
@@ -34,28 +35,65 @@ const BootSplash = ({ error }: { error?: string }) => (
       </span>
     </div>
     <span className="km-mono-sm" style={{ color: 'var(--fg-muted)' }}>
-      {error ? `couldn't reach server — ${error}` : 'loading kennel…'}
+      {error ? `couldn't reach server — ${error}` : 'loading steep…'}
     </span>
   </div>
 );
 
+type Phase = 'checking' | 'login' | 'ready';
+
 const Boot = () => {
-  const [ready, setReady] = useState(false);
+  const [phase, setPhase] = useState<Phase>('checking');
   const [error, setError] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    api
-      .get<BootstrapPayload>('/api/bootstrap')
-      .then((payload) => {
-        hydrate(payload);
-        startEventStream();
-        setReady(true);
-      })
-      .catch((err: Error) => setError(err.message));
+  const loadApp = useCallback(async () => {
+    try {
+      const payload = await api.get<BootstrapPayload>('/api/bootstrap');
+      hydrate(payload);
+      startEventStream();
+      setPhase('ready');
+    } catch (err) {
+      // A 401 here means the session lapsed between status and bootstrap —
+      // the unauthorized handler already flips us to login; don't also
+      // show the error splash.
+      if (err instanceof ApiError && err.status === 401) return;
+      setError((err as Error).message);
+    }
   }, []);
 
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      stopEventStream();
+      setPhase('login');
+    });
+    void (async () => {
+      try {
+        const status = await api.get<{ authRequired: boolean; authenticated: boolean }>(
+          '/api/auth/status',
+        );
+        if (status.authRequired && !status.authenticated) {
+          setPhase('login');
+        } else {
+          await loadApp();
+        }
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    })();
+  }, [loadApp]);
+
   if (error) return <BootSplash error={error} />;
-  if (!ready) return <BootSplash />;
+  if (phase === 'checking') return <BootSplash />;
+  if (phase === 'login') {
+    return (
+      <LoginScreen
+        onSuccess={() => {
+          setPhase('checking');
+          void loadApp();
+        }}
+      />
+    );
+  }
   return <App />;
 };
 

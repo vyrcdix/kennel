@@ -50,8 +50,12 @@ rollback notes.
 - **Node.js 22 LTS or 24** (Kennel is tested on 24). `better-sqlite3`
   has prebuilds for both — no native compile needed.
 - **Caddy** or another reverse proxy (we use Caddy for HTTPS).
-- **`KENNEL_MCP_TOKEN`** — a long random string for bearer auth. Even
-  on Tailscale, set this so a misconfigured device doesn't bypass it.
+- **`KENNEL_MCP_TOKEN`** — a long random string. Bearer auth for the
+  `/mcp` endpoint (how Claude clients authenticate).
+- **`KENNEL_INITIAL_PASSWORD`** — the shared password for the web UI /
+  API. Seeded on first boot; after that, change it from Settings →
+  Account. Without it set, app auth is **disabled** (dev default) and
+  `/api` is open — so on a public box, set it.
 - **Backups.** SQLite + a markdown directory. Trivial to back up,
   catastrophic to lose.
 
@@ -179,6 +183,7 @@ WorkingDirectory=/opt/kennel
 Environment=NODE_ENV=production
 Environment=KENNEL_DB=/opt/kennel/server/kennel.db
 Environment=KENNEL_MCP_TOKEN=PASTE_TOKEN_HERE
+Environment=KENNEL_INITIAL_PASSWORD=PASTE_PASSWORD_HERE
 Environment=KENNEL_SKIP_SEED=1
 ExecStart=/usr/bin/npm --prefix server start
 Restart=on-failure
@@ -196,15 +201,22 @@ WantedBy=multi-user.target
 EOF
 ```
 
-Now paste your token into the file. The simplest, history-safe way is
+Now paste your secrets into the file. The simplest, history-safe way is
 `nano`:
 
 ```sh
 nano /etc/systemd/system/kennel.service
-# find the line: Environment=KENNEL_MCP_TOKEN=PASTE_TOKEN_HERE
-# replace PASTE_TOKEN_HERE with your token
+# Environment=KENNEL_MCP_TOKEN=PASTE_TOKEN_HERE
+#   → replace with a long random string (openssl rand -hex 32)
+# Environment=KENNEL_INITIAL_PASSWORD=PASTE_PASSWORD_HERE
+#   → replace with the shared web-UI password (≥ 8 chars)
 # Ctrl+O, Enter, Ctrl+X
 ```
+
+`KENNEL_INITIAL_PASSWORD` is only read on **first boot**, to seed the
+password when none is set. Once seeded it's inert — change the password
+from Settings → Account, not by editing this file. (You can delete the
+line after first boot if you like; leaving it is harmless.)
 
 Or if you'd rather scripts (token will live in bash_history — fine if
 that's your own shell, not fine on a shared box):
@@ -428,9 +440,15 @@ changes.
    Caddy issues the Let's Encrypt cert automatically on first request.
    `/opt/kennel/dist` is world-readable (755) so the `caddy` user can
    serve it without ownership changes.
-5. Set a long `KENNEL_MCP_TOKEN` — it's the only thing between the
-   public internet and your data. (The env var keeps the codename;
-   the value is what protects you.)
+
+   > **Auth is handled by the app, not Caddy.** Steep has a login
+   > screen and session cookies — do **not** add `basic_auth` to this
+   > Caddyfile. If you applied a Caddy `basic_auth` stopgap during an
+   > earlier deploy, remove it: revert to the Caddyfile above and
+   > `systemctl reload caddy`. The app's session gate replaces it.
+5. Set `KENNEL_MCP_TOKEN` (guards `/mcp`) and
+   `KENNEL_INITIAL_PASSWORD` (seeds the web-UI login). Between them
+   nothing on the public box is unauthenticated.
 
 Test from off-network:
 ```sh

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from './Icon';
 import { openCapture, openCreateProject } from '../lib/modals';
+import { logout } from '../data/auth';
 
 export type ChromeBarProps = {
   projectChip?: ReactNode;
@@ -75,22 +76,17 @@ export const ChromeBar = ({
         >
           <Icons.plus size={13} /> Capture
         </button>
-        <div
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 3,
-            background: 'var(--surface-2)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: 'var(--ff-mono)',
-            fontSize: 11,
-            color: 'var(--fg-muted)',
+        <button
+          className="km-btn km-btn-ghost"
+          title="Sign out"
+          onClick={async () => {
+            await logout();
+            window.location.reload();
           }}
+          style={{ padding: '5px 7px', color: 'var(--fg-muted)' }}
         >
-          CD
-        </div>
+          <Icons.side size={14} /> Sign out
+        </button>
       </div>
     </>
   );

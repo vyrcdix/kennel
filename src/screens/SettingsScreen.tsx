@@ -5,6 +5,7 @@ import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SegBtn } from '../components/SegBtn';
 import { updateSettings } from '../data/actions';
+import { changePassword, logout } from '../data/auth';
 import { getSettings } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
 import { useTheme, type ThemeMode } from '../lib/theme';
@@ -74,12 +75,13 @@ const Toggle = ({
   </span>
 );
 
-type SectionKey = 'appearance' | 'lifecycle' | 'mcp';
+type SectionKey = 'appearance' | 'lifecycle' | 'mcp' | 'account';
 
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'appearance', label: 'Appearance' },
   { key: 'lifecycle', label: 'Capture & Lifecycle' },
   { key: 'mcp', label: 'MCP connection' },
+  { key: 'account', label: 'Account' },
 ];
 
 export const SettingsScreen = () => {
@@ -105,6 +107,35 @@ export const SettingsScreen = () => {
   };
   const setFilingPromptDays = (n: 0 | 90 | 180) => {
     if (n !== settings.filingPromptDays) void updateSettings({ filingPromptDays: n });
+  };
+
+  // Account — change shared password.
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const submitPassword = async () => {
+    setPwMsg(null);
+    if (pwNew.length < 8) {
+      setPwMsg({ ok: false, text: 'New password must be at least 8 characters.' });
+      return;
+    }
+    if (pwNew !== pwConfirm) {
+      setPwMsg({ ok: false, text: 'New password and confirmation do not match.' });
+      return;
+    }
+    setPwBusy(true);
+    const result = await changePassword(pwCurrent, pwNew);
+    setPwBusy(false);
+    if (result.ok) {
+      setPwMsg({ ok: true, text: 'Password changed. Other sessions were signed out.' });
+      setPwCurrent('');
+      setPwNew('');
+      setPwConfirm('');
+    } else {
+      setPwMsg({ ok: false, text: result.error });
+    }
   };
 
   const [dormantDraft, setDormantDraft] = useState(settings.dormantThresholdDays);
@@ -449,6 +480,109 @@ export const SettingsScreen = () => {
                   </>
                 );
               })()}
+
+              {section === 'account' && (
+                <>
+                  <div className="km-display-lg" style={{ marginBottom: 4 }}>
+                    Account
+                  </div>
+                  <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
+                    Steep uses a single shared password. Changing it signs out
+                    every other session — re-share the new password with anyone
+                    in the circle.
+                  </div>
+
+                  <div style={{ borderBottom: '1px solid var(--line)' }}>
+                    <SettingsRow
+                      label="Current password"
+                      control={
+                        <input
+                          type="password"
+                          className="km-input"
+                          value={pwCurrent}
+                          onChange={(e) => setPwCurrent(e.target.value)}
+                          style={{ width: 240, fontSize: 13 }}
+                        />
+                      }
+                    />
+                    <SettingsRow
+                      label="New password"
+                      hint="At least 8 characters."
+                      control={
+                        <input
+                          type="password"
+                          className="km-input"
+                          value={pwNew}
+                          onChange={(e) => setPwNew(e.target.value)}
+                          style={{ width: 240, fontSize: 13 }}
+                        />
+                      }
+                    />
+                    <SettingsRow
+                      label="Confirm new password"
+                      control={
+                        <input
+                          type="password"
+                          className="km-input"
+                          value={pwConfirm}
+                          onChange={(e) => setPwConfirm(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void submitPassword();
+                          }}
+                          style={{ width: 240, fontSize: 13 }}
+                        />
+                      }
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      marginTop: 14,
+                    }}
+                  >
+                    <button
+                      className="km-btn km-btn-primary"
+                      onClick={() => void submitPassword()}
+                      disabled={pwBusy || !pwNew || !pwConfirm}
+                      style={{ opacity: pwBusy || !pwNew || !pwConfirm ? 0.5 : 1 }}
+                    >
+                      {pwBusy ? 'Changing…' : 'Change password'}
+                    </button>
+                    {pwMsg && (
+                      <Mono
+                        style={{
+                          color: pwMsg.ok ? 'var(--moss)' : 'var(--ember-deep)',
+                        }}
+                      >
+                        {pwMsg.text}
+                      </Mono>
+                    )}
+                  </div>
+
+                  <div
+                    className="km-display-lg"
+                    style={{ marginTop: 28, marginBottom: 4, fontSize: 22 }}
+                  >
+                    Session
+                  </div>
+                  <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 14 }}>
+                    Sign out of this device. Claude's MCP connection is separate
+                    and stays connected.
+                  </div>
+                  <button
+                    className="km-btn"
+                    onClick={async () => {
+                      await logout();
+                      window.location.reload();
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </main>

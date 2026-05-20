@@ -35,6 +35,14 @@ export const materializeDates = <T>(value: T): T => {
   return value;
 };
 
+/** Fired when the server rejects a request with 401 — the session
+ *  expired or was never established. The boot shell subscribes and
+ *  flips to the login screen. */
+let onUnauthorized: (() => void) | null = null;
+export const setUnauthorizedHandler = (fn: () => void): void => {
+  onUnauthorized = fn;
+};
+
 const request = async (
   method: string,
   path: string,
@@ -44,10 +52,12 @@ const request = async (
     method,
     headers: body != null ? { 'Content-Type': 'application/json' } : undefined,
     body: body != null ? JSON.stringify(body) : undefined,
+    credentials: 'same-origin',
   });
   const text = await res.text();
   const parsed = text ? JSON.parse(text) : undefined;
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.();
     throw new ApiError(res.status, parsed as ApiErrorBody);
   }
   return parsed;

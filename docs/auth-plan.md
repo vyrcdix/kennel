@@ -1,7 +1,9 @@
 # Steep — Authentication plan (Option B)
 
-> Status: **planned, not started.** A Caddy `basic_auth` stopgap is
-> live in production; this is the proper replacement.
+> Status: **shipped.** All five slices landed. Migration is `0007`
+> (not `0005` — `0005` was unused, `0006` went to field-notes). Once
+> deployed, revert the live Caddy `basic_auth` stopgap — the app's
+> session gate replaces it.
 
 ## Context
 

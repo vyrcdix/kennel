@@ -6,6 +6,14 @@ import { mcpAuth } from './mcp/auth.js';
 import { mcpRouter } from './mcp/transport.js';
 import { activityRouter } from './routes/activity.js';
 import { agingRouter, crystallizationsRouter } from './routes/aging.js';
+import { authRouter } from './routes/auth.js';
+import {
+  isPasswordSet,
+  seedInitialPassword,
+  sessionTokenFromCookie,
+  sweepExpiredSessions,
+  validateSession,
+} from './services/auth.js';
 import { bootstrapRouter } from './routes/bootstrap.js';
 import { eventsRouter } from './routes/events.js';
 import { chatsRouter } from './routes/chats.js';
@@ -27,15 +35,34 @@ const HOST = process.env.HOST ?? '127.0.0.1';
 const db = openDb();
 applyMigrations(db);
 runSeedIfEmpty(db);
+seedInitialPassword(db);
+sweepExpiredSessions(db);
 
 const app = express();
-app.use(cors({ origin: true }));
+// Behind Caddy in production — trust X-Forwarded-Proto so req.secure is
+// accurate and the session cookie gets the Secure flag over HTTPS.
+app.set('trust proxy', true);
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
 });
 
+// Session gate for /api/*. When no password is configured auth is
+// disabled (dev default). /api/auth/* is always allowlisted; /mcp is a
+// different path entirely and keeps its own bearer token.
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) return next();
+  if (req.path.startsWith('/api/auth/')) return next();
+  if (req.path === '/api/health') return next();
+  if (!isPasswordSet(db)) return next();
+  const token = sessionTokenFromCookie(req.headers.cookie);
+  if (validateSession(db, token)) return next();
+  res.status(401).json({ error: 'unauthorized' });
+});
+
+app.use('/api/auth', authRouter(db));
 app.use('/mcp', mcpAuth, mcpRouter(db));
 app.use('/api/bootstrap', bootstrapRouter(db));
 app.use('/api/projects', projectsRouter(db));
