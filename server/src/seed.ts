@@ -561,12 +561,15 @@ export const seedAll = (db: DB) => {
     // Runbooks
     const insertRunbook = db.prepare(
       `INSERT INTO runbooks
-       (id, project_id, url, prerequisites, setup, run, deploy, troubleshoot, notes, revision, created_at, updated_at)
+       (id, project_id, urls, prerequisites, setup, run, deploy, troubleshoot, notes, revision, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     for (const rb of RUNBOOKS) {
+      const urls = rb.url
+        ? JSON.stringify([{ label: 'Default', url: rb.url }])
+        : null;
       insertRunbook.run(
-        newId(), slugToProjectId.get(rb.projectSlug)!, rb.url ?? null,
+        newId(), slugToProjectId.get(rb.projectSlug)!, urls,
         rb.prerequisites ?? null, rb.setup ?? null, rb.run ?? null,
         rb.deploy ?? null, rb.troubleshoot ?? null, rb.notes ?? null,
         rb.revision, isoMinusMs(rb.createdMsAgo), isoMinusMs(rb.updatedMsAgo),

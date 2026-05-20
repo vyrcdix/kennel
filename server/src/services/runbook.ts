@@ -2,12 +2,12 @@ import type { DB } from '../db.js';
 import { logActivity } from '../activity.js';
 import { notFound } from '../errors.js';
 import { fromIso, nowIso } from '../time.js';
-import type { Runbook } from '../../../shared/types.js';
+import type { Runbook, RunbookUrl } from '../../../shared/types.js';
 
 type RunbookRow = {
   id: string;
   project_id: string;
-  url: string | null;
+  urls: string | null;
   prerequisites: string | null;
   setup: string | null;
   run: string | null;
@@ -19,10 +19,27 @@ type RunbookRow = {
   updated_at: string;
 };
 
+/** Parse the urls JSON column, defensively — bad rows become []. */
+const parseUrls = (raw: string | null): RunbookUrl[] => {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter(
+        (e): e is RunbookUrl =>
+          !!e && typeof e.label === 'string' && typeof e.url === 'string',
+      )
+      .map((e) => ({ label: e.label, url: e.url }));
+  } catch {
+    return [];
+  }
+};
+
 export const rowToRunbook = (r: RunbookRow): Runbook => ({
   id: r.id,
   projectId: r.project_id,
-  url: r.url ?? undefined,
+  urls: parseUrls(r.urls),
   prerequisites: r.prerequisites ?? undefined,
   setup: r.setup ?? undefined,
   run: r.run ?? undefined,
@@ -48,7 +65,7 @@ export const getRunbookByProject = (db: DB, projectId: string): Runbook | undefi
 };
 
 export type RunbookSections = Partial<{
-  url: string | null;
+  urls: RunbookUrl[];
   prerequisites: string | null;
   setup: string | null;
   run: string | null;
@@ -58,6 +75,13 @@ export type RunbookSections = Partial<{
 }>;
 
 import { newId } from '../ids.js';
+
+/** Drop blank entries (no url) and trim — keeps the JSON tidy. */
+const cleanUrls = (urls: RunbookUrl[]): RunbookUrl[] =>
+  urls
+    .map((u) => ({ label: u.label.trim(), url: u.url.trim() }))
+    .filter((u) => u.url !== '')
+    .map((u) => ({ label: u.label || 'URL', url: u.url }));
 
 /** Set or create a project's runbook in one call. Any non-undefined section is
  *  applied; bumps revision when any section changed; logs activity. */
@@ -74,13 +98,13 @@ export const upsertRunbook = (
     const id = newId();
     db.prepare(
       `INSERT INTO runbooks
-       (id, project_id, url, prerequisites, setup, run, deploy, troubleshoot, notes,
+       (id, project_id, urls, prerequisites, setup, run, deploy, troubleshoot, notes,
         revision, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
     ).run(
       id,
       projectId,
-      sections.url ?? null,
+      sections.urls ? JSON.stringify(cleanUrls(sections.urls)) : null,
       sections.prerequisites ?? null,
       sections.setup ?? null,
       sections.run ?? null,
@@ -103,7 +127,7 @@ export const upsertRunbook = (
   }
 
   const merged = {
-    url: sections.url !== undefined ? sections.url : existing.url ?? null,
+    urls: sections.urls !== undefined ? cleanUrls(sections.urls) : existing.urls,
     prerequisites:
       sections.prerequisites !== undefined ? sections.prerequisites : existing.prerequisites ?? null,
     setup: sections.setup !== undefined ? sections.setup : existing.setup ?? null,
@@ -116,11 +140,11 @@ export const upsertRunbook = (
   const newRev = existing.revision + 1;
   db.prepare(
     `UPDATE runbooks
-     SET url = ?, prerequisites = ?, setup = ?, run = ?, deploy = ?,
+     SET urls = ?, prerequisites = ?, setup = ?, run = ?, deploy = ?,
          troubleshoot = ?, notes = ?, revision = ?, updated_at = ?
      WHERE project_id = ?`,
   ).run(
-    merged.url,
+    JSON.stringify(merged.urls),
     merged.prerequisites,
     merged.setup,
     merged.run,
@@ -145,23 +169,12 @@ export const upsertRunbook = (
   return getRunbookByProject(db, projectId)!;
 };
 
-export const updateRunbookUrl = (db: DB, projectId: string, url: string): Runbook => {
+export const updateRunbookUrls = (
+  db: DB,
+  projectId: string,
+  urls: RunbookUrl[],
+): Runbook => {
   const existing = getRunbookByProject(db, projectId);
   if (!existing) throw notFound('runbook', projectId);
-  if (existing.url === url) return existing;
-  const now = nowIso();
-  db.prepare(
-    'UPDATE runbooks SET url = ?, updated_at = ? WHERE project_id = ?',
-  ).run(url || null, now, projectId);
-  logActivity(db, {
-    projectId,
-    entityType: 'runbook',
-    entityId: existing.id,
-    verb: 'EDITED',
-    target: 'runbook url',
-    payload: url,
-    actor: 'craig',
-    occurredAt: now,
-  });
-  return getRunbookByProject(db, projectId)!;
+  return upsertRunbook(db, projectId, { urls });
 };

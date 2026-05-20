@@ -117,11 +117,17 @@ export type Reference = {
   updatedAt: Date;
 };
 
+/** A labelled environment URL on a runbook — Admin, Dev, Prod, etc. */
+export type RunbookUrl = {
+  label: string;
+  url: string;
+};
+
 export type Runbook = {
   id: string;
   projectId: string;
-  /** Environment-specific URL (dev server, staging, etc.). User-entered. */
-  url?: string;
+  /** Environment URLs — labelled pairs (Admin / Dev / Prod / …). */
+  urls: RunbookUrl[];
   prerequisites?: string;
   setup?: string;
   run?: string;

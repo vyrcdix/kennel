@@ -33,8 +33,12 @@ export const registerRunbookTools = (server: McpServer, db: DB) => {
     'Set or update a project\'s runbook sections. Any section omitted is left unchanged; pass null to clear. Bumps the revision and logs activity.',
     {
       projectSlug: z.string(),
-      url: z.string().nullable().optional()
-        .describe('Environment URL (dev server, staging, etc.).'),
+      urls: z
+        .array(z.object({ label: z.string(), url: z.string() }))
+        .optional()
+        .describe(
+          'Environment URLs as labelled pairs (Admin, Dev, Prod, …). Replaces the whole list; omit to leave unchanged.',
+        ),
       prerequisites: z.string().nullable().optional(),
       setup: z.string().nullable().optional(),
       run: z.string().nullable().optional(),

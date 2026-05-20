@@ -112,6 +112,7 @@ export const makeTestFixture = (): BootstrapPayload => {
       {
         id: 'rb-1',
         projectId: 'p-kennel',
+        urls: [],
         revision: 1,
         createdAt: ago(40 * DAY),
         updatedAt: ago(1 * DAY),

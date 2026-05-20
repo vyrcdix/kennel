@@ -5,12 +5,11 @@ import { getProjectBySlug } from '../services/project.js';
 import {
   getRunbookByProject,
   type RunbookSections,
-  updateRunbookUrl,
   upsertRunbook,
 } from '../services/runbook.js';
+import type { RunbookUrl } from '../../../shared/types.js';
 
-const SECTION_KEYS = [
-  'url',
+const TEXT_SECTION_KEYS = [
   'prerequisites',
   'setup',
   'run',
@@ -18,6 +17,21 @@ const SECTION_KEYS = [
   'troubleshoot',
   'notes',
 ] as const;
+
+/** Coerce a raw `urls` body field into RunbookUrl[] — rejects bad shapes. */
+const parseUrlsField = (raw: unknown): RunbookUrl[] => {
+  if (!Array.isArray(raw)) throw validationError({ urls: 'must_be_array' });
+  return raw.map((e) => {
+    if (
+      !e ||
+      typeof (e as RunbookUrl).label !== 'string' ||
+      typeof (e as RunbookUrl).url !== 'string'
+    ) {
+      throw validationError({ urls: 'entries_need_label_and_url' });
+    }
+    return { label: (e as RunbookUrl).label, url: (e as RunbookUrl).url };
+  });
+};
 
 export const runbooksRouter = (db: DB): Router => {
   const r = Router();
@@ -39,16 +53,11 @@ export const runbooksRouter = (db: DB): Router => {
       const project = getProjectBySlug(db, req.params.slug);
       if (!project) throw notFound('project', req.params.slug);
       const body = (req.body ?? {}) as Record<string, unknown>;
-      // Back-compat: PATCH with only { url } is the original URL-update flow.
-      if (
-        typeof body.url === 'string' &&
-        Object.keys(body).length === 1
-      ) {
-        res.json(updateRunbookUrl(db, project.id, body.url));
-        return;
-      }
       const sections: RunbookSections = {};
-      for (const key of SECTION_KEYS) {
+      if (body.urls !== undefined) {
+        sections.urls = parseUrlsField(body.urls);
+      }
+      for (const key of TEXT_SECTION_KEYS) {
         if (body[key] === undefined) continue;
         const v = body[key];
         if (v !== null && typeof v !== 'string') {

@@ -7,8 +7,9 @@ import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { Rev } from '../components/Rev';
 import { Icons } from '../components/Icon';
-import { updateRunbookSection, updateRunbookUrl } from '../data/actions';
+import { updateRunbookSection, updateRunbookUrls } from '../data/actions';
 import type { RunbookSection } from '../data/actions';
+import type { RunbookUrl } from '../data/types';
 import { getProjectBySlug, getRunbook } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
 import { formatTime } from '../data/time';
@@ -141,22 +142,142 @@ const SectionRow = ({
   );
 };
 
+const sameUrls = (a: RunbookUrl[], b: RunbookUrl[]): boolean =>
+  a.length === b.length &&
+  a.every((u, i) => u.label === b[i].label && u.url === b[i].url);
+
+/** Editable list of labelled environment URLs (Admin / Dev / Prod / …).
+ *  Parent keys this on the runbook revision, so it remounts and re-syncs
+ *  with the server's cleaned list after every commit. */
+const UrlsSection = ({
+  projectId,
+  urls,
+}: {
+  projectId: string;
+  urls: RunbookUrl[];
+}) => {
+  const [drafts, setDrafts] = useState<RunbookUrl[]>(urls);
+
+  const commit = async (next: RunbookUrl[]) => {
+    if (sameUrls(next, urls)) return;
+    await updateRunbookUrls(projectId, next);
+  };
+
+  const setRow = (i: number, patch: Partial<RunbookUrl>) =>
+    setDrafts((d) => d.map((u, j) => (j === i ? { ...u, ...patch } : u)));
+
+  const removeRow = (i: number) => {
+    const next = drafts.filter((_, j) => j !== i);
+    setDrafts(next);
+    void commit(next);
+  };
+
+  return (
+    <section
+      style={{
+        display: 'flex',
+        gap: 32,
+        padding: '14px 0',
+        borderBottom: '1px solid var(--line)',
+      }}
+    >
+      <div style={{ width: 180, flex: '0 0 180px' }}>
+        <Label>URLs</Label>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          maxWidth: 760,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        {drafts.length === 0 && (
+          <p className="km-body" style={{ margin: 0, color: 'var(--fg-muted)' }}>
+            no URLs — add one for Admin, Dev, Prod, …
+          </p>
+        )}
+        {drafts.map((u, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              className="km-input"
+              value={u.label}
+              onChange={(e) => setRow(i, { label: e.target.value })}
+              onBlur={() => void commit(drafts)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              placeholder="Label (Admin, Dev, Prod…)"
+              style={{ flex: '0 0 200px' }}
+            />
+            <input
+              className="km-input km-input-mono"
+              value={u.url}
+              onChange={(e) => setRow(i, { url: e.target.value })}
+              onBlur={() => void commit(drafts)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              placeholder="https://… or http://localhost:port"
+              style={{ flex: 1 }}
+            />
+            <button
+              className="km-btn km-btn-ghost"
+              onClick={() => u.url && navigator.clipboard?.writeText(u.url)}
+              title="Copy URL"
+            >
+              <Icons.copy size={13} />
+            </button>
+            {u.url ? (
+              <a
+                className="km-btn km-btn-ghost"
+                href={u.url}
+                target="_blank"
+                rel="noreferrer"
+                title="Open"
+                style={{ textDecoration: 'none' }}
+              >
+                <Icons.ext size={13} />
+              </a>
+            ) : (
+              <span className="km-btn km-btn-ghost" style={{ opacity: 0.3 }}>
+                <Icons.ext size={13} />
+              </span>
+            )}
+            <button
+              className="km-btn km-btn-ghost"
+              onClick={() => removeRow(i)}
+              title="Remove URL"
+            >
+              <Icons.x size={13} />
+            </button>
+          </div>
+        ))}
+        <div>
+          <button
+            className="km-btn km-btn-ghost"
+            onClick={() => setDrafts((d) => [...d, { label: '', url: '' }])}
+            style={{ fontSize: 11 }}
+          >
+            <Icons.plus size={12} /> Add URL
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export const RunbookView = () => {
   useStoreVersion();
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
   const [editing, setEditing] = useState<RunbookSection | null>(null);
   const project = getProjectBySlug(slug);
   const runbook = project ? getRunbook(project.id) : undefined;
-  const [url, setUrl] = useState(runbook?.url ?? '');
   // Only a missing PROJECT is genuinely "not found". A project with no
   // runbook yet gets the editable empty state — saving any section
   // creates the runbook via upsertRunbook server-side.
   if (!project) return <NotFound slug={slug} />;
-
-  const commitUrl = async () => {
-    if (url === (runbook?.url ?? '')) return;
-    await updateRunbookUrl(project.id, url);
-  };
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -228,52 +349,12 @@ export const RunbookView = () => {
             </div>
           </div>
 
-          {/* Environment URL — user-entered, varies per env */}
-          <section
-            style={{
-              display: 'flex',
-              gap: 32,
-              padding: '14px 0',
-              borderBottom: '1px solid var(--line)',
-              alignItems: 'center',
-            }}
-          >
-            <div style={{ width: 180, flex: '0 0 180px' }}>
-              <Label>URL</Label>
-            </div>
-            <div style={{ flex: 1, maxWidth: 760, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                className="km-input km-input-mono"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onBlur={() => void commitUrl()}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                }}
-                placeholder="https://… or http://localhost:port"
-                style={{ flex: 1 }}
-              />
-              <button
-                className="km-btn km-btn-ghost"
-                onClick={() => url && navigator.clipboard?.writeText(url)}
-                title="Copy URL"
-              >
-                <Icons.copy size={13} />
-              </button>
-              {url && (
-                <a
-                  className="km-btn km-btn-ghost"
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Open"
-                  style={{ textDecoration: 'none' }}
-                >
-                  <Icons.ext size={13} />
-                </a>
-              )}
-            </div>
-          </section>
+          {/* Environment URLs — labelled pairs, vary per env */}
+          <UrlsSection
+            key={`urls-${runbook?.revision ?? 0}`}
+            projectId={project.id}
+            urls={runbook?.urls ?? []}
+          />
 
           {SECTIONS.map((s) => (
             <SectionRow

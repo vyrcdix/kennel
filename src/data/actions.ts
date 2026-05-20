@@ -31,6 +31,7 @@ import type {
   ProjectStatus,
   Reference,
   Runbook,
+  RunbookUrl,
   Settings,
   Skill,
   SkillProposal,
@@ -373,11 +374,14 @@ const cacheRunbook = (projectId: string, updated: Runbook): void => {
   else runbooks.push(updated);
 };
 
-export const updateRunbookUrl = async (projectId: string, url: string): Promise<void> => {
+export const updateRunbookUrls = async (
+  projectId: string,
+  urls: RunbookUrl[],
+): Promise<void> => {
   const project = projects.find((p) => p.id === projectId);
   if (!project) return;
   const updated = await wrap(() =>
-    api.patch<Runbook>(`/api/projects/${project.slug}/runbook`, { url }),
+    api.patch<Runbook>(`/api/projects/${project.slug}/runbook`, { urls }),
   );
   cacheRunbook(projectId, updated);
   notify();
