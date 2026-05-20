@@ -371,28 +371,46 @@ changes.
 3. Point a DNS `A` record (`steep.work`) at the VPS IP. (At Porkbun:
    Domain Management → DNS Records → add `A · @ · <your-ip>`. Set TTL
    to 600 while you're iterating, raise to 3600 once stable.)
-4. Use a public Caddyfile:
+4. Use a public Caddyfile. Caddy serves the built SPA from `dist/`
+   directly and only proxies the API + MCP to Node — Node never
+   handles a frontend asset request:
    ```caddy
    steep.work {
-       reverse_proxy 127.0.0.1:8421 {
-           flush_interval -1
+       encode gzip
+
+       # API + MCP → the Node backend. flush_interval -1 keeps the
+       # /api/events SSE stream unbuffered.
+       @backend path /api/* /mcp /mcp/*
+       handle @backend {
+           reverse_proxy 127.0.0.1:8421 {
+               flush_interval -1
+           }
+       }
+
+       # Everything else → the built SPA, with client-side-routing
+       # fallback so /aging, /project/x, etc. resolve to index.html.
+       handle {
+           root * /opt/kennel/dist
+           try_files {path} /index.html
+           file_server
        }
    }
    ```
    Caddy issues the Let's Encrypt cert automatically on first request.
+   `/opt/kennel/dist` is world-readable (755) so the `caddy` user can
+   serve it without ownership changes.
 5. Set a long `KENNEL_MCP_TOKEN` — it's the only thing between the
    public internet and your data. (The env var keeps the codename;
    the value is what protects you.)
 
 Test from off-network:
 ```sh
-curl -s -o /dev/null -w "%{http_code}\n" https://steep.work/api/projects \
-  -H "Authorization: Bearer $TOKEN"
-# expect 200
+curl -s -o /dev/null -w "%{http_code}\n" https://steep.work/          # SPA → 200
+curl -s -o /dev/null -w "%{http_code}\n" https://steep.work/api/projects  # API → 200
 ```
 
 Then point Claude Desktop / Code at `https://steep.work/mcp` with the
-bearer header.
+bearer header, and open `https://steep.work/` in a browser for the UI.
 
 ---
 
