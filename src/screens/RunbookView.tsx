@@ -29,8 +29,8 @@ const NotFound = ({ slug }: { slug: string }) => (
     <div style={{ flex: 1, display: 'flex' }}>
       <NavRail active="" />
       <main style={{ flex: 1, padding: '40px 32px' }}>
-        <div className="km-display-lg">No runbook for "{slug}".</div>
-        <Mono dim>only kennel and picnic-engage have runbooks in this fixture</Mono>
+        <div className="km-display-lg">No thread named "{slug}".</div>
+        <Mono dim>runbooks live on a thread — open one from the dashboard</Mono>
       </main>
     </div>
   </div>
@@ -148,10 +148,13 @@ export const RunbookView = () => {
   const project = getProjectBySlug(slug);
   const runbook = project ? getRunbook(project.id) : undefined;
   const [url, setUrl] = useState(runbook?.url ?? '');
-  if (!project || !runbook) return <NotFound slug={slug} />;
+  // Only a missing PROJECT is genuinely "not found". A project with no
+  // runbook yet gets the editable empty state — saving any section
+  // creates the runbook via upsertRunbook server-side.
+  if (!project) return <NotFound slug={slug} />;
 
   const commitUrl = async () => {
-    if (url === (runbook.url ?? '')) return;
+    if (url === (runbook?.url ?? '')) return;
     await updateRunbookUrl(project.id, url);
   };
 
@@ -193,14 +196,22 @@ export const RunbookView = () => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ textAlign: 'right' }}>
-                <Rev n={runbook.revision} />
-                <div>
-                  <Mono>updated {formatTime(runbook.updatedAt)} by C</Mono>
-                </div>
+                {runbook ? (
+                  <>
+                    <Rev n={runbook.revision} />
+                    <div>
+                      <Mono>updated {formatTime(runbook.updatedAt)} by C</Mono>
+                    </div>
+                  </>
+                ) : (
+                  <Mono dim>no runbook yet · edit a section to create</Mono>
+                )}
               </div>
               <button
                 className="km-btn"
+                disabled={!runbook}
                 onClick={() => {
+                  if (!runbook) return;
                   const md = SECTIONS.map((s) => {
                     const v = runbook[s.key];
                     return v ? `## ${s.label}\n\n${v}\n` : '';
@@ -210,6 +221,7 @@ export const RunbookView = () => {
                   void navigator.clipboard?.writeText(md);
                 }}
                 title="Copy runbook as markdown"
+                style={{ opacity: runbook ? 1 : 0.5 }}
               >
                 <Icons.copy size={12} /> Copy as md
               </button>
@@ -265,11 +277,11 @@ export const RunbookView = () => {
 
           {SECTIONS.map((s) => (
             <SectionRow
-              key={`${s.key}-${editing === s.key ? 'edit' : 'view'}-${runbook.revision}`}
+              key={`${s.key}-${editing === s.key ? 'edit' : 'view'}-${runbook?.revision ?? 0}`}
               projectId={project.id}
               section={s.key}
               label={s.label}
-              value={runbook[s.key]}
+              value={runbook?.[s.key]}
               editing={editing === s.key}
               onStartEdit={() => setEditing(s.key)}
               onCancelEdit={() => setEditing(null)}

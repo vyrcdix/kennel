@@ -242,12 +242,8 @@ export const ProjectLanding = () => {
           <NextStepsStrip
             project={project}
             onCapture={() => openCapture(project.slug)}
-            onAddDescription={() => {
-              // Inline project editor lands with MCP's update_project work.
-            }}
-            onAddContext={() => {
-              // Same — Claude will populate this via MCP shortly.
-            }}
+            onAddDescription={() => setEditOpen(true)}
+            onAddContext={() => setEditOpen(true)}
             onOpenRunbook={openRunbook}
           />
           {/* Project header — thread framing */}

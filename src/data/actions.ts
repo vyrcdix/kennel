@@ -332,14 +332,21 @@ export const updateProject = async (
 
 // ─── Runbooks ────────────────────────────────────────────────────────────
 
+/** Replace the cached runbook for a project, or append it if this is the
+ *  first time one exists (upsertRunbook creates server-side). */
+const cacheRunbook = (projectId: string, updated: Runbook): void => {
+  const idx = runbooks.findIndex((r) => r.projectId === projectId);
+  if (idx >= 0) runbooks[idx] = updated;
+  else runbooks.push(updated);
+};
+
 export const updateRunbookUrl = async (projectId: string, url: string): Promise<void> => {
   const project = projects.find((p) => p.id === projectId);
   if (!project) return;
   const updated = await wrap(() =>
     api.patch<Runbook>(`/api/projects/${project.slug}/runbook`, { url }),
   );
-  const idx = runbooks.findIndex((r) => r.projectId === projectId);
-  if (idx >= 0) runbooks[idx] = updated;
+  cacheRunbook(projectId, updated);
   notify();
 };
 
@@ -363,8 +370,7 @@ export const updateRunbookSection = async (
       [section]: value,
     }),
   );
-  const idx = runbooks.findIndex((r) => r.projectId === projectId);
-  if (idx >= 0) runbooks[idx] = updated;
+  cacheRunbook(projectId, updated);
   notify();
 };
 
