@@ -226,7 +226,7 @@ export const SettingsScreen = () => {
                 />
                 <SettingsRow
                   label="Focus mode"
-                  hint="Hides the pinned-project rail and side panels on the dashboard so only the In focus list is visible."
+                  hint="Hides the pinned-thread rail and side panels on the dashboard so only the In focus list is visible."
                   control={
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className="km-kbd">⌘</span>

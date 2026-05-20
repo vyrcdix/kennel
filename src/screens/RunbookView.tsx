@@ -312,7 +312,7 @@ export const RunbookView = () => {
                 {project.name} — Runbook
               </div>
               <div className="km-body" style={{ color: 'var(--fg-muted)', maxWidth: 760 }}>
-                How to bring this project online, run it locally, deploy it, and dig out when something breaks. Read top-to-bottom on a new machine; jump to Run on a known one.
+                How to bring this thread online, run it locally, deploy it, and dig out when something breaks. Read top-to-bottom on a new machine; jump to Run on a known one.
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

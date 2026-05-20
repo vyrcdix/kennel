@@ -103,7 +103,7 @@ export const NextStepsStrip = ({
           </span>
         ))}
       </div>
-      <Mono dim>dismissed per-project · persists</Mono>
+      <Mono dim>dismissed per-thread · persists</Mono>
       <button
         className="km-btn km-btn-ghost"
         onClick={() => dismissNextSteps(project.id)}

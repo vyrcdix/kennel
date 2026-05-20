@@ -106,7 +106,7 @@ export const CaptureModal = ({ open, onClose, defaultProjectSlug }: CaptureModal
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="km-body-sm" style={{ width: 60 }}>project</span>
+          <span className="km-body-sm" style={{ width: 60 }}>thread</span>
           <select
             className="km-input km-input-mono"
             value={projectId}

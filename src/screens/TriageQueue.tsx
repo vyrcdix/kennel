@@ -356,7 +356,7 @@ export const TriageQueue = () => {
               </Mono>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span className="km-display-sm">project</span>
+              <span className="km-display-sm">thread</span>
               <FilterChip
                 label="all"
                 active={!projectFilter}

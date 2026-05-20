@@ -32,7 +32,7 @@ const DocNotFound = ({ id }: { id: string }) => (
       <NavRail active="" />
       <main style={{ flex: 1, padding: '40px 32px' }}>
         <div className="km-display-lg">No doc with id "{id}".</div>
-        <Mono dim>try the dashboard or project landing for the list of docs</Mono>
+        <Mono dim>try the dashboard or thread landing for the list of docs</Mono>
       </main>
     </div>
   </div>
@@ -95,7 +95,7 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
               <Mono>{doc.filePath}</Mono>
               <button
                 onClick={() => void setDocPinned(doc.id, !doc.pinned)}
-                title={doc.pinned ? 'Unpin from project landing' : 'Pin to project landing'}
+                title={doc.pinned ? 'Unpin from thread landing' : 'Pin to thread landing'}
                 style={{
                   border: 0,
                   background: 'transparent',

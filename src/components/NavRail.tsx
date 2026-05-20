@@ -94,7 +94,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
         );
       })}
       <div style={{ padding: '14px 16px 6px' }}>
-        <Label>Pinned projects</Label>
+        <Label>Pinned threads</Label>
       </div>
       {allProjects.map((p) => {
         const isActive = activeProjectSlug === p.slug;
@@ -163,7 +163,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
         }}
       >
         <Icons.plus size={13} />
-        <span style={{ flex: 1, fontSize: 13 }}>New project</span>
+        <span style={{ flex: 1, fontSize: 13 }}>New thread</span>
         <Mono dim>⌘⇧N</Mono>
       </button>
       <div style={{ flex: 1 }} />

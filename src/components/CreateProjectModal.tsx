@@ -305,7 +305,7 @@ export const CreateProjectModal = ({
         if (err.fields.name) setNameError('Name is required.');
         if (err.fields.slug) setSlugError('Slug format invalid.');
       } else {
-        setNetworkError(`Could not create project. ${(err as Error).message}`);
+        setNetworkError(`Could not create thread. ${(err as Error).message}`);
       }
     }
   };
@@ -356,7 +356,7 @@ export const CreateProjectModal = ({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span className="km-display-sm" style={{ fontSize: mobile ? 13 : 12 }}>
-              NEW PROJECT
+              NEW THREAD
             </span>
             {!mobile && <Mono dim>⌘⇧N</Mono>}
           </div>
@@ -526,7 +526,7 @@ export const CreateProjectModal = ({
               onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_MAX))}
               onFocus={() => setFocusField('description')}
               onBlur={() => setFocusField(null)}
-              placeholder="Short label · shown next to the project name"
+              placeholder="Short label · shown next to the thread name"
               maxLength={DESCRIPTION_MAX}
               style={{
                 width: '100%',
@@ -604,7 +604,7 @@ export const CreateProjectModal = ({
                 onChange={(e) => setContext(e.target.value.slice(0, CONTEXT_HARD))}
                 onFocus={() => setFocusField('context')}
                 onBlur={() => setFocusField(null)}
-                placeholder="Longer markdown framing — what this project is for, how it relates to others, anything Claude should know on first read."
+                placeholder="Longer markdown framing — what this thread is for, how it relates to others, anything Claude should know on first read."
                 rows={6}
                 style={{
                   width: '100%',
@@ -626,7 +626,7 @@ export const CreateProjectModal = ({
                 }}
               />
               <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Mono dim>shipped to Claude when this project is opened in chat</Mono>
+                <Mono dim>shipped to Claude when this thread is opened in chat</Mono>
                 <span style={{ flex: 1 }} />
                 {context.length > CONTEXT_SOFT - 200 && context.length <= CONTEXT_SOFT && (
                   <Mono style={{ color: 'var(--dust)' }}>approaching soft cap</Mono>
@@ -642,7 +642,7 @@ export const CreateProjectModal = ({
 
           {/* Color */}
           <div>
-            <FieldLabel hint="tints the project card border">Color</FieldLabel>
+            <FieldLabel hint="tints the thread card border">Color</FieldLabel>
             <div style={{ display: 'flex', gap: mobile ? 10 : 12, marginTop: 2 }}>
               {COLORS.map((c) => (
                 <ColorSwatch
@@ -684,7 +684,7 @@ export const CreateProjectModal = ({
                   className="km-body-sm"
                   style={{ fontSize: 11.5, lineHeight: 1.4, color: 'var(--fg-muted)' }}
                 >
-                  Attach the current Claude chat to this project so its activity is tracked here.
+                  Attach the current Claude chat to this thread so its activity is tracked here.
                 </div>
               </div>
             </div>
@@ -751,7 +751,7 @@ export const CreateProjectModal = ({
               justifyContent: 'center',
             }}
           >
-            Create project
+            Create thread
             {!mobile && (
               <span
                 className="km-kbd"

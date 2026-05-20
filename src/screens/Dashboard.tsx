@@ -258,9 +258,9 @@ const NoProjectsState = () => (
       gap: 16,
     }}
   >
-    <div className="km-display-sm" style={{ color: 'var(--fg-faint)' }}>NO PROJECTS</div>
+    <div className="km-display-sm" style={{ color: 'var(--fg-faint)' }}>NO THREADS</div>
     <div className="km-display-lg" style={{ textAlign: 'center' }}>
-      No projects. Create one to start.
+      No threads. Create one to start.
     </div>
     <div
       className="km-body"
@@ -271,11 +271,11 @@ const NoProjectsState = () => (
         maxWidth: 420,
       }}
     >
-      A project is the unit that holds items, docs, references, and chats. Most users start with one for active work and one for reading.
+      A thread is the unit that holds items, docs, references, and chats. Most users start with one for active work and one for reading.
     </div>
     <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
       <button className="km-btn km-btn-primary" onClick={openCreateProject}>
-        <Icons.plus size={12} /> New project
+        <Icons.plus size={12} /> New thread
       </button>
       <button className="km-btn" disabled style={{ opacity: 0.5 }} title="CLI import only for now">
         Import from filesystem
@@ -351,7 +351,7 @@ export const Dashboard = () => {
               <button
                 className={`km-btn${focusMode ? ' km-btn-active' : ''}`}
                 onClick={() => setFocusMode(!focusMode)}
-                title="⌘⇧F · hide side panels and project rail"
+                title="⌘⇧F · hide side panels and thread rail"
                 style={focusMode ? { color: 'var(--ember-deep)' } : undefined}
               >
                 <Icons.eye size={12} /> {focusMode ? 'Focus on' : 'Focus mode'}
@@ -369,7 +369,7 @@ export const Dashboard = () => {
           {/* Project rail */}
           {!focusMode && (
             <>
-              <Label style={{ marginBottom: 10 }}>Pinned projects</Label>
+              <Label style={{ marginBottom: 10 }}>Pinned threads</Label>
               <div
                 className="km-scroll"
                 style={{

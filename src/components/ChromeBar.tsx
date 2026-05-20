@@ -13,7 +13,7 @@ export type ChromeBarProps = {
 
 export const ChromeBar = ({
   projectChip,
-  search = 'Search projects, items, docs…',
+  search = 'Search threads, items, docs…',
   captureProjectSlug,
 }: ChromeBarProps) => {
   const navigate = useNavigate();
@@ -65,7 +65,7 @@ export const ChromeBar = ({
         <button
           className="km-btn km-btn-ghost"
           onClick={openCreateProject}
-          title="New project · ⌘⇧N"
+          title="New thread · ⌘⇧N"
           style={{ padding: '5px 7px', color: 'var(--fg-muted)' }}
         >
           <Icons.plus size={14} />

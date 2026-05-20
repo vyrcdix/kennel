@@ -388,7 +388,7 @@ export const SkillProposal = () => {
                         padding: 0,
                         cursor: 'pointer',
                       }}
-                      title={chat.claudeUrl ?? 'open project to find the chat'}
+                      title={chat.claudeUrl ?? 'open thread to find the chat'}
                     >
                       view conversation {chat.claudeUrl ? '↗' : '→'}
                     </button>
@@ -512,7 +512,7 @@ export const SkillProposal = () => {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <Mono dim>scope</Mono>
                     <Mono>
-                      {project ? `project · ${project.slug}` : 'global'}
+                      {project ? `thread · ${project.slug}` : 'global'}
                     </Mono>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
