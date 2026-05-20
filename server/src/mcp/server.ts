@@ -8,6 +8,7 @@ import { registerDocTools } from './tools/docs.js';
 import { registerFieldNotesTools } from './tools/fieldNotes.js';
 import { registerItemTools } from './tools/items.js';
 import { registerProjectTools } from './tools/projects.js';
+import { registerResources } from './resources.js';
 import { registerProposalTools } from './tools/proposals.js';
 import { registerReferenceTools } from './tools/references.js';
 import { registerRunbookTools } from './tools/runbooks.js';
@@ -40,6 +41,8 @@ export const createMcpServer = (db: DB): McpServer => {
   registerAgingTools(server, db);
   registerFieldNotesTools(server, db);
   registerSettingsTools(server, db);
+
+  registerResources(server, db);
 
   return server;
 };

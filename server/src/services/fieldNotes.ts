@@ -65,7 +65,7 @@ export type FieldNotesSections = Partial<{
   crystallizations: string | null;
 }>;
 
-const composeMarkdown = (n: FieldNotes): string =>
+export const composeFieldNotesMarkdown = (n: FieldNotes): string =>
   [
     `# Field notes`,
     ``,
@@ -129,7 +129,7 @@ export const upsertFieldNotes = (
     updatedAt: new Date(now),
   };
 
-  const fsHandle = writeDocAtomic(abs, composeMarkdown(merged));
+  const fsHandle = writeDocAtomic(abs, composeFieldNotesMarkdown(merged));
   try {
     const tx = db.transaction(() => {
       if (existing) {

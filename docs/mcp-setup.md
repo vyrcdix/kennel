@@ -47,6 +47,21 @@ source.
 
 **Activity / search** — `recent_activity`, `search`.
 
+## Resources exposed
+
+Alongside tools, the server publishes Steep's markdown content as
+read-only MCP **resources** — a Claude client can browse and read
+them without spending a tool call. Three resource templates:
+
+- `kennel:///doc/{docId}` — every project doc, full markdown body.
+- `kennel:///field-notes/{slug}` — a thread's field notes, composed
+  into one markdown document.
+- `kennel:///runbook/{slug}` — a thread's runbook (URLs + sections),
+  composed into one markdown document.
+
+`resources/list` enumerates the concrete resources; `resources/read`
+returns the markdown. Writes still go through the tools.
+
 ## Claude Desktop config
 
 Add this to `claude_desktop_config.json` (location varies by OS — see
@@ -156,8 +171,8 @@ curl -s -X POST http://127.0.0.1:8421/mcp \
 
 ## What's deferred
 
-- **MCP resources / prompts.** Tools cover the read/write surface;
-  resources/prompts can come later — e.g. exposing the markdown
-  content directory as a browsable resource tree.
+- **MCP prompts.** Preset prompt templates for recurring flows
+  (weekly review, project close-out, skill review-pass) — worth
+  adding once usage patterns settle.
 - **MCP stdio transport.** All target clients support HTTP; a stdio
   wrapper is a half-day if a future client needs it.

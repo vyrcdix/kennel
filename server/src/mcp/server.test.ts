@@ -4,6 +4,8 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { makeTestDb, useTempContent } from '../test-helpers.js';
 import { createMcpServer } from './server.js';
 import { createProject } from '../services/project.js';
+import { createDoc } from '../services/doc.js';
+import { upsertRunbook } from '../services/runbook.js';
 import type { DB } from '../db.js';
 
 let db: DB;
@@ -160,6 +162,50 @@ describe('write_doc tool', () => {
     })) as { revision: number; body: string };
     expect(updated.revision).toBe(2);
     expect(updated.body).toContain('hello updated');
+  });
+});
+
+describe('MCP resources', () => {
+  test('exposes doc, field-notes, and runbook templates', async () => {
+    const { resourceTemplates } = await client.listResourceTemplates();
+    const patterns = resourceTemplates.map((t) => t.uriTemplate).sort();
+    expect(patterns).toEqual([
+      'kennel:///doc/{docId}',
+      'kennel:///field-notes/{slug}',
+      'kennel:///runbook/{slug}',
+    ]);
+  });
+
+  test('lists and reads a doc as a resource', async () => {
+    createProject(db, { name: 'P' });
+    const doc = createDoc(
+      db,
+      { projectSlug: 'p', title: 'notes', body: '# notes\n\nhello world' },
+      'claude',
+    );
+
+    const { resources } = await client.listResources();
+    const entry = resources.find((r) => r.uri === `kennel:///doc/${doc.id}`);
+    expect(entry).toMatchObject({ name: 'notes', mimeType: 'text/markdown' });
+
+    const read = await client.readResource({ uri: `kennel:///doc/${doc.id}` });
+    expect(read.contents[0].text).toContain('hello world');
+  });
+
+  test('reads a runbook as composed markdown', async () => {
+    createProject(db, { name: 'Q' });
+    upsertRunbook(db, db.prepare<[string], { id: string }>(
+      'SELECT id FROM projects WHERE slug = ?',
+    ).get('q')!.id, {
+      urls: [{ label: 'Prod', url: 'https://q.example' }],
+      run: 'npm start',
+    });
+
+    const read = await client.readResource({ uri: 'kennel:///runbook/q' });
+    const text = read.contents[0].text as string;
+    expect(text).toContain('**Prod** — https://q.example');
+    expect(text).toContain('## Run');
+    expect(text).toContain('npm start');
   });
 });
 
