@@ -3,7 +3,7 @@ import { Icons } from './Icon';
 import { Mono } from './Mono';
 import { ProjectTag } from './ProjectTag';
 import { updateProject, ValidationError } from '../data/actions';
-import type { Project, ProjectColor } from '../data/types';
+import type { Project, ProjectColor, ProjectStatus } from '../data/types';
 
 const DESCRIPTION_MAX = 140;
 const CONTEXT_HARD = 8000;
@@ -23,11 +23,18 @@ export type EditProjectModalProps = {
   onClose: () => void;
 };
 
+const STATUSES: { value: ProjectStatus; label: string }[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'paused', label: 'Paused' },
+  { value: 'archived', label: 'Archived' },
+];
+
 export const EditProjectModal = ({ open, project, onClose }: EditProjectModalProps) => {
   const [description, setDescription] = useState('');
   const [context, setContext] = useState('');
   const [color, setColor] = useState<'none' | ProjectColor>('none');
   const [pinned, setPinned] = useState(false);
+  const [status, setStatus] = useState<ProjectStatus>('active');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const descRef = useRef<HTMLInputElement | null>(null);
@@ -39,6 +46,7 @@ export const EditProjectModal = ({ open, project, onClose }: EditProjectModalPro
     setContext(project.context ?? '');
     setColor(project.color ?? 'none');
     setPinned(project.pinned);
+    setStatus(project.status);
     setErrors({});
     setSaving(false);
     const t = setTimeout(() => descRef.current?.focus(), 30);
@@ -60,7 +68,8 @@ export const EditProjectModal = ({ open, project, onClose }: EditProjectModalPro
     description !== (project.description ?? '') ||
     context !== (project.context ?? '') ||
     color !== (project.color ?? 'none') ||
-    pinned !== project.pinned;
+    pinned !== project.pinned ||
+    status !== project.status;
 
   const submit = async () => {
     if (!dirty) {
@@ -74,6 +83,7 @@ export const EditProjectModal = ({ open, project, onClose }: EditProjectModalPro
         context: context.trim() ? context : null,
         color: color === 'none' ? null : color,
         pinned,
+        status,
       });
       onClose();
     } catch (err) {
@@ -238,6 +248,45 @@ export const EditProjectModal = ({ open, project, onClose }: EditProjectModalPro
               <Icons.pin size={12} /> {pinned ? 'Pinned' : 'Not pinned'}
             </button>
             <Mono dim>pinned threads appear on the dashboard rail</Mono>
+          </div>
+
+          {/* Status */}
+          <div>
+            <div className="km-display-sm" style={{ fontSize: 11, marginBottom: 5 }}>
+              STATUS
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {STATUSES.map((s) => {
+                const active = status === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    onClick={() => setStatus(s.value)}
+                    style={{
+                      padding: '4px 12px',
+                      border: active
+                        ? '1px solid var(--ember-deep)'
+                        : '1px solid var(--line)',
+                      background: active ? 'rgba(217,98,44,.10)' : 'transparent',
+                      color: active ? 'var(--ember-deep)' : 'var(--fg-muted)',
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                      fontFamily: 'var(--ff-sans)',
+                      fontSize: 13,
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+            <Mono dim>
+              {status === 'archived'
+                ? 'archived threads drop off the dashboard — still searchable, reachable by URL'
+                : status === 'paused'
+                  ? 'paused threads stay listed but read as on-hold'
+                  : 'active — shows everywhere'}
+            </Mono>
           </div>
         </div>
 

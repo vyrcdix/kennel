@@ -179,6 +179,7 @@ WorkingDirectory=/opt/kennel
 Environment=NODE_ENV=production
 Environment=KENNEL_DB=/opt/kennel/server/kennel.db
 Environment=KENNEL_MCP_TOKEN=PASTE_TOKEN_HERE
+Environment=KENNEL_SKIP_SEED=1
 ExecStart=/usr/bin/npm --prefix server start
 Restart=on-failure
 RestartSec=5
@@ -226,6 +227,34 @@ journalctl -u kennel -n 30 # check the boot log
 You should see `[kennel] listening on http://127.0.0.1:8421` and a
 single `[db] applied migration: …` line per migration that hasn't run
 yet.
+
+`KENNEL_SKIP_SEED=1` in the unit means a fresh/empty DB stays empty —
+no demo fixtures. The log will say `[seed] skipped — KENNEL_SKIP_SEED
+set`. Leave it set on production. (Dev — local, no env var — still
+seeds fixtures, which is what you want there.)
+
+### Starting from a clean slate (wiping demo data)
+
+If the server was seeded with the demo fixtures (it would have been on
+any boot before `KENNEL_SKIP_SEED` was set) and you want it genuinely
+empty for your real data:
+
+```sh
+systemctl stop kennel
+rm -f /opt/kennel/server/kennel.db /opt/kennel/server/kennel.db-wal /opt/kennel/server/kennel.db-shm
+rm -rf /opt/kennel/server/content/*
+# confirm KENNEL_SKIP_SEED=1 is in the unit (see above), then:
+systemctl start kennel
+journalctl -u kennel -n 10 --no-pager
+```
+
+The log should show the migrations re-applying on the new empty DB and
+`[seed] skipped`. Steep boots with zero projects — the dashboard shows
+the "No projects" state; create your real threads from there.
+
+> This is destructive — it deletes **everything**, not just the demo
+> data. Only do it before you've added real data, or take a backup
+> first (`cp kennel.db kennel.db.before-wipe`).
 
 ### 6. Caddy on the Tailscale interface
 

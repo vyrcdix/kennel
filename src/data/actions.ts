@@ -26,6 +26,7 @@ import type {
   ItemState,
   Project,
   ProjectColor,
+  ProjectStatus,
   Runbook,
   Settings,
   Skill,
@@ -323,6 +324,7 @@ export type UpdateProjectPatch = {
   context?: string | null;
   color?: ProjectColor | null;
   pinned?: boolean;
+  status?: ProjectStatus;
 };
 
 export const updateProject = async (

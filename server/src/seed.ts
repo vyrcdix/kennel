@@ -664,6 +664,12 @@ export const seedAll = (db: DB) => {
 };
 
 export const runSeedIfEmpty = (db: DB) => {
+  // Production sets KENNEL_SKIP_SEED=1 so a wiped DB stays genuinely
+  // empty instead of refilling with demo fixtures. Dev leaves it unset.
+  if (process.env.KENNEL_SKIP_SEED === '1') {
+    console.log('[seed] skipped — KENNEL_SKIP_SEED set');
+    return;
+  }
   const { c } = db.prepare<[], { c: number }>(
     'SELECT COUNT(*) as c FROM projects',
   ).get()!;
