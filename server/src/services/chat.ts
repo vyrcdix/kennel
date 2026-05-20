@@ -85,6 +85,33 @@ export const touchChat = (db: DB, id: string): Chat => {
   return rowToChat({ ...row, last_seen_at: now, updated_at: now });
 };
 
+export const setChatUrl = (
+  db: DB,
+  id: string,
+  claudeUrl: string | null,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Chat => {
+  const trimmed = claudeUrl?.trim() || null;
+  if (trimmed && !/^https?:\/\//.test(trimmed)) {
+    throw validationError({ claudeUrl: 'must_be_http_url' });
+  }
+  const row = db.prepare<[string], ChatRow>('SELECT * FROM chats WHERE id = ?').get(id);
+  if (!row) throw notFound('chat', id);
+  const now = nowIso();
+  db.prepare('UPDATE chats SET claude_url = ?, updated_at = ? WHERE id = ?').run(
+    trimmed, now, id,
+  );
+  logActivity(db, {
+    projectId: row.project_id,
+    verb: trimmed ? 'LINKED' : 'UNLINKED',
+    target: `chat / ${row.tagline.slice(0, 60)}`,
+    payload: trimmed ?? undefined,
+    actor,
+    occurredAt: now,
+  });
+  return rowToChat({ ...row, claude_url: trimmed, updated_at: now });
+};
+
 export const updateChatTagline = (
   db: DB,
   id: string,

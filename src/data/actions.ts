@@ -250,6 +250,16 @@ export const registerChat = async (input: RegisterChatInput): Promise<Chat> => {
   return created;
 };
 
+export const setChatUrl = async (id: string, claudeUrl: string | null): Promise<Chat> => {
+  const updated = await wrap(() =>
+    api.patch<Chat>(`/api/chats/${id}/url`, { claudeUrl }),
+  );
+  const idx = chats.findIndex((c) => c.id === id);
+  if (idx >= 0) chats[idx] = updated;
+  notify();
+  return updated;
+};
+
 export const touchChat = async (id: string): Promise<void> => {
   const updated = await wrap(() => api.post(`/api/chats/${id}/touch`));
   const idx = chats.findIndex((c) => c.id === id);

@@ -27,6 +27,7 @@ import {
 import {
   crystallizeItem,
   fileItem,
+  setChatUrl,
   touchItem,
 } from '../data/actions';
 import {
@@ -656,6 +657,7 @@ export const ProjectLanding = () => {
                               window.open(c.claudeUrl!, '_blank', 'noopener,noreferrer')
                           : undefined
                       }
+                      onSaveUrl={(url) => void setChatUrl(c.id, url)}
                     />
                   ))}
                   {staleChats.length > 0 && (
@@ -675,6 +677,7 @@ export const ProjectLanding = () => {
                                   window.open(c.claudeUrl!, '_blank', 'noopener,noreferrer')
                               : undefined
                           }
+                          onSaveUrl={(url) => void setChatUrl(c.id, url)}
                           stale
                         />
                       ))}

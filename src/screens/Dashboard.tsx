@@ -13,7 +13,7 @@ import { Icons } from '../components/Icon';
 import { RegisterChatModal } from '../components/RegisterChatModal';
 import { ThermalPanel } from '../components/ThermalPanel';
 import { ThermalStamp } from '../components/ThermalStamp';
-import { crystallizeItem, fileItem, touchItem } from '../data/actions';
+import { crystallizeItem, fileItem, setChatUrl, touchItem } from '../data/actions';
 import {
   getAgingItems,
   getAllProjectCounts,
@@ -510,10 +510,9 @@ export const Dashboard = () => {
                               c.claudeUrl
                                 ? () =>
                                     window.open(c.claudeUrl!, '_blank', 'noopener,noreferrer')
-                                : project
-                                  ? () => navigate(`/project/${project.slug}`)
-                                  : undefined
+                                : undefined
                             }
+                            onSaveUrl={(url) => void setChatUrl(c.id, url)}
                           />
                         </div>
                       );

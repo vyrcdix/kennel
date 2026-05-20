@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { DB } from '../db.js';
-import { asyncHandler } from '../errors.js';
-import { listChats, registerChat, touchChat } from '../services/chat.js';
+import { asyncHandler, validationError } from '../errors.js';
+import { listChats, registerChat, setChatUrl, touchChat } from '../services/chat.js';
 
 export const chatsRouter = (db: DB): Router => {
   const r = Router();
@@ -21,5 +21,15 @@ export const chatsRouter = (db: DB): Router => {
     }),
   );
   r.post('/:id/touch', asyncHandler(async (req, res) => res.json(touchChat(db, req.params.id))));
+  r.patch(
+    '/:id/url',
+    asyncHandler(async (req, res) => {
+      const url = req.body?.claudeUrl;
+      if (url !== null && typeof url !== 'string') {
+        throw validationError({ claudeUrl: 'string_or_null' });
+      }
+      res.json(setChatUrl(db, req.params.id, url));
+    }),
+  );
   return r;
 };
