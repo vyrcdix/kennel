@@ -9,6 +9,7 @@ import {
   fieldNotes,
   items,
   projects,
+  references,
   runbooks,
   settings,
   skillProposals,
@@ -21,12 +22,14 @@ import type {
   EntityComment,
   EntityType,
   FieldNotes,
+  FieldNotesMode,
   Item,
   ItemKind,
   ItemState,
   Project,
   ProjectColor,
   ProjectStatus,
+  Reference,
   Runbook,
   Settings,
   Skill,
@@ -148,6 +151,24 @@ export type CaptureInput = {
 export const captureItem = async (input: CaptureInput): Promise<Item> => {
   const created = await wrap(() => api.post<Item>('/api/items', input));
   items.unshift(created);
+  notify();
+  return created;
+};
+
+// ─── References ──────────────────────────────────────────────────────────
+
+export type CreateReferenceInput = {
+  projectSlug: string;
+  label: string;
+  url?: string;
+  notes?: string;
+};
+
+export const createReference = async (
+  input: CreateReferenceInput,
+): Promise<Reference> => {
+  const created = await wrap(() => api.post<Reference>('/api/references', input));
+  references.unshift(created);
   notify();
   return created;
 };
@@ -402,6 +423,20 @@ export const updateFieldNotes = async (
 ): Promise<FieldNotes> => {
   const updated = await wrap(() =>
     api.put<FieldNotes>(`/api/projects/${projectSlug}/field-notes`, patch),
+  );
+  const idx = fieldNotes.findIndex((f) => f.projectId === updated.projectId);
+  if (idx >= 0) fieldNotes[idx] = updated;
+  else fieldNotes.push(updated);
+  notify();
+  return updated;
+};
+
+export const setFieldNotesMode = async (
+  projectSlug: string,
+  mode: FieldNotesMode,
+): Promise<FieldNotes> => {
+  const updated = await wrap(() =>
+    api.patch<FieldNotes>(`/api/projects/${projectSlug}/field-notes/mode`, { mode }),
   );
   const idx = fieldNotes.findIndex((f) => f.projectId === updated.projectId);
   if (idx >= 0) fieldNotes[idx] = updated;

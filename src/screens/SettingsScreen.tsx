@@ -388,6 +388,64 @@ export const SettingsScreen = () => {
                       <Mono>{'{"mcpServers":{"kennel":{"url":"…"}}}'}</Mono>. See{' '}
                       <Mono>docs/mcp-setup.md</Mono> for the full setup walkthrough.
                     </div>
+
+                    {/* Working with Claude — example prompts */}
+                    <div
+                      className="km-display-lg"
+                      style={{ marginTop: 28, marginBottom: 4, fontSize: 22 }}
+                    >
+                      Working with Claude
+                    </div>
+                    <div
+                      className="km-body"
+                      style={{ color: 'var(--fg-muted)', marginBottom: 14 }}
+                    >
+                      Once Steep is registered, you don't run commands — you ask
+                      Claude in plain language and it picks the right tool. Some
+                      things worth asking, in a Steep-connected chat:
+                    </div>
+                    <div
+                      className="km-card"
+                      style={{ padding: '4px 0' }}
+                    >
+                      {[
+                        ['Capture', '"Add an idea to the kennel thread: …"'],
+                        ['Sort', '"What\'s in my sort queue?" · "Pick up the third one."'],
+                        ['Aging', '"What\'s gone cold across my threads?"'],
+                        ['Crystallize', '"Promote the design-brief doc to a crystallization."'],
+                        ['Field notes', '"Draft the open questions for the kennel field notes."'],
+                        ['Runbook', '"Update the Run section of the picnic-engage runbook."'],
+                        ['Review', '"Summarise what changed this week."'],
+                      ].map(([label, example]) => (
+                        <div
+                          key={label}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '110px 1fr',
+                            alignItems: 'baseline',
+                            gap: 12,
+                            padding: '7px 14px',
+                            borderBottom: '1px solid var(--line)',
+                          }}
+                        >
+                          <span className="km-display-sm" style={{ fontSize: 10 }}>
+                            {label}
+                          </span>
+                          <span
+                            className="km-body"
+                            style={{ fontSize: 13, color: 'var(--fg)' }}
+                          >
+                            {example}
+                          </span>
+                        </div>
+                      ))}
+                      <div style={{ padding: '8px 14px' }}>
+                        <Mono dim>
+                          37 tools total — Claude discovers them on connect; you
+                          never type tool names.
+                        </Mono>
+                      </div>
+                    </div>
                   </>
                 );
               })()}

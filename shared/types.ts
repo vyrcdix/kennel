@@ -72,9 +72,15 @@ export type Settings = {
   updatedAt: Date;
 };
 
+export type FieldNotesMode = 'scratchpad' | 'managed';
+
 export type FieldNotes = {
   id: string;
   projectId: string;
+  /** scratchpad: every section is a markdown blob. managed: Open
+   *  Questions + Sources render as entity lists (question items /
+   *  references). Premise + What I know stay prose either way. */
+  mode: FieldNotesMode;
   premise?: string;
   whatIKnow?: string;
   openQuestions?: string;

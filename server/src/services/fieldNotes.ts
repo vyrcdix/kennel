@@ -13,11 +13,13 @@ import {
 import { notFound } from '../errors.js';
 import { newId } from '../ids.js';
 import { fromIso, nowIso } from '../time.js';
-import type { FieldNotes } from '../../../shared/types.js';
+import type { FieldNotes, FieldNotesMode } from '../../../shared/types.js';
+import { validationError } from '../errors.js';
 
 type FieldNotesRow = {
   id: string;
   project_id: string;
+  mode: string;
   premise: string | null;
   what_i_know: string | null;
   open_questions: string | null;
@@ -31,6 +33,7 @@ type FieldNotesRow = {
 export const rowToFieldNotes = (r: FieldNotesRow): FieldNotes => ({
   id: r.id,
   projectId: r.project_id,
+  mode: r.mode === 'managed' ? 'managed' : 'scratchpad',
   premise: r.premise ?? undefined,
   whatIKnow: r.what_i_know ?? undefined,
   openQuestions: r.open_questions ?? undefined,
@@ -105,6 +108,7 @@ export const upsertFieldNotes = (
   const merged: FieldNotes = {
     id: existing?.id ?? newId(),
     projectId: project.id,
+    mode: existing?.mode ?? 'scratchpad',
     premise: sections.premise !== undefined
       ? (sections.premise ?? undefined)
       : existing?.premise,
@@ -185,4 +189,36 @@ export const upsertFieldNotes = (
   }
 
   return merged;
+};
+
+/** Flip a thread's Field Notes between scratchpad and managed mode.
+ *  Pure view switch — no data migration; blobs and entities both
+ *  persist, only one representation renders per mode. Creates the
+ *  field_notes row if the thread has none yet. */
+export const setFieldNotesMode = (
+  db: DB,
+  projectSlug: string,
+  mode: FieldNotesMode,
+): FieldNotes => {
+  if (mode !== 'scratchpad' && mode !== 'managed') {
+    throw validationError({ mode: 'invalid' });
+  }
+  const project = db
+    .prepare<[string], { id: string }>('SELECT id FROM projects WHERE slug = ?')
+    .get(projectSlug);
+  if (!project) throw notFound('project', projectSlug);
+
+  const existing = getFieldNotesByProject(db, project.id);
+  const now = nowIso();
+  if (existing) {
+    db.prepare(
+      'UPDATE field_notes SET mode = ?, updated_at = ? WHERE project_id = ?',
+    ).run(mode, now, project.id);
+  } else {
+    db.prepare(
+      `INSERT INTO field_notes (id, project_id, mode, revision, created_at, updated_at)
+       VALUES (?, ?, ?, 1, ?, ?)`,
+    ).run(newId(), project.id, mode, now, now);
+  }
+  return getFieldNotesByProject(db, project.id)!;
 };

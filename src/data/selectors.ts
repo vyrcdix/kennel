@@ -228,6 +228,19 @@ export const getProjectReferences = (projectId: string): Reference[] =>
     .filter((r) => r.projectId === projectId)
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
+/** Question-kind items for a thread — the entity list behind Field Notes'
+ *  managed-mode Open Questions section. Unresolved (not filed/dismissed)
+ *  first, then by recency of touch. */
+export const getProjectQuestions = (projectId: string): Item[] =>
+  items
+    .filter((it) => it.projectId === projectId && it.kind === 'question')
+    .sort((a, b) => {
+      const aOpen = a.state !== 'filed' && a.state !== 'dismissed';
+      const bOpen = b.state !== 'filed' && b.state !== 'dismissed';
+      if (aOpen !== bOpen) return aOpen ? -1 : 1;
+      return touchCmp(a, b);
+    });
+
 // ─── Runbooks ──────────────────────────────────────────────────────────────
 
 export const getRunbook = (projectId: string): Runbook | undefined =>
