@@ -21,10 +21,12 @@ const createBus = <T = void>() => {
 
 const createProjectBus = createBus<void>();
 const captureBus = createBus<{ projectSlug?: string }>();
+const editItemBus = createBus<{ itemId: string }>();
 
 export const openCreateProject = () => createProjectBus.emit();
 export const openCapture = (projectSlug?: string) =>
   captureBus.emit({ projectSlug });
+export const openEditItem = (itemId: string) => editItemBus.emit({ itemId });
 
 export const useCreateProjectModal = () => {
   const [open, setOpen] = useState(false);
@@ -41,6 +43,17 @@ export const useCaptureModal = (): [CaptureModalState, () => void] => {
       captureBus.subscribe(({ projectSlug }) =>
         setState({ open: true, projectSlug }),
       ),
+    [],
+  );
+  return [state, () => setState({ open: false })];
+};
+
+export type EditItemModalState = { open: boolean; itemId?: string };
+
+export const useEditItemModal = (): [EditItemModalState, () => void] => {
+  const [state, setState] = useState<EditItemModalState>({ open: false });
+  useEffect(
+    () => editItemBus.subscribe(({ itemId }) => setState({ open: true, itemId })),
     [],
   );
   return [state, () => setState({ open: false })];

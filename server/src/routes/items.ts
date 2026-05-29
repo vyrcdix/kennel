@@ -7,11 +7,13 @@ import {
   convertItemToReference,
   createItem,
   crystallizeItem,
+  deleteItem,
   fileItem,
   getItemById,
   listItems,
   touchItem,
   transitionItem,
+  updateItem,
 } from '../services/item.js';
 
 export const itemsRouter = (db: DB): Router => {
@@ -38,6 +40,30 @@ export const itemsRouter = (db: DB): Router => {
       const item = getItemById(db, req.params.id);
       if (!item) throw validationError({ id: 'not_found' });
       res.json(item);
+    }),
+  );
+
+  r.patch(
+    '/:id',
+    asyncHandler(async (req, res) => {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const patch: { title?: string; body?: string | null } = {};
+      if (body.title !== undefined) {
+        if (typeof body.title !== 'string') {
+          throw validationError({ title: 'must_be_string' });
+        }
+        patch.title = body.title;
+      }
+      if (body.body !== undefined) {
+        if (body.body !== null && typeof body.body !== 'string') {
+          throw validationError({ body: 'must_be_string_or_null' });
+        }
+        patch.body = body.body as string | null;
+      }
+      if (Object.keys(patch).length === 0) {
+        throw validationError({ body: 'no_fields' });
+      }
+      res.json(updateItem(db, req.params.id, patch));
     }),
   );
 
@@ -73,6 +99,14 @@ export const itemsRouter = (db: DB): Router => {
     '/:id/file',
     asyncHandler(async (req, res) => {
       res.json(fileItem(db, req.params.id));
+    }),
+  );
+
+  r.delete(
+    '/:id',
+    asyncHandler(async (req, res) => {
+      deleteItem(db, req.params.id);
+      res.status(204).end();
     }),
   );
 

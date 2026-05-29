@@ -175,6 +175,64 @@ export const createItem = (
   return getItemById(db, id)!;
 };
 
+/** Title + body edit on an existing item. The state machine still owns
+ *  transitions — this path only touches the free-text payload. */
+export type UpdateItemInput = Partial<{
+  title: string;
+  body: string | null;
+}>;
+
+export const updateItem = (
+  db: DB,
+  id: string,
+  patch: UpdateItemInput,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const existing = getItemById(db, id);
+  if (!existing) throw notFound('item', id);
+
+  let nextTitle = existing.title;
+  let nextBody: string | null = existing.body ?? null;
+  const fields: Record<string, string> = {};
+
+  if (patch.title !== undefined) {
+    const trimmed = patch.title.trim();
+    if (!trimmed) fields.title = 'required';
+    else if (trimmed.length > 500) fields.title = 'too_long';
+    else nextTitle = trimmed;
+  }
+  if (patch.body !== undefined) {
+    if (patch.body === null) {
+      nextBody = null;
+    } else {
+      const trimmed = patch.body.trim();
+      nextBody = trimmed || null;
+    }
+  }
+  if (Object.keys(fields).length > 0) throw validationError(fields);
+
+  const changed: string[] = [];
+  if (nextTitle !== existing.title) changed.push('title');
+  if ((nextBody ?? null) !== (existing.body ?? null)) changed.push('body');
+  if (changed.length === 0) return existing;
+
+  const now = nowIso();
+  db.prepare(
+    'UPDATE items SET title = ?, body = ?, updated_at = ?, last_touched_at = ? WHERE id = ?',
+  ).run(nextTitle, nextBody, now, now, id);
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'item',
+    entityId: id,
+    verb: 'EDITED',
+    target: `${existing.kind} / ${nextTitle}`,
+    payload: changed.join(', '),
+    actor,
+    occurredAt: now,
+  });
+  return getItemById(db, id)!;
+};
+
 const TRANSITION_VERB: Record<ItemState, string> = {
   inbox: 'RESET',
   active: 'PICKED UP',
@@ -276,6 +334,29 @@ export const crystallizeItem = (
  *  in that it has a dedicated endpoint and tool — the data effect is the same. */
 export const fileItem = (db: DB, id: string, actor: 'craig' | 'claude' | 'cli' = 'craig'): Item =>
   transitionItem(db, id, 'filed', actor);
+
+/** Hard-delete an item row. Comments and activity rows referencing the
+ *  item stay as an audit trail — they store entity_id as opaque text and
+ *  don't carry FKs back here. */
+export const deleteItem = (
+  db: DB,
+  id: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const existing = getItemById(db, id);
+  if (!existing) throw notFound('item', id);
+  const now = nowIso();
+  db.prepare('DELETE FROM items WHERE id = ?').run(id);
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'item',
+    entityId: id,
+    verb: 'REMOVED',
+    target: `${existing.kind} / ${existing.title}`,
+    actor,
+    occurredAt: now,
+  });
+};
 
 /** Items in any non-terminal state that haven't been touched in `thresholdDays`. */
 export const listAging = (db: DB, thresholdDays: number, projectId?: string): Item[] => {
