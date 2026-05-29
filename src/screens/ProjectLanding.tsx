@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { CreateGuidebookModal } from '../components/CreateGuidebookModal';
+import { CrystalCard } from '../components/CrystalCard';
 import { CrystallizationCard } from '../components/CrystallizationCard';
 import { EditProjectModal } from '../components/EditProjectModal';
 import { RegisterChatModal } from '../components/RegisterChatModal';
@@ -541,6 +542,39 @@ export const ProjectLanding = () => {
                   ))}
                 </div>
               </ThermalPanel>
+            )}
+
+            {/* v0.5 salient layer — the crystal gallery for this thread.
+                Sits above pinned docs because the durable outcomes are
+                the front page of a theme per v0.5 §5. Hidden when there
+                are no crystals (the empty state lives on the dedicated
+                /crystals gallery, not here). */}
+            {crystallizations.length > 0 && (
+              <section className="km-v4">
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 12,
+                  }}
+                >
+                  <Icons.gem size={15} stroke="#B07E12" />
+                  <span
+                    className="km-display-sm"
+                    style={{ color: '#B07E12' }}
+                  >
+                    THE SALIENT LAYER · what this thread has crystallized
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <Mono dim>{crystallizations.length} · kept fresh</Mono>
+                </div>
+                <div style={{ columnCount: 3, columnGap: 12 }}>
+                  {crystallizations.slice(0, 6).map((c) => (
+                    <CrystalCard key={c.id} item={c} />
+                  ))}
+                </div>
+              </section>
             )}
 
             {/* Pinned docs row */}

@@ -361,6 +361,41 @@ export const crystallizeItem = (
 export const fileItem = (db: DB, id: string, actor: 'craig' | 'claude' | 'cli' = 'craig'): Item =>
   transitionItem(db, id, 'filed', actor);
 
+/** v0.5: assign / clear the crystal sub-type. Idempotent; no activity log
+ *  if unchanged. Only meaningful on items whose kind is 'crystallization'
+ *  or state is 'crystallized' — the application layer allows it on any
+ *  item so the type can be picked before the crystallize step lands. */
+export const setItemCtype = (
+  db: DB,
+  id: string,
+  ctype: string | null,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const existing = getItemById(db, id);
+  if (!existing) throw notFound('item', id);
+  if (ctype !== null && !CRYSTAL_TYPES.has(ctype)) {
+    throw validationError({ ctype: 'invalid' });
+  }
+  if ((existing.ctype ?? null) === (ctype ?? null)) return existing;
+
+  const now = nowIso();
+  db.prepare(
+    'UPDATE items SET ctype = ?, updated_at = ?, last_touched_at = ? WHERE id = ?',
+  ).run(ctype, now, now, id);
+
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'item',
+    entityId: id,
+    verb: ctype ? 'TYPED' : 'UNTYPED',
+    target: `crystal / ${existing.title}`,
+    payload: ctype ?? undefined,
+    actor,
+    occurredAt: now,
+  });
+  return getItemById(db, id)!;
+};
+
 /** Hard-delete an item row. Comments and activity rows referencing the
  *  item stay as an audit trail — they store entity_id as opaque text and
  *  don't carry FKs back here. */

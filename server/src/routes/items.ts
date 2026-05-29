@@ -11,6 +11,7 @@ import {
   fileItem,
   getItemById,
   listItems,
+  setItemCtype,
   touchItem,
   transitionItem,
   updateItem,
@@ -107,6 +108,17 @@ export const itemsRouter = (db: DB): Router => {
     asyncHandler(async (req, res) => {
       deleteItem(db, req.params.id);
       res.status(204).end();
+    }),
+  );
+
+  r.patch(
+    '/:id/ctype',
+    asyncHandler(async (req, res) => {
+      const raw = (req.body ?? {}).ctype;
+      if (raw !== null && typeof raw !== 'string') {
+        throw validationError({ ctype: 'must_be_string_or_null' });
+      }
+      res.json(setItemCtype(db, req.params.id, raw));
     }),
   );
 

@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import AgingBoard from './screens/AgingBoard';
+import CrystalDetail from './screens/CrystalDetail';
+import CrystalsGallery from './screens/CrystalsGallery';
 import Dashboard from './screens/Dashboard';
 import FieldNotesView from './screens/FieldNotesView';
 import GuidebookView from './screens/GuidebookView';
@@ -96,6 +98,8 @@ export const App = () => (
       <Route path="/runbook/:slug" element={<RunbookView />} />
       <Route path="/project/:slug/field-notes" element={<FieldNotesView />} />
       <Route path="/project/:slug/guidebook/:id" element={<GuidebookView />} />
+      <Route path="/crystals" element={<CrystalsGallery />} />
+      <Route path="/crystal/:id" element={<CrystalDetail />} />
       <Route path="/aging" element={<AgingBoard />} />
       <Route path="/proposal" element={<SkillProposal />} />
       <Route path="/proposal/:id" element={<SkillProposal />} />

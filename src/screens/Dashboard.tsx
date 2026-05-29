@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChatRow } from '../components/ChatRow';
 import { ChromeBar } from '../components/ChromeBar';
+import { CrystalCard } from '../components/CrystalCard';
 import { KindIcon } from '../components/KindIcon';
 import { NavRail } from '../components/NavRail';
 import { NextUpRow } from '../components/NextUpRow';
@@ -210,43 +211,6 @@ const AgingDashboardRow = ({ item }: { item: Item }) => {
   );
 };
 
-const CrystallizedRow = ({ item }: { item: Item }) => {
-  const navigate = useNavigate();
-  const project = getProjectById(item.projectId);
-  return (
-    <div
-      onClick={() => item.docId && navigate(`/doc/${item.docId}`)}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '14px 90px 1fr auto',
-        alignItems: 'center',
-        gap: 10,
-        padding: '7px 14px',
-        borderBottom: '1px solid var(--line)',
-        cursor: item.docId ? 'pointer' : 'default',
-      }}
-    >
-      <span style={{ color: 'var(--moss)' }}>
-        <Icons.star size={12} />
-      </span>
-      {project && <ProjectTag slug={project.slug} />}
-      <span
-        className="km-body"
-        style={{
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          fontSize: 13,
-          fontWeight: 500,
-        }}
-      >
-        {item.title}
-      </span>
-      <Mono>{formatRelative(item.doneAt ?? item.updatedAt)}</Mono>
-    </div>
-  );
-};
-
 const NoProjectsState = () => (
   <main
     style={{
@@ -304,10 +268,6 @@ export const Dashboard = () => {
   const inFocusTemp = panelTemperature(nextUp, settings);
   const inFocusSince = formatRelative(
     nextUp[0]?.lastTouchedAt ?? nextUp[0]?.updatedAt ?? new Date(0),
-  );
-  const crystTemp = panelTemperature(crystallizedWeek, settings);
-  const crystSince = formatRelative(
-    crystallizedWeek[0]?.doneAt ?? crystallizedWeek[0]?.updatedAt ?? new Date(0),
   );
   const countsById = useMemo(() => getAllProjectCounts(), [v]);
   const lastTouchedById = useMemo(() => getAllProjectLastTouched(), [v]);
@@ -437,34 +397,44 @@ export const Dashboard = () => {
                 })}
               </ThermalPanel>
 
-              {/* Crystallized this week — moss accent retained on side borders;
-                  top edge yields to the temperature signal. */}
+              {/* Crystallized this week — v0.5 §5: blaze, the light, across
+                  all threads. Renders the new CrystalCard so the typed
+                  treatment lands here too. */}
               {crystallizedWeek.length > 0 && (
-                <ThermalPanel
-                  temp={crystTemp}
-                  style={{
-                    borderLeftColor: 'rgba(92,122,62,.35)',
-                    borderRightColor: 'rgba(92,122,62,.35)',
-                    borderBottomColor: 'rgba(92,122,62,.35)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px' }}>
-                    <span style={{ color: 'var(--moss)', marginRight: 8 }}>
-                      <Icons.star size={13} />
-                    </span>
-                    <span className="km-display-sm" style={{ color: 'var(--moss)' }}>
+                <section className="km-v4">
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Icons.gem size={15} stroke="#B07E12" />
+                    <span
+                      className="km-display-sm"
+                      style={{ color: '#B07E12' }}
+                    >
                       CRYSTALLIZED THIS WEEK
                     </span>
                     <span style={{ flex: 1 }} />
-                    <Mono dim>{crystallizedWeek.length} durable outcomes</Mono>
-                    <span style={{ width: 12 }} />
-                    <ThermalStamp temp={crystTemp} since={crystSince} />
+                    <Mono dim>
+                      {crystallizedWeek.length} new this week
+                    </Mono>
+                    <button
+                      className="km-btn km-btn-ghost"
+                      onClick={() => navigate('/crystals')}
+                      style={{ fontSize: 12, color: '#B07E12' }}
+                    >
+                      All crystals <Icons.arrowR size={11} />
+                    </button>
                   </div>
-                  <div className="km-rule" />
-                  {crystallizedWeek.slice(0, 4).map((item) => (
-                    <CrystallizedRow key={item.id} item={item} />
-                  ))}
-                </ThermalPanel>
+                  <div style={{ columnCount: 3, columnGap: 12 }}>
+                    {crystallizedWeek.slice(0, 6).map((c) => (
+                      <CrystalCard key={c.id} item={c} />
+                    ))}
+                  </div>
+                </section>
               )}
 
               {/* Recent conversations — primary input surface per v0.3 */}

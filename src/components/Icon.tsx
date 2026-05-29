@@ -54,6 +54,7 @@ export const Icons: Record<string, IconFn> = {
   link:      make(['M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1','M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1']),
   chat:      make(['M4 6h16v10H8l-4 4z']),
   runbook:   make(['M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z','M5 18h14','M9 8h6','M9 12h4']),
+  gem:       make('M12 2 22 8v8L12 22 2 16V8z'),
   arrowR:    make(['M5 12h14','m13 6 6 6-6 6']),
   arrowDown: make('m6 9 6 6 6-6'),
   arrowUp:   make('m6 15 6-6 6 6'),

@@ -3,6 +3,7 @@ import { Icons } from './Icon';
 import { Label } from './Label';
 import { Mono } from './Mono';
 import {
+  getAllCrystals,
   getProjectCounts,
   getProjects,
   getTriageBadgeCount,
@@ -12,6 +13,7 @@ import { openCreateProject } from '../lib/modals';
 
 export type NavRailActive =
   | 'dashboard'
+  | 'crystals'
   | 'triage'
   | 'search'
   | 'skills'
@@ -37,9 +39,11 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
   useStoreVersion();
 
   const triageCount = getTriageBadgeCount();
+  const crystalCount = getAllCrystals().length;
   const sys: SysItem[] = [
     { id: 'dashboard', icon: Icons.menu,   label: 'Dashboard',     to: '/' },
-    { id: 'triage',    icon: Icons.filter, label: 'Triage queue',  to: '/triage', n: triageCount },
+    { id: 'crystals',  icon: Icons.gem,    label: 'All crystals',  to: '/crystals', n: crystalCount },
+    { id: 'triage',    icon: Icons.filter, label: 'The bench',     to: '/triage', n: triageCount },
     { id: 'search',    icon: Icons.search, label: 'Search',        to: '/search' },
     { id: 'skills',    icon: Icons.star,   label: 'Skills',        to: '/proposal' },
     { id: 'settings',  icon: Icons.cog,    label: 'Settings',      to: '/settings' },
@@ -66,6 +70,16 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
       </div>
       {sys.map((s) => {
         const isActive = active === s.id;
+        // Crystals row uses the blaze family colour (per v0.5 reserved-
+        // colour rule: blaze = crystallization). All other rows keep the
+        // ember "primary action" tint.
+        const isCrystal = s.id === 'crystals';
+        const activeBg = isCrystal
+          ? 'rgba(232,181,71,.16)'
+          : 'rgba(217,98,44,.10)';
+        const activeBorder = isCrystal ? '#B07E12' : 'var(--ember)';
+        const activeColor = isCrystal ? '#8A5F0E' : 'var(--ember-deep)';
+        const idleColor = isCrystal ? '#8A5F0E' : 'var(--fg)';
         return (
           <button
             key={s.id}
@@ -78,9 +92,9 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
               width: '100%',
               padding: '5px 16px',
               border: 0,
-              background: isActive ? 'rgba(217,98,44,.10)' : 'transparent',
-              boxShadow: isActive ? 'inset 2px 0 0 var(--ember)' : 'none',
-              color: isActive ? 'var(--ember-deep)' : 'var(--fg)',
+              background: isActive ? activeBg : 'transparent',
+              boxShadow: isActive ? `inset 2px 0 0 ${activeBorder}` : 'none',
+              color: isActive ? activeColor : idleColor,
               fontSize: 13,
               fontFamily: 'var(--ff-sans)',
               cursor: 'pointer',

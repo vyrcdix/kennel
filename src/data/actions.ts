@@ -187,6 +187,20 @@ export const deleteItem = async (id: string): Promise<void> => {
   notify();
 };
 
+/** v0.5: assign or clear the crystal sub-type. Null clears. */
+export const setItemCtype = async (
+  id: string,
+  ctype: 'principle' | 'quote' | 'reminder' | 'hint' | 'memory' | null,
+): Promise<Item> => {
+  const updated = await wrap(() =>
+    api.patch<Item>(`/api/items/${id}/ctype`, { ctype }),
+  );
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
+  notify();
+  return updated;
+};
+
 // ─── References ──────────────────────────────────────────────────────────
 
 export type CreateReferenceInput = {

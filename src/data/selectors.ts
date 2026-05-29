@@ -128,6 +128,20 @@ export const getCrystallizedThisWeek = () => {
   );
 };
 
+/** Crystals across all themes — newest first. v0.5 §5 dashboard +
+ *  /crystals gallery. */
+export const getAllCrystals = () => getCrystallizations();
+
+/** Lineage source items for a crystal. Looks up the ids in
+ *  item.sourcesFrom and returns whichever ones we can resolve. */
+export const getCrystalSources = (crystal: Item) => {
+  if (!crystal.sourcesFrom) return [];
+  return crystal.sourcesFrom
+    .map((sid) => items.find((i) => i.id === sid))
+    .filter((i): i is Item => !!i);
+};
+
+
 import { fieldNotes, settings } from './fixtures';
 import type { FieldNotes } from './types';
 
