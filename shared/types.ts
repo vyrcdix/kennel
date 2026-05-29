@@ -91,6 +91,8 @@ export type FieldNotes = {
   updatedAt: Date;
 };
 
+export type DocSourceKind = 'md' | 'docx' | 'inline';
+
 export type Doc = {
   id: string;
   projectId: string;
@@ -101,6 +103,11 @@ export type Doc = {
   body: string;
   revision: number;
   pinned: boolean;
+  /** Original uploaded filename, when the doc came from an upload. */
+  sourceFilename?: string;
+  /** How the doc's body got here. 'inline' = composed in-app / via MCP. */
+  sourceKind?: DocSourceKind;
+  sourceUploadedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -183,7 +190,18 @@ export type SkillProposal = {
   reviewedAt?: Date;
 };
 
+/** Entities that participate in the comments + tag systems. The DB
+ *  enforces this set via CHECK constraints on entity_comments.entity_type
+ *  and entity_tags.entity_type; widening these is a schema change. */
 export type EntityType = 'item' | 'doc' | 'reference' | 'runbook';
+
+/** Superset of EntityType used by the activity feed, which has no
+ *  CHECK constraint on entity_type. Guidebooks log activity but do
+ *  not (yet) accept comments or shared tags. */
+export type ActivityEntityType =
+  | EntityType
+  | 'guidebook'
+  | 'guidebook_entry';
 
 export type EntityComment = {
   id: string;
@@ -198,7 +216,7 @@ export type EntityComment = {
 export type ActivityEntry = {
   id: string;
   projectId: string;
-  entityType?: EntityType;
+  entityType?: ActivityEntityType;
   entityId?: string;
   verb: string;
   target: string;
@@ -212,4 +230,43 @@ export type Tag = {
   projectId?: string;
   name: string;
   color?: string;
+};
+
+/** A per-topic ordered collection of source references. Hosts entries
+ *  that point at Docs or References already in the topic; the entry's
+ *  name/description form the guidebook's scannable spine. See
+ *  docs/guidebook-frd.md. */
+export type Guidebook = {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  /** Pinned guidebooks surface on ProjectLanding alongside pinned docs. */
+  pinned: boolean;
+  /** Sort order among guidebooks within the same topic. */
+  rank: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/** Discriminated source pointer — exactly one variant per entry,
+ *  matching the (doc_id, reference_id) XOR enforced at the DB. */
+export type GuidebookEntrySource =
+  | { kind: 'doc'; docId: string }
+  | { kind: 'reference'; referenceId: string };
+
+export type GuidebookEntry = {
+  id: string;
+  guidebookId: string;
+  source: GuidebookEntrySource;
+  /** Spine-level short title. Defaults to the source's title on attach
+   *  but is independently editable per entry. */
+  name: string;
+  description?: string;
+  /** Free-text tags, per-entry only — not rows in `tags`/`entity_tags`. */
+  tags: string[];
+  /** Position within the guidebook (drag-to-reorder). */
+  rank: number;
+  createdAt: Date;
+  updatedAt: Date;
 };

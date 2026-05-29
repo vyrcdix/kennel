@@ -6,6 +6,8 @@ import {
   chats,
   comments,
   docs,
+  guidebookEntries,
+  guidebooks,
   items,
   projects,
   references,
@@ -18,6 +20,8 @@ import type {
   ActivityEntry,
   Chat,
   EntityComment,
+  Guidebook,
+  GuidebookEntry,
   Item,
   ItemKind,
   Project,
@@ -245,6 +249,30 @@ export const getProjectQuestions = (projectId: string): Item[] =>
 
 export const getRunbook = (projectId: string): Runbook | undefined =>
   runbooks.find((r) => r.projectId === projectId);
+
+// ─── Guidebooks ────────────────────────────────────────────────────────────
+
+/** Guidebooks within a topic, ordered by user-defined rank. */
+export const getProjectGuidebooks = (projectId: string): Guidebook[] =>
+  guidebooks
+    .filter((g) => g.projectId === projectId)
+    .sort((a, b) => a.rank - b.rank);
+
+/** Pinned subset for the ProjectLanding "Pinned guidebooks" section. */
+export const getPinnedGuidebooks = (projectId: string): Guidebook[] =>
+  getProjectGuidebooks(projectId).filter((g) => g.pinned);
+
+export const getGuidebookById = (id: string): Guidebook | undefined =>
+  guidebooks.find((g) => g.id === id);
+
+/** Entries within one guidebook, in user-defined drag order. */
+export const getGuidebookEntries = (guidebookId: string): GuidebookEntry[] =>
+  guidebookEntries
+    .filter((e) => e.guidebookId === guidebookId)
+    .sort((a, b) => a.rank - b.rank);
+
+export const getGuidebookEntryCount = (guidebookId: string): number =>
+  guidebookEntries.reduce((n, e) => (e.guidebookId === guidebookId ? n + 1 : n), 0);
 
 // ─── Chats ─────────────────────────────────────────────────────────────────
 

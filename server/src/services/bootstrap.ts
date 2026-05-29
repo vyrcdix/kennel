@@ -5,6 +5,8 @@ import type {
   Doc,
   EntityComment,
   FieldNotes,
+  Guidebook,
+  GuidebookEntry,
   Item,
   Project,
   Reference,
@@ -19,6 +21,8 @@ import { listChats } from './chat.js';
 import { listComments } from './comment.js';
 import { listDocs } from './doc.js';
 import { listFieldNotes } from './fieldNotes.js';
+import { listGuidebooks } from './guidebook.js';
+import { listAllEntries } from './guidebookEntry.js';
 import { listItems } from './item.js';
 import { listProjects } from './project.js';
 import { listProposals } from './proposal.js';
@@ -41,6 +45,8 @@ export type BootstrapPayload = {
   comments: EntityComment[];
   activity: ActivityEntry[];
   tags: Tag[];
+  guidebooks: Guidebook[];
+  guidebookEntries: GuidebookEntry[];
   settings: Settings;
 };
 
@@ -57,5 +63,7 @@ export const bootstrap = (db: DB): BootstrapPayload => ({
   comments: listComments(db),
   activity: listActivity(db),
   tags: listTags(db),
+  guidebooks: listGuidebooks(db),
+  guidebookEntries: listAllEntries(db),
   settings: getSettings(db),
 });

@@ -1,5 +1,18 @@
 import { join } from 'node:path';
+import mammoth from 'mammoth';
 import type { DB } from '../db.js';
+
+/** mammoth ships an incomplete `index.d.ts` that omits `convertToMarkdown`,
+ *  even though the runtime exposes it. Narrow shim so the rest of this
+ *  file stays typed. */
+const mammothConvertToMarkdown = (
+  mammoth as unknown as {
+    convertToMarkdown: (input: { buffer: Buffer }) => Promise<{
+      value: string;
+      messages: unknown[];
+    }>;
+  }
+).convertToMarkdown;
 import { logActivity } from '../activity.js';
 import {
   commitDocWrite,
@@ -12,7 +25,7 @@ import { notFound, validationError } from '../errors.js';
 import { newId } from '../ids.js';
 import { fromIso, nowIso } from '../time.js';
 import { getProjectBySlug } from './project.js';
-import type { Doc } from '../../../shared/types.js';
+import type { Doc, DocSourceKind } from '../../../shared/types.js';
 
 type DocRow = {
   id: string;
@@ -25,6 +38,9 @@ type DocRow = {
   word_count: number | null;
   revision: number;
   pinned: number;
+  source_filename: string | null;
+  source_kind: DocSourceKind | null;
+  source_uploaded_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -41,6 +57,9 @@ export const rowToDoc = (r: DocRow): Doc => ({
   body: readDoc(absolutePath(r.file_path)),
   revision: r.revision,
   pinned: r.pinned === 1,
+  sourceFilename: r.source_filename ?? undefined,
+  sourceKind: r.source_kind ?? undefined,
+  sourceUploadedAt: fromIso(r.source_uploaded_at ?? undefined),
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });
@@ -82,16 +101,29 @@ const filenameFrom = (title: string, fallbackId: string): string => {
   return `${slug || fallbackId}.md`;
 };
 
-export const createDoc = (db: DB, input: CreateDocInput, actor: 'craig' | 'claude' | 'cli' = 'craig'): Doc => {
-  if (!input.title?.trim()) throw validationError({ title: 'required' });
-  if (typeof input.body !== 'string') throw validationError({ body: 'required' });
-  const project = getProjectBySlug(db, input.projectSlug);
-  if (!project) throw notFound('project', input.projectSlug);
+type PersistDocInput = {
+  projectId: string;
+  projectSlug: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  filename?: string;
+  sourceKind: DocSourceKind;
+  sourceFilename: string | null;
+};
 
-  ensureProjectDirs(project.slug);
+/** Shared insert path for createDoc + createDocFromUpload. Writes the
+ *  markdown file then the row in a transaction; rolls back the FS on
+ *  failure; logs activity. */
+const persistDoc = (
+  db: DB,
+  input: PersistDocInput,
+  actor: 'craig' | 'claude' | 'cli',
+): string => {
+  ensureProjectDirs(input.projectSlug);
   const id = newId();
   const filename = input.filename ?? filenameFrom(input.title, id);
-  const filePath = `${project.slug}/docs/${filename}`;
+  const filePath = `${input.projectSlug}/docs/${filename}`;
   const now = nowIso();
 
   const fsHandle = writeDocAtomic(join(contentRoot(), filePath), input.body);
@@ -99,25 +131,30 @@ export const createDoc = (db: DB, input: CreateDocInput, actor: 'craig' | 'claud
     const tx = db.transaction(() => {
       db.prepare(
         `INSERT INTO docs
-         (id, project_id, title, file_path, body_preview, word_count, revision, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+         (id, project_id, title, file_path, body_preview, word_count,
+          revision, pinned, source_filename, source_kind, source_uploaded_at,
+          created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
-        project.id,
-        input.title.trim(),
+        input.projectId,
+        input.title,
         filePath,
         previewOf(input.body),
         wordCount(input.body),
         input.pinned ? 1 : 0,
+        input.sourceFilename,
+        input.sourceKind,
+        now,
         now,
         now,
       );
       logActivity(db, {
-        projectId: project.id,
+        projectId: input.projectId,
         entityType: 'doc',
         entityId: id,
         verb: 'CREATED',
-        target: `doc / ${input.title.trim()}`,
+        target: `doc / ${input.title}`,
         actor,
         occurredAt: now,
       });
@@ -128,6 +165,92 @@ export const createDoc = (db: DB, input: CreateDocInput, actor: 'craig' | 'claud
     fsHandle.rollback();
     throw err;
   }
+  return id;
+};
+
+export const createDoc = (db: DB, input: CreateDocInput, actor: 'craig' | 'claude' | 'cli' = 'craig'): Doc => {
+  if (!input.title?.trim()) throw validationError({ title: 'required' });
+  if (typeof input.body !== 'string') throw validationError({ body: 'required' });
+  const project = getProjectBySlug(db, input.projectSlug);
+  if (!project) throw notFound('project', input.projectSlug);
+
+  const id = persistDoc(
+    db,
+    {
+      projectId: project.id,
+      projectSlug: project.slug,
+      title: input.title.trim(),
+      body: input.body,
+      pinned: !!input.pinned,
+      filename: input.filename,
+      sourceKind: 'inline',
+      sourceFilename: null,
+    },
+    actor,
+  );
+  return getDocById(db, id)!;
+};
+
+export type UploadDocInput = {
+  projectSlug: string;
+  /** Original uploaded filename, including extension. Stored as provenance. */
+  filename: string;
+  /** 'md' = body is UTF-8 markdown bytes. 'docx' = body is a Word binary. */
+  kind: 'md' | 'docx';
+  body: Buffer;
+  title?: string;
+  pinned?: boolean;
+};
+
+/** Strip extension + tidy whitespace to derive a default title from a
+ *  filename. "Architecture Brief.docx" → "Architecture Brief". */
+const titleFromFilename = (filename: string): string =>
+  filename.replace(/\.[a-z0-9]+$/i, '').replace(/[_\-]+/g, ' ').trim();
+
+export const createDocFromUpload = async (
+  db: DB,
+  input: UploadDocInput,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Promise<Doc> => {
+  if (!input.filename?.trim()) throw validationError({ filename: 'required' });
+  if (input.kind !== 'md' && input.kind !== 'docx') {
+    throw validationError({ kind: 'must_be_md_or_docx' });
+  }
+  if (!Buffer.isBuffer(input.body) || input.body.length === 0) {
+    throw validationError({ body: 'required' });
+  }
+  const project = getProjectBySlug(db, input.projectSlug);
+  if (!project) throw notFound('project', input.projectSlug);
+
+  let markdown: string;
+  if (input.kind === 'docx') {
+    try {
+      const result = await mammothConvertToMarkdown({ buffer: input.body });
+      markdown = result.value;
+    } catch {
+      // Bad / corrupt / not-a-docx buffer. Surface as a friendly error
+      // so the UI can prompt the user to paste contents instead.
+      throw validationError({ body: 'docx_conversion_failed' });
+    }
+  } else {
+    markdown = input.body.toString('utf8');
+  }
+
+  const title = (input.title?.trim() || titleFromFilename(input.filename)) || 'Untitled';
+
+  const id = persistDoc(
+    db,
+    {
+      projectId: project.id,
+      projectSlug: project.slug,
+      title,
+      body: markdown,
+      pinned: !!input.pinned,
+      sourceKind: input.kind,
+      sourceFilename: input.filename,
+    },
+    actor,
+  );
   return getDocById(db, id)!;
 };
 

@@ -1,11 +1,11 @@
 import type { DB } from '../db.js';
 import { fromIso } from '../time.js';
-import type { ActivityEntry, Actor, EntityType } from '../../../shared/types.js';
+import type { ActivityEntry, ActivityEntityType, Actor } from '../../../shared/types.js';
 
 type ActivityRow = {
   id: string;
   project_id: string;
-  entity_type: EntityType | null;
+  entity_type: ActivityEntityType | null;
   entity_id: string | null;
   verb: string;
   target: string;

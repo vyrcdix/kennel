@@ -7,6 +7,8 @@ import {
   comments,
   docs,
   fieldNotes,
+  guidebookEntries,
+  guidebooks,
   items,
   projects,
   references,
@@ -23,6 +25,8 @@ import type {
   EntityType,
   FieldNotes,
   FieldNotesMode,
+  Guidebook,
+  GuidebookEntry,
   Item,
   ItemKind,
   ItemState,
@@ -463,6 +467,218 @@ export const updateSettings = async (patch: SettingsPatch): Promise<Settings> =>
   settings.current = updated;
   notify();
   return updated;
+};
+
+// ─── Guidebooks ──────────────────────────────────────────────────────────
+
+export type CreateGuidebookInput = {
+  projectSlug: string;
+  name: string;
+  description?: string;
+  pinned?: boolean;
+};
+
+export const createGuidebook = async (
+  input: CreateGuidebookInput,
+): Promise<Guidebook> => {
+  const created = await wrap(() =>
+    api.post<Guidebook>(`/api/projects/${input.projectSlug}/guidebooks`, {
+      name: input.name,
+      description: input.description,
+      pinned: input.pinned,
+    }),
+  );
+  guidebooks.push(created);
+  notify();
+  return created;
+};
+
+export type UpdateGuidebookPatch = {
+  name?: string;
+  description?: string | null;
+  pinned?: boolean;
+};
+
+export const updateGuidebook = async (
+  id: string,
+  patch: UpdateGuidebookPatch,
+): Promise<Guidebook> => {
+  const updated = await wrap(() =>
+    api.patch<Guidebook>(`/api/guidebooks/${id}`, patch),
+  );
+  const idx = guidebooks.findIndex((g) => g.id === id);
+  if (idx >= 0) guidebooks[idx] = updated;
+  notify();
+  return updated;
+};
+
+/** Convenience wrapper — most pin toggles bypass the full update form. */
+export const setGuidebookPinned = (id: string, pinned: boolean) =>
+  updateGuidebook(id, { pinned });
+
+export const reorderGuidebooks = async (
+  projectSlug: string,
+  orderedIds: string[],
+): Promise<Guidebook[]> => {
+  const updated = await wrap(() =>
+    api.patch<Guidebook[]>(
+      `/api/projects/${projectSlug}/guidebooks/reorder`,
+      { orderedIds },
+    ),
+  );
+  // Replace ranks in-place. Server returns the topic's full guidebook list.
+  for (const g of updated) {
+    const idx = guidebooks.findIndex((x) => x.id === g.id);
+    if (idx >= 0) guidebooks[idx] = g;
+  }
+  notify();
+  return updated;
+};
+
+export const deleteGuidebook = async (id: string): Promise<void> => {
+  await wrap(() => api.del(`/api/guidebooks/${id}`));
+  const gbIdx = guidebooks.findIndex((g) => g.id === id);
+  if (gbIdx >= 0) guidebooks.splice(gbIdx, 1);
+  // Cascade-evict cached entries; server already deleted them in the same tx.
+  for (let i = guidebookEntries.length - 1; i >= 0; i--) {
+    if (guidebookEntries[i].guidebookId === id) guidebookEntries.splice(i, 1);
+  }
+  notify();
+};
+
+// ─── Guidebook entries ───────────────────────────────────────────────────
+
+/** Discriminated input matching the server's addEntry shapes. Slice 4
+ *  exercises the `existingDoc` + `existingRef` variants from the UI;
+ *  `upload` + `link` lands in Slice 5 with the upload modal. */
+export type AddEntryInput =
+  | {
+      kind: 'existingDoc';
+      docId: string;
+      name?: string;
+      description?: string;
+      tags?: string[];
+    }
+  | {
+      kind: 'existingRef';
+      referenceId: string;
+      name?: string;
+      description?: string;
+      tags?: string[];
+    }
+  | {
+      kind: 'upload';
+      filename: string;
+      sourceKind: 'md' | 'docx';
+      /** Base64-encoded contents; the server decodes it. */
+      bodyBase64: string;
+      name?: string;
+      description?: string;
+      tags?: string[];
+    }
+  | {
+      kind: 'link';
+      url: string;
+      label: string;
+      name?: string;
+      description?: string;
+      tags?: string[];
+    };
+
+const toServerEntryBody = (input: AddEntryInput): Record<string, unknown> => {
+  if (input.kind === 'existingDoc') {
+    return {
+      docId: input.docId,
+      name: input.name,
+      description: input.description,
+      tags: input.tags,
+    };
+  }
+  if (input.kind === 'existingRef') {
+    return {
+      referenceId: input.referenceId,
+      name: input.name,
+      description: input.description,
+      tags: input.tags,
+    };
+  }
+  if (input.kind === 'upload') {
+    return {
+      upload: {
+        filename: input.filename,
+        kind: input.sourceKind,
+        body: input.bodyBase64,
+      },
+      name: input.name,
+      description: input.description,
+      tags: input.tags,
+    };
+  }
+  return {
+    link: { url: input.url, label: input.label },
+    name: input.name,
+    description: input.description,
+    tags: input.tags,
+  };
+};
+
+export const addEntry = async (
+  guidebookId: string,
+  input: AddEntryInput,
+): Promise<GuidebookEntry> => {
+  const created = await wrap(() =>
+    api.post<GuidebookEntry>(
+      `/api/guidebooks/${guidebookId}/entries`,
+      toServerEntryBody(input),
+    ),
+  );
+  guidebookEntries.push(created);
+  notify();
+  return created;
+};
+
+export type UpdateEntryPatch = {
+  name?: string;
+  description?: string | null;
+  tags?: string[];
+};
+
+export const updateEntry = async (
+  id: string,
+  patch: UpdateEntryPatch,
+): Promise<GuidebookEntry> => {
+  const updated = await wrap(() =>
+    api.patch<GuidebookEntry>(`/api/guidebook-entries/${id}`, patch),
+  );
+  const idx = guidebookEntries.findIndex((e) => e.id === id);
+  if (idx >= 0) guidebookEntries[idx] = updated;
+  notify();
+  return updated;
+};
+
+export const reorderEntries = async (
+  guidebookId: string,
+  orderedIds: string[],
+): Promise<GuidebookEntry[]> => {
+  const updated = await wrap(() =>
+    api.patch<GuidebookEntry[]>(
+      `/api/guidebooks/${guidebookId}/entries/reorder`,
+      { orderedIds },
+    ),
+  );
+  for (const e of updated) {
+    const idx = guidebookEntries.findIndex((x) => x.id === e.id);
+    if (idx >= 0) guidebookEntries[idx] = e;
+  }
+  notify();
+  return updated;
+};
+
+export const removeEntry = async (id: string): Promise<void> => {
+  await wrap(() => api.del(`/api/guidebook-entries/${id}`));
+  const idx = guidebookEntries.findIndex((e) => e.id === id);
+  if (idx >= 0) guidebookEntries.splice(idx, 1);
+  notify();
 };
 
 // Re-export materializeDates for test convenience

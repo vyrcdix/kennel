@@ -20,6 +20,7 @@ import { chatsRouter } from './routes/chats.js';
 import { commentsRouter } from './routes/comments.js';
 import { docsRouter } from './routes/docs.js';
 import { fieldNotesRouter } from './routes/fieldNotes.js';
+import { guidebooksRouter } from './routes/guidebooks.js';
 import { itemsRouter } from './routes/items.js';
 import { projectsRouter } from './routes/projects.js';
 import { proposalsRouter } from './routes/proposals.js';
@@ -43,7 +44,10 @@ const app = express();
 // accurate and the session cookie gets the Secure flag over HTTPS.
 app.set('trust proxy', true);
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: '1mb' }));
+// 10mb leaves headroom for base64-encoded .docx uploads on the
+// guidebook entries endpoint (~33% inflation), while still bounding
+// the JSON body size to something sensible.
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
@@ -73,6 +77,7 @@ app.use('/api/references', referencesRouter(db));
 app.use('/api/skill-proposals', proposalsRouter(db));
 app.use('/api/entities/:type/:id/comments', commentsRouter(db));
 app.use('/api', runbooksRouter(db));
+app.use('/api', guidebooksRouter(db));
 app.use('/api/activity', activityRouter(db));
 app.use('/api/aging', agingRouter(db));
 app.use('/api/crystallizations', crystallizationsRouter(db));

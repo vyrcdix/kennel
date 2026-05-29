@@ -2,11 +2,11 @@ import type { DB } from './db.js';
 import { publish } from './events.js';
 import { newId } from './ids.js';
 import { nowIso } from './time.js';
-import type { ActivityEntry } from '../../shared/types.js';
+import type { ActivityEntry, ActivityEntityType } from '../../shared/types.js';
 
 export type LogEntry = {
   projectId: string;
-  entityType?: 'item' | 'doc' | 'reference' | 'runbook';
+  entityType?: ActivityEntityType;
   entityId?: string;
   verb: string;
   target: string;

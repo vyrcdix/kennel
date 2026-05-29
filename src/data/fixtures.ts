@@ -9,6 +9,8 @@ import type {
   Doc,
   EntityComment,
   FieldNotes,
+  Guidebook,
+  GuidebookEntry,
   Item,
   Project,
   Reference,
@@ -31,6 +33,8 @@ export const skillProposals: SkillProposal[] = [];
 export const comments: EntityComment[] = [];
 export const activity: ActivityEntry[] = [];
 export const tags: Tag[] = [];
+export const guidebooks: Guidebook[] = [];
+export const guidebookEntries: GuidebookEntry[] = [];
 
 const DEFAULT_SETTINGS: Settings = {
   agingThresholdDays: 21,
@@ -58,6 +62,8 @@ export type BootstrapPayload = {
   comments: EntityComment[];
   activity: ActivityEntry[];
   tags: Tag[];
+  guidebooks: Guidebook[];
+  guidebookEntries: GuidebookEntry[];
   settings: Settings;
 };
 
@@ -80,6 +86,8 @@ export const hydrate = (payload: BootstrapPayload) => {
   replace(comments, payload.comments);
   replace(activity, payload.activity);
   replace(tags, payload.tags);
+  replace(guidebooks, payload.guidebooks ?? []);
+  replace(guidebookEntries, payload.guidebookEntries ?? []);
   settings.current = payload.settings ?? DEFAULT_SETTINGS;
   notify();
 };

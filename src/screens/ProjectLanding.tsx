@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
+import { CreateGuidebookModal } from '../components/CreateGuidebookModal';
 import { CrystallizationCard } from '../components/CrystallizationCard';
 import { EditProjectModal } from '../components/EditProjectModal';
 import { RegisterChatModal } from '../components/RegisterChatModal';
@@ -26,20 +27,27 @@ import {
 } from '../lib/temperature';
 import {
   crystallizeItem,
+  deleteGuidebook,
   fileItem,
+  reorderGuidebooks,
   setChatUrl,
+  setGuidebookPinned,
   touchItem,
+  updateGuidebook,
 } from '../data/actions';
 import {
   getAgingItems,
   getCrystallizations,
   getFieldNotes,
+  getGuidebookEntryCount,
   getNextUp,
   getPinnedDocs,
+  getPinnedGuidebooks,
   getProjectBySlug,
   getProjectChats,
   getProjectCounts,
   getProjectDocs,
+  getProjectGuidebooks,
   getProjectItems,
   getProjectLastTouched,
   getProjectReferences,
@@ -54,9 +62,67 @@ import {
 import { stripFence } from '../lib/markdown';
 import { openCapture } from '../lib/modals';
 import { useStoreVersion } from '../data/store';
-import type { Doc, Item } from '../data/types';
+import type { Doc, Guidebook, Item } from '../data/types';
 
 const DAY = 86400_000;
+
+const PinnedGuidebookCard = ({
+  guidebook,
+  entryCount,
+  onClick,
+}: {
+  guidebook: Guidebook;
+  entryCount: number;
+  onClick: () => void;
+}) => (
+  <div
+    className="km-card"
+    onClick={onClick}
+    style={{
+      padding: '10px 12px',
+      minWidth: 220,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6,
+      cursor: 'pointer',
+      borderTop: '2px solid var(--ember)',
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ color: 'var(--ember-deep)' }}>
+        <Icons.star size={12} />
+      </span>
+      <span
+        className="km-body"
+        style={{
+          fontWeight: 500,
+          flex: 1,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {guidebook.name}
+      </span>
+    </div>
+    {guidebook.description && (
+      <div
+        className="km-body-sm"
+        style={{
+          fontSize: 12,
+          color: 'var(--fg-muted)',
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: 2,
+          overflow: 'hidden',
+        }}
+      >
+        {guidebook.description}
+      </div>
+    )}
+    <Mono dim>{entryCount} {entryCount === 1 ? 'entry' : 'entries'}</Mono>
+  </div>
+);
 
 const PinnedDocCard = ({
   doc,
@@ -183,10 +249,13 @@ export const ProjectLanding = () => {
   const navigate = useNavigate();
   useStoreVersion();
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
-  const [activeTab, setActiveTab] = useState<'items' | 'docs' | 'references'>('items');
+  const [activeTab, setActiveTab] = useState<
+    'items' | 'docs' | 'references' | 'guidebooks'
+  >('items');
   const [contextOpen, setContextOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [registerChatOpen, setRegisterChatOpen] = useState(false);
+  const [createGuidebookOpen, setCreateGuidebookOpen] = useState(false);
   const project = getProjectBySlug(slug);
   if (!project) return <ProjectNotFound slug={slug} />;
 
@@ -199,6 +268,8 @@ export const ProjectLanding = () => {
   const runbook = getRunbook(project.id);
   const fieldNotes = getFieldNotes(project.id);
   const crystallizations = getCrystallizations(project.id);
+  const allGuidebooks = getProjectGuidebooks(project.id);
+  const pinnedGuidebooks = getPinnedGuidebooks(project.id);
   const settings = getSettings();
   const agingItems = getAgingItems(settings.agingThresholdDays, project.id);
   const { active: activeChats, stale: staleChats } = getProjectChats(project.id);
@@ -447,6 +518,29 @@ export const ProjectLanding = () => {
                       doc={d}
                       temp={temperatureForDate(d.updatedAt, settings)}
                       onClick={() => navigate(`/doc/${d.id}`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Pinned guidebooks row */}
+            {pinnedGuidebooks.length > 0 && (
+              <section>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                  <Label>Pinned guidebooks</Label>
+                  <span style={{ flex: 1 }} />
+                  <Mono>
+                    {pinnedGuidebooks.length} of {allGuidebooks.length}
+                  </Mono>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  {pinnedGuidebooks.slice(0, 3).map((g) => (
+                    <PinnedGuidebookCard
+                      key={g.id}
+                      guidebook={g}
+                      entryCount={getGuidebookEntryCount(g.id)}
+                      onClick={() => navigate(`/project/${project.slug}/guidebook/${g.id}`)}
                     />
                   ))}
                 </div>
@@ -714,7 +808,22 @@ export const ProjectLanding = () => {
                   active={activeTab === 'references'}
                   onClick={() => setActiveTab('references')}
                 />
+                <span style={{ width: 18 }} />
+                <TabButton
+                  label={`Guidebooks · ${allGuidebooks.length}`}
+                  active={activeTab === 'guidebooks'}
+                  onClick={() => setActiveTab('guidebooks')}
+                />
                 <span style={{ flex: 1 }} />
+                {activeTab === 'guidebooks' && (
+                  <button
+                    className="km-btn km-btn-ghost"
+                    onClick={() => setCreateGuidebookOpen(true)}
+                    style={{ fontSize: 12, color: 'var(--ember-deep)' }}
+                  >
+                    <Icons.plus size={12} /> New guidebook
+                  </button>
+                )}
               </div>
               <div>
                 {activeTab === 'items' && (
@@ -759,6 +868,186 @@ export const ProjectLanding = () => {
                         <Mono dim>{formatRelative(d.updatedAt)}</Mono>
                       </div>
                     ))
+                  )
+                )}
+                {activeTab === 'guidebooks' && (
+                  allGuidebooks.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '24px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <Mono dim>no guidebooks in this thread</Mono>
+                      <button
+                        className="km-btn km-btn-primary"
+                        onClick={() => setCreateGuidebookOpen(true)}
+                        style={{ fontSize: 12 }}
+                      >
+                        <Icons.plus size={12} /> Create one
+                      </button>
+                    </div>
+                  ) : (
+                    allGuidebooks.map((g, i) => {
+                      const isFirst = i === 0;
+                      const isLast = i === allGuidebooks.length - 1;
+                      const entryCount = getGuidebookEntryCount(g.id);
+                      const stop = (
+                        e: React.MouseEvent | React.KeyboardEvent,
+                      ): boolean => {
+                        e.stopPropagation();
+                        return true;
+                      };
+                      const swap = async (delta: 1 | -1) => {
+                        const target = i + delta;
+                        if (target < 0 || target >= allGuidebooks.length) return;
+                        const next = [...allGuidebooks];
+                        [next[i], next[target]] = [next[target], next[i]];
+                        await reorderGuidebooks(
+                          project.slug,
+                          next.map((x) => x.id),
+                        );
+                      };
+                      const rename = async () => {
+                        const next = window.prompt('Rename guidebook', g.name);
+                        if (next == null) return;
+                        const trimmed = next.trim();
+                        if (!trimmed || trimmed === g.name) return;
+                        await updateGuidebook(g.id, { name: trimmed });
+                      };
+                      const onDelete = async () => {
+                        if (
+                          !window.confirm(
+                            `Delete "${g.name}"? Source docs and references stay in the topic.`,
+                          )
+                        ) {
+                          return;
+                        }
+                        await deleteGuidebook(g.id);
+                      };
+                      return (
+                        <div
+                          key={g.id}
+                          className="km-row"
+                          onClick={() =>
+                            navigate(`/project/${project.slug}/guidebook/${g.id}`)
+                          }
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns:
+                              '20px 1fr 90px 26px 26px 26px 26px',
+                            alignItems: 'center',
+                            gap: 10,
+                            padding: '8px 16px',
+                            borderBottom: '1px solid var(--line)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <button
+                            className="km-btn km-btn-ghost"
+                            onClick={(e) => {
+                              stop(e);
+                              void setGuidebookPinned(g.id, !g.pinned);
+                            }}
+                            title={g.pinned ? 'unpin' : 'pin to landing'}
+                            style={{
+                              padding: 0,
+                              color: g.pinned
+                                ? 'var(--ember-deep)'
+                                : 'var(--fg-faint)',
+                            }}
+                          >
+                            <Icons.star size={14} />
+                          </button>
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              className="km-body"
+                              style={{
+                                fontWeight: 500,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {g.name}
+                            </div>
+                            {g.description && (
+                              <Mono
+                                dim
+                                style={{
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {g.description}
+                              </Mono>
+                            )}
+                          </div>
+                          <Mono dim>
+                            {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
+                          </Mono>
+                          <button
+                            className="km-btn km-btn-ghost"
+                            onClick={(e) => {
+                              stop(e);
+                              void swap(-1);
+                            }}
+                            disabled={isFirst}
+                            title="move up"
+                            style={{
+                              padding: 0,
+                              opacity: isFirst ? 0.25 : 1,
+                              cursor: isFirst ? 'default' : 'pointer',
+                            }}
+                          >
+                            <Icons.arrowUp size={14} />
+                          </button>
+                          <button
+                            className="km-btn km-btn-ghost"
+                            onClick={(e) => {
+                              stop(e);
+                              void swap(1);
+                            }}
+                            disabled={isLast}
+                            title="move down"
+                            style={{
+                              padding: 0,
+                              opacity: isLast ? 0.25 : 1,
+                              cursor: isLast ? 'default' : 'pointer',
+                            }}
+                          >
+                            <Icons.arrowDown size={14} />
+                          </button>
+                          <button
+                            className="km-btn km-btn-ghost"
+                            onClick={(e) => {
+                              stop(e);
+                              void rename();
+                            }}
+                            title="rename"
+                            style={{ padding: 0, color: 'var(--fg-muted)' }}
+                          >
+                            <Icons.note size={14} />
+                          </button>
+                          <button
+                            className="km-btn km-btn-ghost"
+                            onClick={(e) => {
+                              stop(e);
+                              void onDelete();
+                            }}
+                            title="delete"
+                            style={{ padding: 0, color: 'var(--ember-deep)' }}
+                          >
+                            <Icons.trash size={14} />
+                          </button>
+                        </div>
+                      );
+                    })
                   )
                 )}
                 {activeTab === 'references' && (
@@ -812,6 +1101,11 @@ export const ProjectLanding = () => {
         open={registerChatOpen}
         projectSlug={project.slug}
         onClose={() => setRegisterChatOpen(false)}
+      />
+      <CreateGuidebookModal
+        open={createGuidebookOpen}
+        projectSlug={project.slug}
+        onClose={() => setCreateGuidebookOpen(false)}
       />
     </div>
   );
