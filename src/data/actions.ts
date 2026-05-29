@@ -548,9 +548,10 @@ export const deleteGuidebook = async (id: string): Promise<void> => {
 
 // ─── Guidebook entries ───────────────────────────────────────────────────
 
-/** Discriminated input matching the server's addEntry shapes. Slice 4
- *  exercises the `existingDoc` + `existingRef` variants from the UI;
- *  `upload` + `link` lands in Slice 5 with the upload modal. */
+/** Discriminated input matching the server's addEntry shapes. The four
+ *  variants — pick-existing doc/ref, upload a file, or paste a link —
+ *  all funnel through the same `POST /api/guidebooks/:id/entries`
+ *  endpoint with the source field varying. */
 export type AddEntryInput =
   | {
       kind: 'existingDoc';

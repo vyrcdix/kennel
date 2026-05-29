@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AddGuidebookEntryModal } from '../components/AddGuidebookEntryModal';
 import { ChromeBar } from '../components/ChromeBar';
@@ -6,6 +6,7 @@ import { Icons } from '../components/Icon';
 import { Mono } from '../components/Mono';
 import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
+import { SegBtn } from '../components/SegBtn';
 import {
   deleteGuidebook,
   removeEntry,
@@ -71,9 +72,55 @@ const resolveSource = (entry: GuidebookEntry): SourceInfo | null => {
   };
 };
 
+const parseTagsInput = (raw: string): string[] => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(',')) {
+    const t = part.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+};
+
+const sameTags = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((t, i) => t === b[i]);
+
+type TagChipProps = {
+  label: string;
+  active?: boolean;
+  onClick?: (e: React.MouseEvent) => void;
+};
+
+const TagChip = ({ label, active, onClick }: TagChipProps) => (
+  <span
+    onClick={onClick}
+    style={{
+      fontFamily: 'var(--ff-mono)',
+      fontSize: 10.5,
+      padding: '1px 6px',
+      borderRadius: 3,
+      background: active ? 'rgba(217,98,44,.20)' : 'rgba(217,98,44,.10)',
+      color: 'var(--ember-deep)',
+      cursor: onClick ? 'pointer' : 'default',
+      border: active ? '1px solid var(--ember)' : '1px solid transparent',
+      lineHeight: 1.4,
+    }}
+  >
+    {label}
+  </span>
+);
+
 type EntryRowProps = {
   entry: GuidebookEntry;
-  index: number;
+  /** Position label shown on the left. Pass the index in the current
+   *  visible list — in Tags view this is the position within the group,
+   *  in Order view this is the absolute position in the spine. */
+  position: number;
+  /** When false, drag handles + onDrag* are inert. Tags view sets this
+   *  to false because reorder isn't meaningful inside a group. */
+  draggable: boolean;
   isDragging: boolean;
   isDragOver: boolean;
   onDragStart: (e: React.DragEvent) => void;
@@ -84,7 +131,8 @@ type EntryRowProps = {
 
 const EntryRow = ({
   entry,
-  index,
+  position,
+  draggable,
   isDragging,
   isDragOver,
   onDragStart,
@@ -97,6 +145,10 @@ const EntryRow = ({
   const [draft, setDraft] = useState(entry.name);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  const [editingTags, setEditingTags] = useState(false);
+  const [tagsDraft, setTagsDraft] = useState('');
+  const tagsInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     if (editing) {
       setDraft(entry.name);
@@ -105,11 +157,26 @@ const EntryRow = ({
     }
   }, [editing, entry.name]);
 
+  useEffect(() => {
+    if (editingTags) {
+      setTagsDraft(entry.tags.join(', '));
+      tagsInputRef.current?.focus();
+      tagsInputRef.current?.select();
+    }
+  }, [editingTags, entry.tags]);
+
   const save = async () => {
     const next = draft.trim();
     setEditing(false);
     if (!next || next === entry.name) return;
     await updateEntry(entry.id, { name: next });
+  };
+
+  const saveTags = async () => {
+    const next = parseTagsInput(tagsDraft);
+    setEditingTags(false);
+    if (sameTags(next, entry.tags)) return;
+    await updateEntry(entry.id, { tags: next });
   };
 
   const onRemove = async () => {
@@ -133,11 +200,11 @@ const EntryRow = ({
 
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
+      draggable={draggable}
+      onDragStart={draggable ? onDragStart : undefined}
+      onDragOver={draggable ? onDragOver : undefined}
+      onDrop={draggable ? onDrop : undefined}
+      onDragEnd={draggable ? onDragEnd : undefined}
       style={{
         display: 'grid',
         gridTemplateColumns: '18px 22px 18px 1fr 26px 26px',
@@ -149,15 +216,18 @@ const EntryRow = ({
         borderTop: isDragOver
           ? '2px solid var(--ember)'
           : '2px solid transparent',
-        cursor: 'default',
+        cursor: draggable ? 'grab' : 'default',
+        // Without this, Chrome on Linux treats mousedown-on-text as a
+        // text selection and quietly cancels the row-level drag.
+        userSelect: draggable ? 'none' : 'auto',
       }}
     >
-      {/* Drag handle */}
+      {/* Drag handle (inert in tags view) */}
       <span
-        title="drag to reorder"
+        title={draggable ? 'drag to reorder' : 'reorder in Order view'}
         style={{
-          color: 'var(--fg-faint)',
-          cursor: 'grab',
+          color: draggable ? 'var(--fg-faint)' : 'transparent',
+          cursor: draggable ? 'grab' : 'default',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -167,7 +237,7 @@ const EntryRow = ({
       </span>
 
       {/* Position number */}
-      <Mono dim>{index + 1}</Mono>
+      <Mono dim>{position + 1}</Mono>
 
       {/* Source icon */}
       <span style={{ color: 'var(--fg-muted)' }}>
@@ -178,11 +248,12 @@ const EntryRow = ({
         )}
       </span>
 
-      {/* Name + description preview + source title */}
+      {/* Name + description preview + source title + tag chips */}
       <div style={{ minWidth: 0 }}>
         {editing ? (
           <input
             ref={inputRef}
+            draggable={false}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => void save()}
@@ -258,6 +329,75 @@ const EntryRow = ({
             source unavailable
           </Mono>
         )}
+
+        {/* Tag chips — click to edit (comma-separated) */}
+        {editingTags ? (
+          <input
+            ref={tagsInputRef}
+            draggable={false}
+            value={tagsDraft}
+            onChange={(e) => setTagsDraft(e.target.value)}
+            onBlur={() => void saveTags()}
+            onClick={stop}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void saveTags();
+              }
+              if (e.key === 'Escape') {
+                setEditingTags(false);
+              }
+            }}
+            placeholder="comma-separated tags"
+            style={{
+              marginTop: 4,
+              width: '100%',
+              fontFamily: 'var(--ff-mono)',
+              fontSize: 11,
+              background: 'var(--surface-1)',
+              border: '1px solid var(--ember)',
+              borderRadius: 3,
+              padding: '2px 6px',
+            }}
+          />
+        ) : entry.tags.length > 0 ? (
+          <div
+            onClick={(e) => {
+              stop(e);
+              setEditingTags(true);
+            }}
+            title="click to edit tags"
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 4,
+              marginTop: 4,
+              cursor: 'text',
+            }}
+          >
+            {entry.tags.map((t) => (
+              <TagChip key={t} label={t} />
+            ))}
+          </div>
+        ) : (
+          <span
+            className="km-mono-sm"
+            onClick={(e) => {
+              stop(e);
+              setEditingTags(true);
+            }}
+            title="add tags"
+            style={{
+              display: 'inline-block',
+              marginTop: 4,
+              cursor: 'text',
+              fontSize: 10.5,
+              color: 'var(--fg-faint)',
+            }}
+          >
+            + tag
+          </span>
+        )}
       </div>
 
       {/* Open source */}
@@ -294,6 +434,8 @@ const EntryRow = ({
   );
 };
 
+type ViewMode = 'order' | 'tags';
+
 export const GuidebookView = () => {
   const navigate = useNavigate();
   useStoreVersion();
@@ -307,7 +449,14 @@ export const GuidebookView = () => {
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  // Drag state lives in the parent so visual cues persist across rows.
+  const [viewMode, setViewMode] = useState<ViewMode>('order');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  // Drag state lives in the parent so visual cues persist across rows. The
+  // ref mirrors dragIndex for synchronous read inside dragover/drop: React
+  // batches the setState from dragstart, so the closure that handles the
+  // first dragover would otherwise still see the pre-drag null value and
+  // skip preventDefault — which silently breaks the drop.
+  const dragIndexRef = useRef<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -320,9 +469,53 @@ export const GuidebookView = () => {
     if (editingDescription) descriptionInputRef.current?.focus();
   }, [editingDescription]);
 
-  if (!guidebook || !project) return <GuidebookNotFound id={id} />;
+  const entries = useMemo(
+    () => (guidebook ? getGuidebookEntries(guidebook.id) : []),
+    [guidebook],
+  );
 
-  const entries = getGuidebookEntries(guidebook.id);
+  // Unique tags in user-defined entry order — the first time a tag
+  // appears determines its position in the chip row + group order.
+  const uniqueTags = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const e of entries) {
+      for (const t of e.tags) {
+        if (seen.has(t)) continue;
+        seen.add(t);
+        out.push(t);
+      }
+    }
+    return out;
+  }, [entries]);
+
+  // Drop the filter chip if the underlying tag disappears (last entry
+  // bearing it was removed).
+  useEffect(() => {
+    if (activeTag && !uniqueTags.includes(activeTag)) setActiveTag(null);
+  }, [activeTag, uniqueTags]);
+
+  const orderedEntries = useMemo(() => {
+    if (viewMode !== 'order' || !activeTag) return entries;
+    return entries.filter((e) => e.tags.includes(activeTag));
+  }, [entries, viewMode, activeTag]);
+
+  const groupedEntries = useMemo(() => {
+    if (viewMode !== 'tags') return [];
+    const groups: { tag: string; entries: GuidebookEntry[] }[] = uniqueTags.map(
+      (tag) => ({
+        tag,
+        entries: entries.filter((e) => e.tags.includes(tag)),
+      }),
+    );
+    const untagged = entries.filter((e) => e.tags.length === 0);
+    if (untagged.length > 0) {
+      groups.push({ tag: '__untagged__', entries: untagged });
+    }
+    return groups;
+  }, [entries, uniqueTags, viewMode]);
+
+  if (!guidebook || !project) return <GuidebookNotFound id={id} />;
 
   const saveName = async () => {
     const next = nameDraft.trim();
@@ -361,26 +554,32 @@ export const GuidebookView = () => {
     navigate(`/project/${project.slug}`);
   };
 
-  // ─── Drag-to-reorder ────────────────────────────────────────────
+  // ─── Drag-to-reorder (Order view only, no active tag filter) ────
+  // When a tag filter is active the visible list is a subset of the
+  // spine, so dropping at index `i` of the visible list doesn't map to
+  // a clean absolute rank. We disable reorder under filter and tell
+  // the user via the spine header copy.
+  const dragEnabled = viewMode === 'order' && activeTag === null;
   const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    dragIndexRef.current = index;
     setDragIndex(index);
-    // Firefox refuses to fire dragover unless dataTransfer has something.
     e.dataTransfer.effectAllowed = 'move';
     try {
       e.dataTransfer.setData('text/plain', entries[index].id);
     } catch {
-      /* setData rejected in some browsers — fine, we use state */
+      /* setData rejected in some browsers — fine, we use the ref */
     }
   };
   const handleDragOver = (index: number) => (e: React.DragEvent) => {
-    if (dragIndex === null) return;
+    if (dragIndexRef.current === null) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     if (index !== dragOverIndex) setDragOverIndex(index);
   };
   const handleDrop = (index: number) => async (e: React.DragEvent) => {
     e.preventDefault();
-    const from = dragIndex;
+    const from = dragIndexRef.current;
+    dragIndexRef.current = null;
     setDragIndex(null);
     setDragOverIndex(null);
     if (from === null || from === index) return;
@@ -390,9 +589,17 @@ export const GuidebookView = () => {
     await reorderEntries(guidebook.id, next);
   };
   const handleDragEnd = () => {
+    dragIndexRef.current = null;
     setDragIndex(null);
     setDragOverIndex(null);
   };
+
+  const reorderHint =
+    viewMode === 'tags'
+      ? 'drag disabled in Tags view'
+      : activeTag
+        ? 'clear the filter to reorder'
+        : 'drag rows to reorder';
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -563,14 +770,26 @@ export const GuidebookView = () => {
                 alignItems: 'center',
                 padding: '10px 14px',
                 borderBottom: '1px solid var(--line)',
+                gap: 12,
+                flexWrap: 'wrap',
               }}
             >
               <span className="km-display-sm" style={{ fontSize: 11 }}>
                 {entries.length === 0 ? 'SPINE' : `SPINE · ${entries.length} ENTRIES`}
               </span>
-              <Mono dim style={{ marginLeft: 10 }}>
-                drag rows to reorder
-              </Mono>
+              <div style={{ display: 'flex' }}>
+                <SegBtn
+                  label="Order"
+                  active={viewMode === 'order'}
+                  onClick={() => setViewMode('order')}
+                />
+                <SegBtn
+                  label="Tags"
+                  active={viewMode === 'tags'}
+                  onClick={() => setViewMode('tags')}
+                />
+              </div>
+              <Mono dim>{reorderHint}</Mono>
               <span style={{ flex: 1 }} />
               <button
                 className="km-btn km-btn-primary"
@@ -580,6 +799,36 @@ export const GuidebookView = () => {
                 <Icons.plus size={12} /> Add entry
               </button>
             </div>
+
+            {/* Order-view tag filter row */}
+            {viewMode === 'order' && uniqueTags.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexWrap: 'wrap',
+                  padding: '8px 14px',
+                  borderBottom: '1px solid var(--line)',
+                  background: 'var(--surface-1)',
+                }}
+              >
+                <Mono dim>filter</Mono>
+                <TagChip
+                  label="all"
+                  active={activeTag === null}
+                  onClick={() => setActiveTag(null)}
+                />
+                {uniqueTags.map((t) => (
+                  <TagChip
+                    key={t}
+                    label={t}
+                    active={activeTag === t}
+                    onClick={() => setActiveTag(activeTag === t ? null : t)}
+                  />
+                ))}
+              </div>
+            )}
 
             {entries.length === 0 ? (
               <div
@@ -597,19 +846,75 @@ export const GuidebookView = () => {
                   attach existing docs or references from this topic to start building the spine
                 </Mono>
               </div>
+            ) : viewMode === 'order' ? (
+              orderedEntries.length === 0 ? (
+                <div
+                  style={{
+                    padding: '20px 24px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Mono dim>no entries tagged "{activeTag}"</Mono>
+                </div>
+              ) : (
+                orderedEntries.map((e) => {
+                  // Position number = absolute index in the spine, so
+                  // it stays meaningful even when filtered.
+                  const absIndex = entries.findIndex((x) => x.id === e.id);
+                  return (
+                    <EntryRow
+                      key={e.id}
+                      entry={e}
+                      position={absIndex}
+                      draggable={dragEnabled}
+                      isDragging={dragIndex === absIndex}
+                      isDragOver={
+                        dragOverIndex === absIndex && dragIndex !== absIndex
+                      }
+                      onDragStart={handleDragStart(absIndex)}
+                      onDragOver={handleDragOver(absIndex)}
+                      onDrop={handleDrop(absIndex)}
+                      onDragEnd={handleDragEnd}
+                    />
+                  );
+                })
+              )
             ) : (
-              entries.map((e, i) => (
-                <EntryRow
-                  key={e.id}
-                  entry={e}
-                  index={i}
-                  isDragging={dragIndex === i}
-                  isDragOver={dragOverIndex === i && dragIndex !== i}
-                  onDragStart={handleDragStart(i)}
-                  onDragOver={handleDragOver(i)}
-                  onDrop={handleDrop(i)}
-                  onDragEnd={handleDragEnd}
-                />
+              groupedEntries.map((group) => (
+                <div key={group.tag}>
+                  <div
+                    style={{
+                      padding: '8px 14px',
+                      background: 'var(--surface-1)',
+                      borderBottom: '1px solid var(--line)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    {group.tag === '__untagged__' ? (
+                      <Mono dim>untagged</Mono>
+                    ) : (
+                      <TagChip label={group.tag} />
+                    )}
+                    <Mono dim>· {group.entries.length}</Mono>
+                  </div>
+                  {group.entries.map((e, i) => (
+                    <EntryRow
+                      key={`${group.tag}:${e.id}`}
+                      entry={e}
+                      position={i}
+                      draggable={false}
+                      isDragging={false}
+                      isDragOver={false}
+                      onDragStart={() => {}}
+                      onDragOver={() => {}}
+                      onDrop={() => {}}
+                      onDragEnd={() => {}}
+                    />
+                  ))}
+                </div>
               ))
             )}
           </section>

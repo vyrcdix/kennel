@@ -23,7 +23,7 @@ import {
 import { items } from '../data/fixtures';
 import { useStoreVersion } from '../data/store';
 import { renderBlocks } from '../lib/markdown';
-import { formatTime } from '../data/time';
+import { formatDate, formatTime } from '../data/time';
 
 const DocNotFound = ({ id }: { id: string }) => (
   <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -93,6 +93,12 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               {project && <ProjectTag slug={project.slug} />}
               <Mono>{doc.filePath}</Mono>
+              {doc.sourceKind && doc.sourceKind !== 'inline' && doc.sourceFilename && (
+                <Mono dim>
+                  · originally {doc.sourceFilename}
+                  {doc.sourceUploadedAt && `, uploaded ${formatDate(doc.sourceUploadedAt)}`}
+                </Mono>
+              )}
               <button
                 onClick={() => void setDocPinned(doc.id, !doc.pinned)}
                 title={doc.pinned ? 'Unpin from thread landing' : 'Pin to thread landing'}
