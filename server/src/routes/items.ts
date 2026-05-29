@@ -13,6 +13,7 @@ import {
   listItems,
   resurfaceCrystal,
   setItemCtype,
+  setItemServes,
   touchItem,
   transitionItem,
   updateItem,
@@ -128,6 +129,17 @@ export const itemsRouter = (db: DB): Router => {
     asyncHandler(async (req, res) => {
       const ack = (req.body ?? {}).ack === true;
       res.json(resurfaceCrystal(db, req.params.id, { ack }));
+    }),
+  );
+
+  r.patch(
+    '/:id/serves',
+    asyncHandler(async (req, res) => {
+      const raw = (req.body ?? {}).servesId;
+      if (raw !== null && typeof raw !== 'string') {
+        throw validationError({ servesId: 'must_be_string_or_null' });
+      }
+      res.json(setItemServes(db, req.params.id, raw));
     }),
   );
 

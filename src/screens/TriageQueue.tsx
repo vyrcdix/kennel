@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AttachToThinkingModal } from '../components/AttachToThinkingModal';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
@@ -11,7 +12,12 @@ import {
   getTriageQueue,
   type TriageEntry,
 } from '../data/selectors';
-import { convertItem, transitionItem, type ConvertTarget } from '../data/actions';
+import {
+  convertItem,
+  crystallizeItem,
+  transitionItem,
+  type ConvertTarget,
+} from '../data/actions';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
 import type { Item, ItemState, Project } from '../data/types';
@@ -58,6 +64,8 @@ const TriageRowItem = ({
   onAction,
   onToggleConvert,
   onConvert,
+  onAttach,
+  onCrystallize,
 }: {
   item: Item;
   project: Project;
@@ -66,6 +74,8 @@ const TriageRowItem = ({
   onClick: () => void;
   onAction: (to: ItemState) => void;
   onToggleConvert: () => void;
+  onAttach: () => void;
+  onCrystallize: () => void;
   onConvert: (target: ConvertTarget) => void;
 }) => {
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -134,11 +144,27 @@ const TriageRowItem = ({
             Set aside <span className="km-kbd" style={{ marginLeft: 4 }}>P</span>
           </button>
           <button
+            className="km-btn"
+            onClick={(e) => { stop(e); onAttach(); }}
+            title="Attach this action to the crystal / idea / thread it serves"
+          >
+            Attach <span className="km-kbd" style={{ marginLeft: 4 }}>S</span>
+          </button>
+          <button
+            className="km-btn"
+            onClick={(e) => { stop(e); onCrystallize(); }}
+            style={{ color: '#B07E12' }}
+            title="Promote this thought to a crystallization"
+          >
+            Crystallize <span className="km-kbd" style={{ marginLeft: 4 }}>C</span>
+          </button>
+          <button
             className={`km-btn${convertOpen ? ' km-btn-active' : ''}`}
             onClick={(e) => { stop(e); onToggleConvert(); }}
             style={convertOpen ? { color: 'var(--ember-deep)' } : undefined}
+            title="Convert to a different kind"
           >
-            Convert <span className="km-kbd" style={{ marginLeft: 4 }}>C</span>
+            Convert <span className="km-kbd" style={{ marginLeft: 4 }}>V</span>
           </button>
           <button className="km-btn" onClick={(e) => { stop(e); onAction('crystallized'); }}>
             Done <span className="km-kbd" style={{ marginLeft: 4 }}>D</span>
@@ -279,6 +305,7 @@ export const TriageQueue = () => {
 
   const [selectedId, setSelectedId] = useState<string>('');
   const [convertOpen, setConvertOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
 
   // Selected item leaves the queue after an action; reselect the first remaining.
   useEffect(() => {
@@ -319,15 +346,26 @@ export const TriageQueue = () => {
         case 'p': if (selected) transitionItem(selected.item.id, 'reflecting'); break;
         case 'd': if (selected) transitionItem(selected.item.id, 'crystallized'); break;
         case 'x': if (selected) transitionItem(selected.item.id, 'dismissed'); break;
-        case 'c': if (selected) setConvertOpen((v) => !v); break;
+        // v0.5 §C: C now also one-step-promotes to a crystallization
+        // (was: open the convert popover). The convert flow is still
+        // reachable via the V key.
+        case 'c':
+          if (selected) {
+            void crystallizeItem(selected.item.id, { promoteKind: true });
+          }
+          break;
+        case 'v': if (selected) setConvertOpen((v) => !v); break;
+        // v0.5 §C: S opens the attach-to-thinking typeahead.
+        case 's': if (selected) setAttachOpen(true); break;
         case 'escape':
-          if (convertOpen) setConvertOpen(false);
+          if (attachOpen) setAttachOpen(false);
+          else if (convertOpen) setConvertOpen(false);
           break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [queue, selectedId, selected, convertOpen]);
+  }, [queue, selectedId, selected, convertOpen, attachOpen]);
 
   // Close the popover whenever the selection changes.
   useEffect(() => {
@@ -403,7 +441,9 @@ export const TriageQueue = () => {
                 <span className="km-kbd">K</span>
                 <span className="km-kbd">A</span>
                 <span className="km-kbd">P</span>
+                <span className="km-kbd">S</span>
                 <span className="km-kbd">C</span>
+                <span className="km-kbd">V</span>
                 <span className="km-kbd">D</span>
                 <span className="km-kbd">X</span>
               </div>
@@ -445,6 +485,16 @@ export const TriageQueue = () => {
                         setSelectedId(entry.item.id);
                         setConvertOpen(false);
                         void convertItem(entry.item.id, target);
+                      }}
+                      onAttach={() => {
+                        setSelectedId(entry.item.id);
+                        setAttachOpen(true);
+                      }}
+                      onCrystallize={() => {
+                        setSelectedId(entry.item.id);
+                        void crystallizeItem(entry.item.id, {
+                          promoteKind: true,
+                        });
                       }}
                     />
                   );
@@ -536,6 +586,11 @@ export const TriageQueue = () => {
           </div>
         </main>
       </div>
+      <AttachToThinkingModal
+        open={attachOpen}
+        item={selected?.item ?? null}
+        onClose={() => setAttachOpen(false)}
+      />
     </div>
   );
 };

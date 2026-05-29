@@ -23,6 +23,7 @@ import {
   getCrystallizedThisWeek,
   getDueCrystals,
   getInboxRollup,
+  getItemById,
   getNextUp,
   getPinnedProjects,
   getProjectById,
@@ -274,9 +275,11 @@ export const Dashboard = () => {
   );
   const countsById = useMemo(() => getAllProjectCounts(), [v]);
   const lastTouchedById = useMemo(() => getAllProjectLastTouched(), [v]);
+  // All active projects, not just pinned ones — "In focus" pulls items
+  // across every thread and NextUpRow needs the project resolved.
   const projectsById = useMemo(
-    () => new Map(pinned.map((p) => [p.id, p])),
-    [pinned],
+    () => new Map(allActiveProjects.map((p) => [p.id, p])),
+    [allActiveProjects],
   );
   const hasProjects =
     allActiveProjects.length > 0 ||
@@ -385,19 +388,212 @@ export const Dashboard = () => {
                   title="In focus"
                   right={
                     <>
-                      <Mono dim>{totalActive} active</Mono>
+                      <Mono dim>
+                        {totalActive} active · in service of their thinking
+                      </Mono>
                       <ThermalStamp temp={inFocusTemp} since={inFocusSince} />
                     </>
                   }
                 />
                 <div className="km-rule" />
-                {nextUp.map((item, i) => {
-                  const project = projectsById.get(item.projectId);
-                  if (!project) return null;
-                  return (
-                    <NextUpRow key={item.id} item={item} project={project} selected={i < 2} />
-                  );
-                })}
+                {(() => {
+                  // v0.5 §C: group active actions by what they serve.
+                  // Crystals first, then ideas/questions, then thread
+                  // anchors, then the unattached pool — gently
+                  // de-emphasised so it reads as "needs a sort step,"
+                  // not as something hidden.
+                  type GroupKey =
+                    | { kind: 'item'; servedId: string }
+                    | { kind: 'thread'; projectId: string }
+                    | { kind: 'unattached' };
+                  const groupKeyFor = (servesId?: string): GroupKey => {
+                    if (!servesId) return { kind: 'unattached' };
+                    if (servesId.startsWith('thread:'))
+                      return {
+                        kind: 'thread',
+                        projectId: servesId.slice('thread:'.length),
+                      };
+                    return { kind: 'item', servedId: servesId };
+                  };
+                  const groupKeyStr = (k: GroupKey) =>
+                    k.kind === 'item'
+                      ? `i:${k.servedId}`
+                      : k.kind === 'thread'
+                        ? `t:${k.projectId}`
+                        : 'unattached';
+
+                  const buckets = new Map<
+                    string,
+                    { key: GroupKey; items: typeof nextUp }
+                  >();
+                  for (const it of nextUp) {
+                    const k = groupKeyFor(it.servesId);
+                    const ks = groupKeyStr(k);
+                    if (!buckets.has(ks)) buckets.set(ks, { key: k, items: [] });
+                    buckets.get(ks)!.items.push(it);
+                  }
+
+                  // Crystal-served first, idea/question-served next, thread
+                  // anchors after, unattached last.
+                  const ordered = [...buckets.values()].sort((a, b) => {
+                    const rank = (g: typeof a) => {
+                      if (g.key.kind === 'unattached') return 3;
+                      if (g.key.kind === 'thread') return 2;
+                      const ti = getItemById(g.key.servedId);
+                      if (!ti) return 2;
+                      return ti.kind === 'crystallization' ||
+                        ti.state === 'crystallized'
+                        ? 0
+                        : 1;
+                    };
+                    return rank(a) - rank(b);
+                  });
+
+                  return ordered.map((group) => {
+                    const ks = groupKeyStr(group.key);
+                    if (group.key.kind === 'unattached') {
+                      return (
+                        <div key={ks} style={{ opacity: 0.78 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 7,
+                              padding: '8px 16px 4px',
+                              borderTop: '1px solid var(--line)',
+                            }}
+                          >
+                            <Icons.note size={11} style={{ color: 'var(--fg-faint)' }} />
+                            <span
+                              className="km-mono-sm"
+                              style={{
+                                color: 'var(--fg-faint)',
+                                letterSpacing: '.04em',
+                              }}
+                            >
+                              unattached · sort to attach to a crystal or idea
+                            </span>
+                          </div>
+                          {group.items.map((item) => {
+                            const project = projectsById.get(item.projectId);
+                            if (!project) return null;
+                            return (
+                              <NextUpRow
+                                key={item.id}
+                                item={item}
+                                project={project}
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                    if (group.key.kind === 'thread') {
+                      const proj = getProjectById(group.key.projectId);
+                      return (
+                        <div key={ks}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 7,
+                              padding: '8px 16px 4px',
+                              borderTop: '1px solid var(--line)',
+                            }}
+                          >
+                            <span
+                              className="km-mono-sm"
+                              style={{
+                                color: 'var(--fg-muted)',
+                                letterSpacing: '.04em',
+                              }}
+                            >
+                              in service of
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>
+                              {proj?.name ?? 'a thread'}
+                            </span>
+                            {proj && <ProjectTag slug={proj.slug} />}
+                          </div>
+                          {group.items.map((item) => {
+                            const project = projectsById.get(item.projectId);
+                            if (!project) return null;
+                            return (
+                              <NextUpRow
+                                key={item.id}
+                                item={item}
+                                project={project}
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                    const served = getItemById(group.key.servedId);
+                    const isCrystal =
+                      served &&
+                      (served.kind === 'crystallization' ||
+                        served.state === 'crystallized');
+                    return (
+                      <div key={ks}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 7,
+                            padding: '8px 16px 4px',
+                            borderTop: '1px solid var(--line)',
+                          }}
+                        >
+                          {isCrystal ? (
+                            <Icons.gem size={12} stroke="#B07E12" />
+                          ) : (
+                            served && <KindIcon kind={served.kind} size={12} muted={false} />
+                          )}
+                          <span
+                            className="km-mono-sm"
+                            style={{
+                              color: isCrystal ? '#B07E12' : 'var(--ember-deep)',
+                              letterSpacing: '.04em',
+                            }}
+                          >
+                            in service of
+                          </span>
+                          <span
+                            style={{ fontSize: 13, fontWeight: 600, flex: 1 }}
+                            onClick={() =>
+                              isCrystal
+                                ? navigate(`/crystal/${served!.id}`)
+                                : navigate(
+                                    `/project/${
+                                      projectsById.get(served?.projectId ?? '')?.slug ?? ''
+                                    }`,
+                                  )
+                            }
+                          >
+                            {served?.title ?? '(deleted)'}
+                          </span>
+                          {served && projectsById.get(served.projectId) && (
+                            <ProjectTag
+                              slug={projectsById.get(served.projectId)!.slug}
+                            />
+                          )}
+                        </div>
+                        {group.items.map((item) => {
+                          const project = projectsById.get(item.projectId);
+                          if (!project) return null;
+                          return (
+                            <NextUpRow
+                              key={item.id}
+                              item={item}
+                              project={project}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
+                  });
+                })()}
               </ThermalPanel>
 
               {/* Crystallized this week — v0.5 §5: blaze, the light, across

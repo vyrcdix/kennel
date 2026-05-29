@@ -218,6 +218,22 @@ export const resurfaceCrystal = async (
   return updated;
 };
 
+/** v0.5: attach an action to the crystal / idea / thread it serves.
+ *  Pass `'thread:<projectId>'` to anchor to a thread, an item id to
+ *  attach to a crystal or idea, or null to clear (unattach). */
+export const setItemServes = async (
+  id: string,
+  servesId: string | null,
+): Promise<Item> => {
+  const updated = await wrap(() =>
+    api.patch<Item>(`/api/items/${id}/serves`, { servesId }),
+  );
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
+  notify();
+  return updated;
+};
+
 // ─── References ──────────────────────────────────────────────────────────
 
 export type CreateReferenceInput = {

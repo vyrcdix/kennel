@@ -396,6 +396,60 @@ export const setItemCtype = (
   return getItemById(db, id)!;
 };
 
+/** v0.5: attach / detach an action from its "thinking." `serves_id`
+ *  is the forward intent pointer (a crystal id, idea id, or a
+ *  thread-anchor sentinel `thread:<project_id>`); null clears.
+ *  Orthogonal to `sources_from` — actions serve, crystals draw from. */
+export const setItemServes = (
+  db: DB,
+  id: string,
+  servesId: string | null,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const existing = getItemById(db, id);
+  if (!existing) throw notFound('item', id);
+  if ((existing.servesId ?? null) === (servesId ?? null)) return existing;
+
+  if (servesId !== null) {
+    // Accept either a thread-anchor sentinel `thread:<id>` (where the id
+    // is a real project) or a real item id. Anything else is rejected so
+    // we don't silently store dangling references.
+    if (servesId.startsWith('thread:')) {
+      const projectId = servesId.slice('thread:'.length);
+      const exists = db
+        .prepare<[string], { c: number }>(
+          'SELECT COUNT(*) AS c FROM projects WHERE id = ?',
+        )
+        .get(projectId);
+      if (!exists?.c) throw validationError({ servesId: 'unknown_thread' });
+    } else {
+      const exists = db
+        .prepare<[string], { c: number }>(
+          'SELECT COUNT(*) AS c FROM items WHERE id = ?',
+        )
+        .get(servesId);
+      if (!exists?.c) throw validationError({ servesId: 'unknown_item' });
+    }
+  }
+
+  const now = nowIso();
+  db.prepare(
+    'UPDATE items SET serves_id = ?, updated_at = ?, last_touched_at = ? WHERE id = ?',
+  ).run(servesId, now, now, id);
+
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'item',
+    entityId: id,
+    verb: servesId ? 'ATTACHED' : 'DETACHED',
+    target: `${existing.kind} / ${existing.title}`,
+    payload: servesId ?? undefined,
+    actor,
+    occurredAt: now,
+  });
+  return getItemById(db, id)!;
+};
+
 /** v0.5 resurfacing — touch / ack a crystal. Touch (default) resets
  *  `last_surfaced_at` so the resurface cadence restarts; ack also bumps
  *  `surface_count`. Touch is fired implicitly when the user opens a
