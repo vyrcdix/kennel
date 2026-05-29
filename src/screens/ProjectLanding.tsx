@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { CreateGuidebookModal } from '../components/CreateGuidebookModal';
 import { CrystalCard } from '../components/CrystalCard';
-import { CrystallizationCard } from '../components/CrystallizationCard';
 import { ResurfacingSlot } from '../components/ResurfacingSlot';
 import { EditProjectModal } from '../components/EditProjectModal';
 import { RegisterChatModal } from '../components/RegisterChatModal';
@@ -327,10 +326,6 @@ export const ProjectLanding = () => {
   const inFocusSince = formatRelative(
     nextUp[0]?.lastTouchedAt ?? nextUp[0]?.updatedAt ?? new Date(0),
   );
-  const crystTemp = panelTemperature(crystallizations, settings);
-  const crystSince = formatRelative(
-    crystallizations[0]?.doneAt ?? crystallizations[0]?.updatedAt ?? new Date(0),
-  );
   const fieldNotesTemp = temperatureForDate(fieldNotes?.updatedAt, settings);
   const fieldNotesSince = formatRelative(fieldNotes?.updatedAt ?? new Date(0));
   const runbookTemp = temperatureForDate(runbook?.updatedAt, settings);
@@ -503,49 +498,6 @@ export const ProjectLanding = () => {
               )}
             </ThermalPanel>
 
-            {/* Crystallizations — durable outcomes (moss accent retained on the side
-                 borders; top edge yields to the temperature signal). */}
-            {crystallizations.length > 0 && (
-              <ThermalPanel
-                temp={crystTemp}
-                style={{
-                  borderLeftColor: 'rgba(92,122,62,.35)',
-                  borderRightColor: 'rgba(92,122,62,.35)',
-                  borderBottomColor: 'rgba(92,122,62,.35)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px' }}>
-                  <span style={{ color: 'var(--moss)', marginRight: 8 }}>
-                    <Icons.star size={14} />
-                  </span>
-                  <span className="km-display-sm" style={{ color: 'var(--moss)' }}>
-                    CRYSTALLIZATIONS
-                  </span>
-                  <span style={{ flex: 1 }} />
-                  <Mono dim>
-                    durable outcomes · {crystallizations.length}
-                  </Mono>
-                  <span style={{ width: 12 }} />
-                  <ThermalStamp temp={crystTemp} since={crystSince} />
-                </div>
-                <div className="km-rule" />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
-                  {crystallizations.slice(0, 4).map((item, i) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        borderRight: i % 2 === 0 ? '1px solid var(--line)' : 0,
-                        borderBottom: i < 2 && crystallizations.length > 2
-                          ? '1px solid var(--line)'
-                          : 0,
-                      }}
-                    >
-                      <CrystallizationCard item={item} />
-                    </div>
-                  ))}
-                </div>
-              </ThermalPanel>
-            )}
 
             {/* v0.5 salient layer — the crystal gallery for this thread.
                 Sits above pinned docs because the durable outcomes are
