@@ -201,6 +201,23 @@ export const setItemCtype = async (
   return updated;
 };
 
+/** v0.5: touch or ack a crystal for the resurface cadence. ack=false is
+ *  the implicit touch fired when the user opens a CrystalDetail; ack=true
+ *  is the explicit "Still true" press from a resurfacing slot. Both
+ *  reset last_surfaced_at; ack also bumps surface_count. */
+export const resurfaceCrystal = async (
+  id: string,
+  opts: { ack?: boolean } = {},
+): Promise<Item> => {
+  const updated = await wrap(() =>
+    api.post<Item>(`/api/items/${id}/resurface`, { ack: !!opts.ack }),
+  );
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
+  notify();
+  return updated;
+};
+
 // ─── References ──────────────────────────────────────────────────────────
 
 export type CreateReferenceInput = {
@@ -557,6 +574,7 @@ export type SettingsPatch = {
   filingPromptDays?: 0 | 90 | 180;
   dormantThresholdDays?: number;
   showTemperature?: boolean;
+  resurfaceIntervalDays?: number;
 };
 
 export const updateSettings = async (patch: SettingsPatch): Promise<Settings> => {

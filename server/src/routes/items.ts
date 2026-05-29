@@ -11,6 +11,7 @@ import {
   fileItem,
   getItemById,
   listItems,
+  resurfaceCrystal,
   setItemCtype,
   touchItem,
   transitionItem,
@@ -119,6 +120,14 @@ export const itemsRouter = (db: DB): Router => {
         throw validationError({ ctype: 'must_be_string_or_null' });
       }
       res.json(setItemCtype(db, req.params.id, raw));
+    }),
+  );
+
+  r.post(
+    '/:id/resurface',
+    asyncHandler(async (req, res) => {
+      const ack = (req.body ?? {}).ack === true;
+      res.json(resurfaceCrystal(db, req.params.id, { ack }));
     }),
   );
 

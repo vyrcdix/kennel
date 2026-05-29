@@ -148,6 +148,20 @@ export const SettingsScreen = () => {
       setDormantDraft(settings.dormantThresholdDays);
     }
   };
+  // v0.5 §B: crystal resurface cadence. 7-180 day range, default 30.
+  const [resurfaceDraft, setResurfaceDraft] = useState(settings.resurfaceIntervalDays);
+  useEffect(
+    () => setResurfaceDraft(settings.resurfaceIntervalDays),
+    [settings.resurfaceIntervalDays],
+  );
+  const commitResurface = () => {
+    const n = Math.round(resurfaceDraft);
+    if (n >= 7 && n <= 180 && n !== settings.resurfaceIntervalDays) {
+      void updateSettings({ resurfaceIntervalDays: n });
+    } else {
+      setResurfaceDraft(settings.resurfaceIntervalDays);
+    }
+  };
   const toggleShowTemperature = () => {
     void updateSettings({ showTemperature: !settings.showTemperature });
   };
@@ -344,6 +358,39 @@ export const SettingsScreen = () => {
                   hint="Panel-level time signal — top-edge color and a header timestamp on each panel. Off flattens every panel to neutral."
                   control={
                     <Toggle on={settings.showTemperature} onClick={toggleShowTemperature} />
+                  }
+                />
+                <SettingsRow
+                  label="Crystal resurface cadence"
+                  hint="How long before a crystal becomes due to revisit. Touch (or click Still true) resets the timer. 7–180 days."
+                  control={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="number"
+                        min={7}
+                        max={180}
+                        value={resurfaceDraft}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n)) setResurfaceDraft(n);
+                        }}
+                        onBlur={commitResurface}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
+                        style={{
+                          width: 72,
+                          padding: '4px 8px',
+                          fontFamily: 'var(--ff-mono)',
+                          fontSize: 13,
+                          background: 'var(--surface-1)',
+                          color: 'var(--fg)',
+                          border: '1px solid var(--line)',
+                          borderRadius: 3,
+                        }}
+                      />
+                      <Mono dim>days · default 30</Mono>
+                    </div>
                   }
                 />
               </div>

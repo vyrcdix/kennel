@@ -4,6 +4,7 @@ import { ChromeBar } from '../components/ChromeBar';
 import { CreateGuidebookModal } from '../components/CreateGuidebookModal';
 import { CrystalCard } from '../components/CrystalCard';
 import { CrystallizationCard } from '../components/CrystallizationCard';
+import { ResurfacingSlot } from '../components/ResurfacingSlot';
 import { EditProjectModal } from '../components/EditProjectModal';
 import { RegisterChatModal } from '../components/RegisterChatModal';
 import { NavRail } from '../components/NavRail';
@@ -43,6 +44,7 @@ import {
 import {
   getAgingItems,
   getCrystallizations,
+  getDueCrystals,
   getFieldNotes,
   getGuidebookEntryCount,
   getNextUp,
@@ -304,6 +306,7 @@ export const ProjectLanding = () => {
   const runbook = getRunbook(project.id);
   const fieldNotes = getFieldNotes(project.id);
   const crystallizations = getCrystallizations(project.id);
+  const dueCrystals = getDueCrystals(project.id);
   const allGuidebooks = getProjectGuidebooks(project.id);
   const pinnedGuidebooks = getPinnedGuidebooks(project.id);
   const settings = getSettings();
@@ -576,6 +579,9 @@ export const ProjectLanding = () => {
                 </div>
               </section>
             )}
+
+            {/* Worth revisiting — per-thread due crystals (v0.5 §B) */}
+            <ResurfacingSlot label="Worth revisiting" crystals={dueCrystals} />
 
             {/* Pinned docs row */}
             {pinnedDocs.length > 0 && (

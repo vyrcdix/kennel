@@ -132,6 +132,23 @@ export const getCrystallizedThisWeek = () => {
  *  /crystals gallery. */
 export const getAllCrystals = () => getCrystallizations();
 
+/** Crystals "due to resurface" per v0.5 §B. Compares
+ *  `now - lastSurfacedAt` against the user's `resurfaceIntervalDays`
+ *  setting (default 30). Crystals without a lastSurfacedAt fall through
+ *  to their createdAt (legacy data that the 0010 migration backfilled).
+ *  Project filter optional — Dashboard takes everything, theme landing
+ *  filters to its own thread. Newest-due first so the dashboard slot
+ *  reads as "the next 3 that want a look." */
+export const getDueCrystals = (projectId?: string) => {
+  const settings = getSettings();
+  const intervalMs = (settings.resurfaceIntervalDays ?? 30) * 86400_000;
+  const cutoff = Date.now() - intervalMs;
+  return getCrystallizations(projectId).filter((c) => {
+    const since = (c.lastSurfacedAt ?? c.createdAt).getTime();
+    return since <= cutoff;
+  });
+};
+
 /** Lineage source items for a crystal. Looks up the ids in
  *  item.sourcesFrom and returns whichever ones we can resolve. */
 export const getCrystalSources = (crystal: Item) => {

@@ -396,6 +396,55 @@ export const setItemCtype = (
   return getItemById(db, id)!;
 };
 
+/** v0.5 resurfacing — touch / ack a crystal. Touch (default) resets
+ *  `last_surfaced_at` so the resurface cadence restarts; ack also bumps
+ *  `surface_count`. Touch is fired implicitly when the user opens a
+ *  CrystalDetail; ack runs from the explicit "Still true" control on
+ *  the Dashboard / theme-landing resurfacing slots. */
+export const resurfaceCrystal = (
+  db: DB,
+  id: string,
+  opts: { ack?: boolean } = {},
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const existing = getItemById(db, id);
+  if (!existing) throw notFound('item', id);
+  if (existing.kind !== 'crystallization' && existing.state !== 'crystallized') {
+    throw validationError({ id: 'not_a_crystal' });
+  }
+
+  const now = nowIso();
+  if (opts.ack) {
+    db.prepare(
+      `UPDATE items
+         SET last_surfaced_at = ?,
+             surface_count = surface_count + 1,
+             updated_at = ?,
+             last_touched_at = ?
+       WHERE id = ?`,
+    ).run(now, now, now, id);
+  } else {
+    db.prepare(
+      `UPDATE items
+         SET last_surfaced_at = ?,
+             updated_at = ?,
+             last_touched_at = ?
+       WHERE id = ?`,
+    ).run(now, now, now, id);
+  }
+
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'item',
+    entityId: id,
+    verb: opts.ack ? 'RESURFACED' : 'TOUCHED',
+    target: `crystal / ${existing.title}`,
+    actor,
+    occurredAt: now,
+  });
+  return getItemById(db, id)!;
+};
+
 /** Hard-delete an item row. Comments and activity rows referencing the
  *  item stay as an audit trail — they store entity_id as opaque text and
  *  don't carry FKs back here. */

@@ -4,6 +4,7 @@ import { ChatRow } from '../components/ChatRow';
 import { ChromeBar } from '../components/ChromeBar';
 import { CrystalCard } from '../components/CrystalCard';
 import { KindIcon } from '../components/KindIcon';
+import { ResurfacingSlot } from '../components/ResurfacingSlot';
 import { NavRail } from '../components/NavRail';
 import { NextUpRow } from '../components/NextUpRow';
 import { ProjectTag } from '../components/ProjectTag';
@@ -20,6 +21,7 @@ import {
   getAllProjectCounts,
   getAllProjectLastTouched,
   getCrystallizedThisWeek,
+  getDueCrystals,
   getInboxRollup,
   getNextUp,
   getPinnedProjects,
@@ -264,6 +266,7 @@ export const Dashboard = () => {
   const settings = getSettings();
   const aging = getAgingItems(settings.agingThresholdDays);
   const crystallizedWeek = getCrystallizedThisWeek();
+  const dueCrystals = getDueCrystals();
   const totalActive = nextUp.length;
   const inFocusTemp = panelTemperature(nextUp, settings);
   const inFocusSince = formatRelative(
@@ -436,6 +439,9 @@ export const Dashboard = () => {
                   </div>
                 </section>
               )}
+
+              {/* Resurfacing — due crystals, cross-thread (v0.5 §B) */}
+              <ResurfacingSlot label="Resurfacing" crystals={dueCrystals} />
 
               {/* Recent conversations — primary input surface per v0.3 */}
               <section className="km-card" style={{ padding: 0 }}>

@@ -6,7 +6,7 @@
 // (from item.sourcesFrom) and leaves the per-table attachments empty
 // behind a "phase 8" placeholder strip.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { Icons } from '../components/Icon';
@@ -22,7 +22,7 @@ import {
   getProjectById,
   getReferenceById,
 } from '../data/selectors';
-import { setItemCtype, ValidationError } from '../data/actions';
+import { resurfaceCrystal, setItemCtype, ValidationError } from '../data/actions';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
 import type { CrystalType, Item } from '../data/types';
@@ -133,6 +133,18 @@ export const CrystalDetail = () => {
   const navigate = useNavigate();
   const { id = '' } = useParams<{ id?: string }>();
   const crystal = getItemById(id);
+
+  // v0.5 §B "touch on open": opening a crystal resets the resurface
+  // timer (no ack — that's the explicit "Still true" button). Fire
+  // once per id; subsequent re-renders are idle.
+  const touchedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!crystal) return;
+    if (touchedFor.current === crystal.id) return;
+    touchedFor.current = crystal.id;
+    void resurfaceCrystal(crystal.id, { ack: false }).catch(() => {});
+  }, [crystal]);
+
   if (!crystal) return <NotFoundFor id={id} />;
   const project = getProjectById(crystal.projectId);
   const sources = resolveSources(crystal);
