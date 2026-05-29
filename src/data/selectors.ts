@@ -147,6 +147,155 @@ export const getGuidebooksForCrystal = (crystalItemId: string) =>
 export const getRunbooksForCrystal = (crystalItemId: string) =>
   runbooks.filter((rb) => rb.supportsCrystalItemId === crystalItemId);
 
+// ─── v0.5 §F · Trace timeline ──────────────────────────────────────
+
+export type TraceEntry =
+  | { type: 'crystal'; occurredAt: Date; item: Item }
+  | { type: 'discarded'; occurredAt: Date; item: Item }
+  | { type: 'spark'; occurredAt: Date; item: Item }
+  | { type: 'fork'; occurredAt: Date; parentId: string; branches: Item[] }
+  | {
+      type: 'cluster';
+      occurredAt: Date;
+      projectId: string;
+      kind: ItemKind;
+      items: Item[];
+    }
+  | { type: 'chat'; occurredAt: Date; chat: Chat };
+
+const sameCalendarDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+const calendarDayKey = (d: Date) =>
+  `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+/** Build a thread's trace timeline per v0.5 §F. Derived entirely from
+ *  the cached items + chats + sources_from edges; no separate Trace
+ *  storage.
+ *
+ *  Categorisation rules:
+ *  - `discarded` = items in state `dismissed` only. Filed items render
+ *    as a regular spark with a small "filed" marker (handled by the
+ *    view, not here).
+ *  - `crystal`  = kind='crystallization' or state='crystallized'.
+ *  - `cluster`  = items sharing project + same calendar day + same
+ *    kind, with no crystallisation among them. Collapsed into one node.
+ *  - `fork`     = two-or-more items whose `sourcesFrom` references the
+ *    same parent item. The fork groups the children together.
+ *  - `spark`    = anything else (kind='idea' is the canonical example). */
+export const getProjectTrace = (projectId: string): TraceEntry[] => {
+  const itemsHere = items.filter((it) => it.projectId === projectId);
+  const chatsHere = chats.filter((c) => c.projectId === projectId);
+
+  // 1. Crystals + discarded items: rendered individually, never clustered.
+  const crystals: TraceEntry[] = itemsHere
+    .filter(
+      (it) => it.kind === 'crystallization' || it.state === 'crystallized',
+    )
+    .map((it) => ({
+      type: 'crystal' as const,
+      occurredAt: it.doneAt ?? it.lastSurfacedAt ?? it.createdAt,
+      item: it,
+    }));
+  const discarded: TraceEntry[] = itemsHere
+    .filter((it) => it.state === 'dismissed')
+    .map((it) => ({
+      type: 'discarded' as const,
+      occurredAt: it.archivedAt ?? it.updatedAt,
+      item: it,
+    }));
+
+  // 2. Fork detection — two-plus children of the same parent via
+  //    sources_from. Children are anything in the thread that isn't
+  //    already represented as a crystal/discarded entry above.
+  const forkChildren = new Map<string, Item[]>();
+  for (const it of itemsHere) {
+    if (!it.sourcesFrom) continue;
+    for (const parent of it.sourcesFrom) {
+      const list = forkChildren.get(parent) ?? [];
+      list.push(it);
+      forkChildren.set(parent, list);
+    }
+  }
+  const groupedIntoFork = new Set<string>();
+  const forks: TraceEntry[] = [];
+  for (const [parentId, children] of forkChildren) {
+    if (children.length < 2) continue;
+    for (const c of children) groupedIntoFork.add(c.id);
+    const newest = children.reduce(
+      (a, b) => (a.createdAt > b.createdAt ? a : b),
+    );
+    forks.push({
+      type: 'fork',
+      occurredAt: newest.createdAt,
+      parentId,
+      branches: children,
+    });
+  }
+
+  // 3. Cluster / spark for everything that isn't a crystal, discard,
+  //    or part of a fork. Cluster key = `${day}|${kind}`.
+  const ungrouped = itemsHere.filter(
+    (it) =>
+      !(it.kind === 'crystallization' || it.state === 'crystallized') &&
+      it.state !== 'dismissed' &&
+      !groupedIntoFork.has(it.id),
+  );
+  const buckets = new Map<string, Item[]>();
+  for (const it of ungrouped) {
+    const key = `${calendarDayKey(it.createdAt)}|${it.kind}`;
+    const list = buckets.get(key) ?? [];
+    list.push(it);
+    buckets.set(key, list);
+  }
+  const sparks: TraceEntry[] = [];
+  const clusters: TraceEntry[] = [];
+  for (const [, group] of buckets) {
+    if (group.length === 1) {
+      const it = group[0];
+      sparks.push({
+        type: 'spark',
+        occurredAt: it.createdAt,
+        item: it,
+      });
+    } else {
+      const newest = group.reduce(
+        (a, b) => (a.createdAt > b.createdAt ? a : b),
+      );
+      clusters.push({
+        type: 'cluster',
+        occurredAt: newest.createdAt,
+        projectId,
+        kind: group[0].kind,
+        items: group,
+      });
+    }
+  }
+
+  // 4. Chats — every chat is its own entry, no clustering.
+  const chatEntries: TraceEntry[] = chatsHere.map((c) => ({
+    type: 'chat' as const,
+    occurredAt: c.lastSeenAt ?? c.createdAt,
+    chat: c,
+  }));
+
+  return [
+    ...crystals,
+    ...discarded,
+    ...forks,
+    ...sparks,
+    ...clusters,
+    ...chatEntries,
+  ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+};
+
+// Defensive use of sameCalendarDay for future extension; the current
+// implementation uses calendarDayKey, but we keep the helper exposed
+// so other selectors can opt into the same boundary.
+export const _sameCalendarDay = sameCalendarDay;
+
 /** Field-note sections that attach to this crystal — represented as
  *  `{ projectId, sectionKey }` pairs derived from each per-project
  *  field_notes.supports_crystals JSON map. */

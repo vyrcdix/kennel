@@ -583,6 +583,33 @@ export const ProjectLanding = () => {
             {/* Worth revisiting — per-thread due crystals (v0.5 §B) */}
             <ResurfacingSlot label="Worth revisiting" crystals={dueCrystals} />
 
+            {/* Trace teaser — v0.5 §F. Always shown; the trace view
+                renders empty content gracefully if there's nothing. */}
+            <section
+              className="km-card"
+              onClick={() => navigate(`/project/${project.slug}/trace`)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 16px',
+                cursor: 'pointer',
+                background: 'var(--surface-1)',
+              }}
+            >
+              <Icons.runbook size={15} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                  Go back through your thinking
+                </div>
+                <Mono dim>
+                  Reverse-chronological trace · crystals as milestones · let-go
+                  forks visible
+                </Mono>
+              </div>
+              <Mono dim>open trace →</Mono>
+            </section>
+
             {/* Pinned docs row */}
             {pinnedDocs.length > 0 && (
               <section>

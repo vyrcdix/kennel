@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-route
 import AgingBoard from './screens/AgingBoard';
 import CrystalDetail from './screens/CrystalDetail';
 import CrystalsGallery from './screens/CrystalsGallery';
+import TraceView from './screens/TraceView';
 import Dashboard from './screens/Dashboard';
 import FieldNotesView from './screens/FieldNotesView';
 import GuidebookView from './screens/GuidebookView';
@@ -100,6 +101,7 @@ export const App = () => (
       <Route path="/project/:slug/guidebook/:id" element={<GuidebookView />} />
       <Route path="/crystals" element={<CrystalsGallery />} />
       <Route path="/crystal/:id" element={<CrystalDetail />} />
+      <Route path="/project/:slug/trace" element={<TraceView />} />
       <Route path="/aging" element={<AgingBoard />} />
       <Route path="/proposal" element={<SkillProposal />} />
       <Route path="/proposal/:id" element={<SkillProposal />} />
