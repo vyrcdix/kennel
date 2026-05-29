@@ -4,6 +4,7 @@ import { asyncHandler, notFound, validationError } from '../errors.js';
 import { getProjectBySlug } from '../services/project.js';
 import {
   getRunbookByProject,
+  setRunbookSupportsCrystal,
   type RunbookSections,
   upsertRunbook,
 } from '../services/runbook.js';
@@ -69,6 +70,20 @@ export const runbooksRouter = (db: DB): Router => {
         throw validationError({ body: 'no_fields' });
       }
       res.json(upsertRunbook(db, project.id, sections));
+    }),
+  );
+
+  r.patch(
+    '/projects/:slug/runbook/supports-crystal',
+    asyncHandler(async (req, res) => {
+      const project = getProjectBySlug(db, req.params.slug);
+      if (!project) throw notFound('project', req.params.slug);
+      const raw = (req.body ?? {}).crystalItemId;
+      if (raw !== null && typeof raw !== 'string') {
+        throw validationError({ crystalItemId: 'must_be_string_or_null' });
+      }
+      setRunbookSupportsCrystal(db, project.id, raw);
+      res.json(getRunbookByProject(db, project.id));
     }),
   );
 

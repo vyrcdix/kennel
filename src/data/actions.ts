@@ -234,6 +234,71 @@ export const setItemServes = async (
   return updated;
 };
 
+// ─── v0.5 phase 8: per-doorway attach to a crystal ─────────────────
+
+export const attachGuidebookToCrystal = async (
+  guidebookId: string,
+  crystalItemId: string | null,
+): Promise<Guidebook> => {
+  const updated = await wrap(() =>
+    api.patch<Guidebook>(`/api/guidebooks/${guidebookId}/supports-crystal`, {
+      crystalItemId,
+    }),
+  );
+  const idx = guidebooks.findIndex((g) => g.id === guidebookId);
+  if (idx >= 0) guidebooks[idx] = updated;
+  notify();
+  return updated;
+};
+
+export const attachRunbookToCrystal = async (
+  projectSlug: string,
+  crystalItemId: string | null,
+): Promise<Runbook> => {
+  const updated = await wrap(() =>
+    api.patch<Runbook>(
+      `/api/projects/${projectSlug}/runbook/supports-crystal`,
+      { crystalItemId },
+    ),
+  );
+  const idx = runbooks.findIndex((r) => r.id === updated.id);
+  if (idx >= 0) runbooks[idx] = updated;
+  else runbooks.push(updated);
+  notify();
+  return updated;
+};
+
+export const attachDocToCrystal = async (
+  docId: string,
+  crystalItemId: string | null,
+): Promise<Doc> => {
+  const updated = await wrap(() =>
+    api.patch<Doc>(`/api/docs/${docId}/supports-crystal`, { crystalItemId }),
+  );
+  const idx = docs.findIndex((d) => d.id === docId);
+  if (idx >= 0) docs[idx] = updated;
+  notify();
+  return updated;
+};
+
+export const attachFieldNoteSectionToCrystal = async (
+  projectSlug: string,
+  sectionKey: string,
+  crystalItemId: string | null,
+): Promise<FieldNotes> => {
+  const updated = await wrap(() =>
+    api.patch<FieldNotes>(
+      `/api/projects/${projectSlug}/field-notes/sections/${sectionKey}/supports-crystal`,
+      { crystalItemId },
+    ),
+  );
+  const idx = fieldNotes.findIndex((f) => f.projectId === updated.projectId);
+  if (idx >= 0) fieldNotes[idx] = updated;
+  else fieldNotes.push(updated);
+  notify();
+  return updated;
+};
+
 // ─── References ──────────────────────────────────────────────────────────
 
 export type CreateReferenceInput = {

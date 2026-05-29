@@ -353,6 +353,39 @@ export const crystallizeItem = (
     occurredAt: now,
   });
 
+  // v0.5 §D path 1: auto-link any source that is a doc / guidebook /
+  // runbook to the new crystal. Items / references / unrecognized ids
+  // are left alone; the lineage panel resolves them via sources_from.
+  // Cross-project ids are silently skipped — the setSupports* services
+  // already reject them, so we just don't call them.
+  for (const sid of sources) {
+    const tableHits = db
+      .prepare<
+        [string, string, string],
+        { table_name: string; project_id: string }
+      >(
+        `SELECT 'docs' AS table_name, project_id FROM docs WHERE id = ?
+         UNION ALL
+         SELECT 'guidebooks', project_id FROM guidebooks WHERE id = ?
+         UNION ALL
+         SELECT 'runbooks', project_id FROM runbooks WHERE id = ?`,
+      )
+      .all(sid, sid, sid);
+    for (const hit of tableHits) {
+      if (hit.project_id !== item.projectId) continue;
+      const sqlByTable: Record<string, string> = {
+        docs: 'UPDATE docs SET supports_crystal = ?, updated_at = ? WHERE id = ?',
+        guidebooks:
+          'UPDATE guidebooks SET supports_crystal_item_id = ?, updated_at = ? WHERE id = ?',
+        runbooks:
+          'UPDATE runbooks SET supports_crystal_item_id = ?, updated_at = ? WHERE id = ?',
+      };
+      const sql = sqlByTable[hit.table_name];
+      if (!sql) continue;
+      db.prepare(sql).run(id, now, sid);
+    }
+  }
+
   return getItemById(db, id)!;
 };
 

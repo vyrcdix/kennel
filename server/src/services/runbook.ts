@@ -1,6 +1,6 @@
 import type { DB } from '../db.js';
 import { logActivity } from '../activity.js';
-import { notFound } from '../errors.js';
+import { notFound, validationError } from '../errors.js';
 import { fromIso, nowIso } from '../time.js';
 import type { Runbook, RunbookUrl } from '../../../shared/types.js';
 
@@ -58,6 +58,52 @@ export const listRunbooks = (db: DB): Runbook[] =>
     .prepare<[], RunbookRow>('SELECT * FROM runbooks')
     .all()
     .map(rowToRunbook);
+
+/** v0.5: attach (or detach with null) the project's runbook to a
+ *  crystal it supports. The crystal must belong to the same project. */
+export const setRunbookSupportsCrystal = (
+  db: DB,
+  projectId: string,
+  crystalItemId: string | null,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const row = db
+    .prepare<[string], RunbookRow>(
+      'SELECT * FROM runbooks WHERE project_id = ?',
+    )
+    .get(projectId);
+  if (!row) throw notFound('runbook', projectId);
+  const current = row.supports_crystal_item_id ?? null;
+  if (current === (crystalItemId ?? null)) return;
+  if (crystalItemId !== null) {
+    const target = db
+      .prepare<[string], { kind: string; state: string; project_id: string }>(
+        'SELECT kind, state, project_id FROM items WHERE id = ?',
+      )
+      .get(crystalItemId);
+    if (!target) throw notFound('item', crystalItemId);
+    if (target.kind !== 'crystallization' && target.state !== 'crystallized') {
+      throw validationError({ crystalItemId: 'not_a_crystal' });
+    }
+    if (target.project_id !== projectId) {
+      throw validationError({ crystalItemId: 'wrong_topic' });
+    }
+  }
+  const now = nowIso();
+  db.prepare(
+    'UPDATE runbooks SET supports_crystal_item_id = ?, updated_at = ? WHERE project_id = ?',
+  ).run(crystalItemId, now, projectId);
+  logActivity(db, {
+    projectId,
+    entityType: 'runbook',
+    entityId: row.id,
+    verb: crystalItemId ? 'ATTACHED' : 'DETACHED',
+    target: 'runbook',
+    payload: crystalItemId ?? undefined,
+    actor,
+    occurredAt: now,
+  });
+};
 
 export const getRunbookByProject = (db: DB, projectId: string): Runbook | undefined => {
   const row = db

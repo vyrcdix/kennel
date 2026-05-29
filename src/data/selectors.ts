@@ -132,6 +132,41 @@ export const getCrystallizedThisWeek = () => {
  *  /crystals gallery. */
 export const getAllCrystals = () => getCrystallizations();
 
+// ─── v0.5 §D · Three doorways · attached doorways for a crystal ────
+
+/** Docs attached to this crystal via `docs.supports_crystal`. */
+export const getDocsForCrystal = (crystalItemId: string) =>
+  docs.filter((d) => d.supportsCrystal === crystalItemId);
+
+/** Guidebooks attached via `guidebooks.supports_crystal_item_id`. */
+export const getGuidebooksForCrystal = (crystalItemId: string) =>
+  guidebooks.filter((g) => g.supportsCrystalItemId === crystalItemId);
+
+/** Project runbooks that point at this crystal. Returns at most one
+ *  per project since runbooks are 1:1 with projects today. */
+export const getRunbooksForCrystal = (crystalItemId: string) =>
+  runbooks.filter((rb) => rb.supportsCrystalItemId === crystalItemId);
+
+/** Field-note sections that attach to this crystal — represented as
+ *  `{ projectId, sectionKey }` pairs derived from each per-project
+ *  field_notes.supports_crystals JSON map. */
+export const getFieldNoteSectionsForCrystal = (crystalItemId: string) => {
+  type Edge = {
+    projectId: string;
+    sectionKey: string;
+  };
+  const out: Edge[] = [];
+  for (const fn of fieldNotes) {
+    if (!fn.supportsCrystals) continue;
+    for (const [section, id] of Object.entries(fn.supportsCrystals)) {
+      if (id === crystalItemId) {
+        out.push({ projectId: fn.projectId, sectionKey: section });
+      }
+    }
+  }
+  return out;
+};
+
 /** Crystals "due to resurface" per v0.5 §B. Compares
  *  `now - lastSurfacedAt` against the user's `resurfaceIntervalDays`
  *  setting (default 30). Crystals without a lastSurfacedAt fall through

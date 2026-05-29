@@ -18,11 +18,23 @@ import { ProjectTag } from '../components/ProjectTag';
 import { SegBtn } from '../components/SegBtn';
 import {
   getDocById,
+  getDocsForCrystal,
+  getFieldNoteSectionsForCrystal,
+  getGuidebooksForCrystal,
   getItemById,
   getProjectById,
   getReferenceById,
+  getRunbooksForCrystal,
 } from '../data/selectors';
-import { resurfaceCrystal, setItemCtype, ValidationError } from '../data/actions';
+import {
+  attachDocToCrystal,
+  attachFieldNoteSectionToCrystal,
+  attachGuidebookToCrystal,
+  attachRunbookToCrystal,
+  resurfaceCrystal,
+  setItemCtype,
+  ValidationError,
+} from '../data/actions';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
 import type { CrystalType, Item } from '../data/types';
@@ -101,6 +113,330 @@ type ResolvedSource =
   | { kind: 'item'; item: Item }
   | { kind: 'doc'; doc: NonNullable<ReturnType<typeof getDocById>> }
   | { kind: 'reference'; ref: NonNullable<ReturnType<typeof getReferenceById>> };
+
+/** v0.5 §D "Built on" — render the four doorways for a crystal:
+ *  Field notes (clay) / Guidebook (moss) / Runbook (ember-dk) /
+ *  plain Docs (neutral), plus the item lineage from sources_from. */
+const FIELD_SECTION_LABEL: Record<string, string> = {
+  premise: 'Premise',
+  whatIKnow: 'What I know',
+  openQuestions: 'Open questions',
+  sources: 'Sources',
+  crystallizations: 'Crystallizations',
+};
+
+const BuiltOnPanel = ({
+  crystalId,
+  lineage,
+}: {
+  crystalId: string;
+  lineage: ResolvedSource[];
+}) => {
+  const navigate = useNavigate();
+  const guidebooks = getGuidebooksForCrystal(crystalId);
+  const runbooks = getRunbooksForCrystal(crystalId);
+  const docs = getDocsForCrystal(crystalId);
+  const fieldSections = getFieldNoteSectionsForCrystal(crystalId);
+
+  const totalAttachments =
+    guidebooks.length + runbooks.length + docs.length + fieldSections.length;
+
+  const onDetachGuidebook = async (id: string) => {
+    try {
+      await attachGuidebookToCrystal(id, null);
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
+  };
+  const onDetachRunbook = async (slug: string) => {
+    try {
+      await attachRunbookToCrystal(slug, null);
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
+  };
+  const onDetachDoc = async (id: string) => {
+    try {
+      await attachDocToCrystal(id, null);
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
+  };
+  const onDetachFieldSection = async (slug: string, sectionKey: string) => {
+    try {
+      await attachFieldNoteSectionToCrystal(slug, sectionKey, null);
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
+  };
+
+  const Group = ({
+    label,
+    accent,
+    children,
+  }: {
+    label: string;
+    accent: string;
+    children: React.ReactNode;
+  }) => (
+    <div style={{ marginBottom: 18 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          marginBottom: 8,
+        }}
+      >
+        <span
+          className="km-mono-sm"
+          style={{ color: accent, letterSpacing: '.1em' }}
+        >
+          {label}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {children}
+      </div>
+    </div>
+  );
+
+  const AttachRow = ({
+    icon,
+    accent,
+    label,
+    sub,
+    onOpen,
+    onDetach,
+  }: {
+    icon: React.ReactNode;
+    accent: string;
+    label: string;
+    sub?: string;
+    onOpen?: () => void;
+    /** Omitted on lineage rows — those edges live in sources_from and
+     *  can't be detached from this surface. */
+    onDetach?: () => Promise<void>;
+  }) => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '9px 11px',
+        background: 'var(--v-card)',
+        border: '1px solid var(--v-line)',
+        borderRadius: 6,
+        borderLeft: `3px solid ${accent}`,
+      }}
+    >
+      <span>{icon}</span>
+      <span
+        onClick={onOpen}
+        style={{
+          flex: 1,
+          fontSize: 13.5,
+          cursor: onOpen ? 'pointer' : 'default',
+        }}
+      >
+        {label}
+      </span>
+      {sub && <Mono dim>{sub}</Mono>}
+      {onDetach && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            void onDetach();
+          }}
+          title="Detach from this crystal"
+          style={{
+            border: 0,
+            background: 'transparent',
+            padding: '2px 4px',
+            cursor: 'pointer',
+            color: 'var(--v-ember-dk)',
+          }}
+        >
+          <Icons.trash size={12} stroke="var(--v-ember-dk)" />
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <div
+      className="km-scroll"
+      style={{
+        overflow: 'auto',
+        padding: '30px 28px',
+        background: 'var(--v-sunk)',
+        borderLeft: '1px solid var(--v-line)',
+      }}
+    >
+      <Label>Built on</Label>
+      <div style={{ marginTop: 4, marginBottom: 18 }}>
+        <Mono dim>
+          {totalAttachments === 0 && lineage.length === 0
+            ? 'no doorways attached yet'
+            : `${totalAttachments} doorway${totalAttachments === 1 ? '' : 's'} · ${lineage.length} lineage source${lineage.length === 1 ? '' : 's'}`}
+        </Mono>
+      </div>
+
+      {fieldSections.length > 0 && (
+        <Group label="FIELD NOTES · mine" accent="var(--v-clay)">
+          {fieldSections.map((fs, i) => {
+            const proj = getProjectById(fs.projectId);
+            return (
+              <AttachRow
+                key={i}
+                icon={<Icons.note size={13} stroke="var(--v-clay)" />}
+                accent="var(--v-clay)"
+                label={FIELD_SECTION_LABEL[fs.sectionKey] ?? fs.sectionKey}
+                sub={proj?.slug}
+                onOpen={() =>
+                  proj
+                    ? navigate(`/project/${proj.slug}/field-notes`)
+                    : undefined
+                }
+                onDetach={() =>
+                  proj
+                    ? onDetachFieldSection(proj.slug, fs.sectionKey)
+                    : Promise.resolve()
+                }
+              />
+            );
+          })}
+        </Group>
+      )}
+
+      {guidebooks.length > 0 && (
+        <Group label="GUIDEBOOK · others'" accent="var(--v-moss)">
+          {guidebooks.map((g) => {
+            const proj = getProjectById(g.projectId);
+            return (
+              <AttachRow
+                key={g.id}
+                icon={<Icons.doc size={13} stroke="var(--v-moss)" />}
+                accent="var(--v-moss)"
+                label={g.name}
+                sub={proj?.slug}
+                onOpen={() =>
+                  proj
+                    ? navigate(`/project/${proj.slug}/guidebook/${g.id}`)
+                    : undefined
+                }
+                onDetach={() => onDetachGuidebook(g.id)}
+              />
+            );
+          })}
+        </Group>
+      )}
+
+      {runbooks.length > 0 && (
+        <Group label="RUNBOOK · how-to" accent="var(--v-ember-dk)">
+          {runbooks.map((rb) => {
+            const proj = getProjectById(rb.projectId);
+            return (
+              <AttachRow
+                key={rb.id}
+                icon={<Icons.runbook size={13} stroke="var(--v-ember-dk)" />}
+                accent="var(--v-ember-dk)"
+                label={`${proj?.name ?? '(no project)'} · runbook`}
+                sub={`rev ${rb.revision}`}
+                onOpen={() => (proj ? navigate(`/runbook/${proj.slug}`) : undefined)}
+                onDetach={() =>
+                  proj ? onDetachRunbook(proj.slug) : Promise.resolve()
+                }
+              />
+            );
+          })}
+        </Group>
+      )}
+
+      {docs.length > 0 && (
+        <Group label="DOCS" accent="var(--v-soft)">
+          {docs.map((d) => (
+            <AttachRow
+              key={d.id}
+              icon={<Icons.doc size={13} stroke="var(--v-soft)" />}
+              accent="var(--v-line2)"
+              label={d.title}
+              sub={`rev ${d.revision}`}
+              onOpen={() => navigate(`/doc/${d.id}`)}
+              onDetach={() => onDetachDoc(d.id)}
+            />
+          ))}
+        </Group>
+      )}
+
+      {lineage.length > 0 && (
+        <Group label="LINEAGE · sources_from" accent="var(--v-faint)">
+          {lineage.map((s, i) => {
+            if (s.kind === 'item') {
+              return (
+                <AttachRow
+                  key={i}
+                  icon={<KindIcon kind={s.item.kind} size={13} muted />}
+                  accent="var(--v-line2)"
+                  label={s.item.title}
+                  sub={s.item.kind}
+                  onOpen={() =>
+                    s.item.docId
+                      ? navigate(`/doc/${s.item.docId}`)
+                      : navigate(`/crystal/${s.item.id}`)
+                  }
+                />
+              );
+            }
+            if (s.kind === 'doc') {
+              return (
+                <AttachRow
+                  key={i}
+                  icon={<Icons.doc size={13} stroke="var(--v-soft)" />}
+                  accent="var(--v-line2)"
+                  label={s.doc.title}
+                  sub={`rev ${s.doc.revision}`}
+                  onOpen={() => navigate(`/doc/${s.doc.id}`)}
+                />
+              );
+            }
+            return (
+              <AttachRow
+                key={i}
+                icon={<Icons.link size={13} stroke="var(--v-soft)" />}
+                accent="var(--v-line2)"
+                label={s.ref.label}
+                sub={s.ref.url ? 'web' : undefined}
+                onOpen={() =>
+                  s.ref.url
+                    ? window.open(s.ref.url, '_blank', 'noopener,noreferrer')
+                    : undefined
+                }
+              />
+            );
+          })}
+        </Group>
+      )}
+
+      {totalAttachments === 0 && lineage.length === 0 && (
+        <div
+          style={{
+            padding: '14px 16px',
+            border: '1px dashed var(--v-line2)',
+            borderRadius: 6,
+            color: 'var(--v-soft)',
+          }}
+        >
+          <Mono dim>
+            Attach a guidebook, runbook, doc, or field-notes section from its own
+            screen by setting "Supports crystal" — the attach picker UI ships
+            in a follow-up slice.
+          </Mono>
+        </div>
+      )}
+    </div>
+  );
+};
 
 /** Look at item.sourcesFrom and try to resolve each id as an item, doc,
  *  or reference — whichever the id belongs to. Ids that don't resolve
@@ -263,129 +599,9 @@ export const CrystalDetail = () => {
           )}
         </div>
 
-        {/* Right: Built on — the doorways. Phase 8 will populate from the
-            per-table supports_crystal_item_id edges; for now we show the
-            sourcesFrom items so the lineage is at least readable. */}
-        <div
-          className="km-scroll"
-          style={{
-            overflow: 'auto',
-            padding: '30px 28px',
-            background: 'var(--v-sunk)',
-            borderLeft: '1px solid var(--v-line)',
-          }}
-        >
-          <Label>Built on</Label>
-          <div style={{ marginTop: 4, marginBottom: 18 }}>
-            <Mono dim>
-              {sources.length === 0
-                ? 'no resolved sources yet'
-                : `${sources.length} ${sources.length === 1 ? 'source' : 'sources'}`}
-            </Mono>
-          </div>
+        {/* Right: Built on — three doorways + item lineage (v0.5 §D) */}
+        <BuiltOnPanel crystalId={crystal.id} lineage={sources} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {sources.map((s, i) => {
-              if (s.kind === 'item') {
-                return (
-                  <div
-                    key={i}
-                    onClick={() =>
-                      s.item.docId
-                        ? navigate(`/doc/${s.item.docId}`)
-                        : navigate(`/crystal/${s.item.id}`)
-                    }
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '9px 11px',
-                      background: 'var(--v-card)',
-                      border: '1px solid var(--v-line)',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <KindIcon kind={s.item.kind} size={13} muted />
-                    <span
-                      style={{
-                        flex: 1,
-                        fontSize: 13.5,
-                        color: 'var(--v-ink)',
-                      }}
-                    >
-                      {s.item.title}
-                    </span>
-                    <Mono dim>{s.item.kind}</Mono>
-                  </div>
-                );
-              }
-              if (s.kind === 'doc') {
-                return (
-                  <div
-                    key={i}
-                    onClick={() => navigate(`/doc/${s.doc.id}`)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '9px 11px',
-                      background: 'var(--v-card)',
-                      border: '1px solid var(--v-line)',
-                      borderRadius: 6,
-                      borderLeft: '3px solid var(--v-moss)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Icons.doc size={13} stroke="var(--v-moss)" />
-                    <span style={{ flex: 1, fontSize: 13.5 }}>{s.doc.title}</span>
-                    <Mono dim>rev {s.doc.revision}</Mono>
-                  </div>
-                );
-              }
-              return (
-                <div
-                  key={i}
-                  onClick={() =>
-                    s.ref.url
-                      ? window.open(s.ref.url, '_blank', 'noopener,noreferrer')
-                      : undefined
-                  }
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '9px 11px',
-                    background: 'var(--v-card)',
-                    border: '1px solid var(--v-line)',
-                    borderRadius: 6,
-                    borderLeft: '3px solid var(--v-moss)',
-                    cursor: s.ref.url ? 'pointer' : 'default',
-                  }}
-                >
-                  <Icons.link size={13} stroke="var(--v-moss)" />
-                  <span style={{ flex: 1, fontSize: 13.5 }}>{s.ref.label}</span>
-                  {s.ref.url && <Mono dim>web</Mono>}
-                </div>
-              );
-            })}
-          </div>
-
-          <div
-            style={{
-              marginTop: 24,
-              padding: '12px 14px',
-              border: '1px dashed var(--v-line2)',
-              borderRadius: 6,
-              color: 'var(--v-soft)',
-            }}
-          >
-            <Mono dim>
-              the three doorways (field notes / guidebook / runbook) arrive in
-              v0.5 phase 8 — this panel will group them then.
-            </Mono>
-          </div>
-        </div>
       </div>
     </div>
   );

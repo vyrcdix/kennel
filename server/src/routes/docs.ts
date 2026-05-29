@@ -6,6 +6,7 @@ import {
   deleteDoc,
   getDocById,
   setDocPinned,
+  setDocSupportsCrystal,
   updateDocBody,
 } from '../services/doc.js';
 
@@ -85,6 +86,18 @@ export const docsRouter = (db: DB): Router => {
     asyncHandler(async (req, res) => {
       deleteDoc(db, req.params.id);
       res.status(204).end();
+    }),
+  );
+
+  r.patch(
+    '/:id/supports-crystal',
+    asyncHandler(async (req, res) => {
+      const raw = (req.body ?? {}).crystalItemId;
+      if (raw !== null && typeof raw !== 'string') {
+        throw validationError({ crystalItemId: 'must_be_string_or_null' });
+      }
+      setDocSupportsCrystal(db, req.params.id, raw);
+      res.json(getDocById(db, req.params.id));
     }),
   );
 

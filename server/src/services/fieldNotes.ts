@@ -10,11 +10,10 @@ import {
   ensureProjectDirs,
   writeDocAtomic,
 } from '../content.js';
-import { notFound } from '../errors.js';
+import { notFound, validationError } from '../errors.js';
 import { newId } from '../ids.js';
 import { fromIso, nowIso } from '../time.js';
 import type { FieldNotes, FieldNotesMode } from '../../../shared/types.js';
-import { validationError } from '../errors.js';
 
 type FieldNotesRow = {
   id: string;
@@ -88,6 +87,65 @@ export const getFieldNotesByProject = (db: DB, projectId: string): FieldNotes | 
     .prepare<[string], FieldNotesRow>('SELECT * FROM field_notes WHERE project_id = ?')
     .get(projectId);
   return row ? rowToFieldNotes(row) : undefined;
+};
+
+/** v0.5: attach (or detach with null) a field-notes section to a
+ *  crystal it supports. Section-level links live in a JSON map on the
+ *  single field_notes row per project. */
+export const setFieldNoteSectionSupportsCrystal = (
+  db: DB,
+  projectId: string,
+  sectionKey: string,
+  crystalItemId: string | null,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): FieldNotes => {
+  if (!SECTION_KEYS.has(sectionKey)) {
+    throw validationError({ sectionKey: 'invalid' });
+  }
+  const row = db
+    .prepare<[string], FieldNotesRow>(
+      'SELECT * FROM field_notes WHERE project_id = ?',
+    )
+    .get(projectId);
+  if (!row) throw notFound('field_notes', projectId);
+  if (crystalItemId !== null) {
+    const target = db
+      .prepare<[string], { kind: string; state: string; project_id: string }>(
+        'SELECT kind, state, project_id FROM items WHERE id = ?',
+      )
+      .get(crystalItemId);
+    if (!target) throw notFound('item', crystalItemId);
+    if (target.kind !== 'crystallization' && target.state !== 'crystallized') {
+      throw validationError({ crystalItemId: 'not_a_crystal' });
+    }
+    if (target.project_id !== projectId) {
+      throw validationError({ crystalItemId: 'wrong_topic' });
+    }
+  }
+
+  const current = parseSupportsCrystals(row.supports_crystals) ?? {};
+  const next = { ...current } as Record<string, string>;
+  if (crystalItemId === null) {
+    delete next[sectionKey];
+  } else {
+    next[sectionKey] = crystalItemId;
+  }
+  const json = Object.keys(next).length > 0 ? JSON.stringify(next) : null;
+  const now = nowIso();
+  db.prepare(
+    'UPDATE field_notes SET supports_crystals = ?, updated_at = ? WHERE project_id = ?',
+  ).run(json, now, projectId);
+  logActivity(db, {
+    projectId,
+    entityType: 'field_notes',
+    entityId: row.id,
+    verb: crystalItemId ? 'ATTACHED' : 'DETACHED',
+    target: `field notes / ${sectionKey}`,
+    payload: crystalItemId ?? undefined,
+    actor,
+    occurredAt: now,
+  });
+  return getFieldNotesByProject(db, projectId)!;
 };
 
 export type FieldNotesSections = Partial<{

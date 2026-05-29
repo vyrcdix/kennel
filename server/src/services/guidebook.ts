@@ -30,6 +30,48 @@ export const rowToGuidebook = (r: GuidebookRow): Guidebook => ({
   updatedAt: fromIso(r.updated_at)!,
 });
 
+/** v0.5: attach (or detach with null) a guidebook to a crystal it
+ *  supports. Idempotent. The crystal id must point at an item that
+ *  is — or once was — a crystallization. */
+export const setGuidebookSupportsCrystal = (
+  db: DB,
+  guidebookId: string,
+  crystalItemId: string | null,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const gb = getGuidebookById(db, guidebookId);
+  if (!gb) throw notFound('guidebook', guidebookId);
+  if ((gb.supportsCrystalItemId ?? null) === (crystalItemId ?? null)) return;
+  if (crystalItemId !== null) {
+    const target = db
+      .prepare<[string], { kind: string; state: string; project_id: string }>(
+        'SELECT kind, state, project_id FROM items WHERE id = ?',
+      )
+      .get(crystalItemId);
+    if (!target) throw notFound('item', crystalItemId);
+    if (target.kind !== 'crystallization' && target.state !== 'crystallized') {
+      throw validationError({ crystalItemId: 'not_a_crystal' });
+    }
+    if (target.project_id !== gb.projectId) {
+      throw validationError({ crystalItemId: 'wrong_topic' });
+    }
+  }
+  const now = nowIso();
+  db.prepare(
+    'UPDATE guidebooks SET supports_crystal_item_id = ?, updated_at = ? WHERE id = ?',
+  ).run(crystalItemId, now, guidebookId);
+  logActivity(db, {
+    projectId: gb.projectId,
+    entityType: 'guidebook',
+    entityId: guidebookId,
+    verb: crystalItemId ? 'ATTACHED' : 'DETACHED',
+    target: `guidebook / ${gb.name}`,
+    payload: crystalItemId ?? undefined,
+    actor,
+    occurredAt: now,
+  });
+};
+
 /** All guidebooks, across topics. Used by the activity feed / global views. */
 export const listGuidebooks = (db: DB): Guidebook[] =>
   db

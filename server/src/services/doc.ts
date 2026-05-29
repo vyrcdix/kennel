@@ -287,6 +287,48 @@ export const setDocPinned = (db: DB, id: string, pinned: boolean): Doc => {
   return getDocById(db, id)!;
 };
 
+/** v0.5: attach (or detach with null) a doc to a crystal it supports.
+ *  Cross-topic attachment is rejected — the crystal must live in the
+ *  same project as the doc. */
+export const setDocSupportsCrystal = (
+  db: DB,
+  docId: string,
+  crystalItemId: string | null,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const existing = getDocById(db, docId);
+  if (!existing) throw notFound('doc', docId);
+  if ((existing.supportsCrystal ?? null) === (crystalItemId ?? null)) return;
+  if (crystalItemId !== null) {
+    const target = db
+      .prepare<[string], { kind: string; state: string; project_id: string }>(
+        'SELECT kind, state, project_id FROM items WHERE id = ?',
+      )
+      .get(crystalItemId);
+    if (!target) throw notFound('item', crystalItemId);
+    if (target.kind !== 'crystallization' && target.state !== 'crystallized') {
+      throw validationError({ crystalItemId: 'not_a_crystal' });
+    }
+    if (target.project_id !== existing.projectId) {
+      throw validationError({ crystalItemId: 'wrong_topic' });
+    }
+  }
+  const now = nowIso();
+  db.prepare(
+    'UPDATE docs SET supports_crystal = ?, updated_at = ? WHERE id = ?',
+  ).run(crystalItemId, now, docId);
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'doc',
+    entityId: docId,
+    verb: crystalItemId ? 'ATTACHED' : 'DETACHED',
+    target: `doc / ${existing.title}`,
+    payload: crystalItemId ?? undefined,
+    actor,
+    occurredAt: now,
+  });
+};
+
 /** Hard-delete a doc + its on-disk markdown file. Items pointing at it
  *  (items.doc_id) get NULLed so the item survives — same pattern as
  *  deleteReference. Guidebook entries referencing the doc would break

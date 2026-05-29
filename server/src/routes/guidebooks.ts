@@ -7,6 +7,7 @@ import {
   getGuidebookById,
   listGuidebooksByProject,
   reorderGuidebooks,
+  setGuidebookSupportsCrystal,
   updateGuidebook,
 } from '../services/guidebook.js';
 import {
@@ -209,6 +210,19 @@ export const guidebooksRouter = (db: DB): Router => {
     asyncHandler(async (req, res) => {
       deleteGuidebook(db, req.params.id);
       res.status(204).end();
+    }),
+  );
+
+  r.patch(
+    '/guidebooks/:id/supports-crystal',
+    asyncHandler(async (req, res) => {
+      const raw = (req.body ?? {}).crystalItemId;
+      if (raw !== null && typeof raw !== 'string') {
+        throw validationError({ crystalItemId: 'must_be_string_or_null' });
+      }
+      setGuidebookSupportsCrystal(db, req.params.id, raw);
+      const gb = getGuidebookById(db, req.params.id);
+      res.json(gb);
     }),
   );
 
