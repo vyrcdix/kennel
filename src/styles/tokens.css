@@ -48,6 +48,59 @@
   --fg-faint:    rgba(232,226,210,.40);
 }
 
+/* ─── v0.4/v0.5 "blaze + dust" token set ────────────────────────────────────
+ * Opt-in via .km-v4 on any container. Coexists with .km / surface-* tokens
+ * so legacy screens stay unchanged during the rollout.
+ *
+ * Tone leads:
+ *   BLAZE  — crystallization glow (the light). Reserved for crystals.
+ *   DUST   — everyday surface (the room).
+ *   EMBER  — sparing action accent (primary buttons + the "in focus" marker).
+ *   MOSS   — guidebook family marker.
+ *   CLAY   — field-notes family marker.
+ * Reserve rules: blaze / ember / moss / clay are the family language only —
+ * they are NOT selectable as thread label colors (those live in §A of v0.5).
+ */
+.km-v4 {
+  --v-bg:      #EEE2C9;          /* dust ground */
+  --v-sunk:    #E5D4B4;          /* deeper dust — header bands, sunk panels */
+  --v-card:    #F8F1E0;          /* lighter than ground = lift, no shadow */
+  --v-ink:     #2B2014;          /* warm dark ink */
+  --v-soft:    rgba(43,32,20,.62);
+  --v-faint:   rgba(43,32,20,.40);
+  --v-line:    rgba(43,32,20,.13);
+  --v-line2:   rgba(43,32,20,.26);
+  --v-blaze:   #E8B547;          /* crystal glow — the light */
+  --v-blaze-dk:#B07E12;
+  --v-dust:    #C9A87C;
+  --v-ember:   #D9622C;          /* sparing action */
+  --v-ember-dk:#A84919;
+  --v-moss:    #5C7A3E;          /* guidebook family */
+  --v-clay:    #BC7A4E;          /* field-notes family */
+}
+
+/* Dark mode for the v4 set — full inversion per v0.5 §G. Backgrounds invert
+ * against slate-dark (never pure black); accents stay unchanged so the family
+ * language carries the same meaning under both modes. A fuller nuanced dark
+ * table (softening blaze on dark to avoid glare etc.) comes next round. */
+.km-v4.km-dark, .km-dark .km-v4 {
+  --v-bg:      #2A2E33;
+  --v-sunk:    #23262C;
+  --v-card:    #32373D;          /* lighter than bg = lift */
+  --v-ink:     #ECE3D0;          /* warm bone tint */
+  --v-soft:    rgba(236,227,208,.62);
+  --v-faint:   rgba(236,227,208,.40);
+  --v-line:    rgba(236,227,208,.12);
+  --v-line2:   rgba(236,227,208,.24);
+}
+
+/* v4 type helpers — Oswald display tightened to 600 for the new hero
+ * headlines per v0.5 §2 ("Type: Oswald 600 weight for hero"). */
+.km-v4 .vd   { font-family: var(--ff-display); font-weight: 600; letter-spacing: .01em; color: var(--v-ink); }
+.km-v4 .vlab { font-family: var(--ff-display); font-weight: 500; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--v-soft); }
+.km-v4 .vm   { font-family: var(--ff-mono); font-size: 11px; color: var(--v-faint); }
+.km-v4 .vm-bz{ font-family: var(--ff-mono); font-size: 11px; color: var(--v-blaze-dk); }
+
 /* Reset within artboards */
 .km, .km * { box-sizing: border-box; }
 .km {
