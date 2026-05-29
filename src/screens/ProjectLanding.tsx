@@ -31,6 +31,7 @@ import {
   fileItem,
   reorderGuidebooks,
   setChatUrl,
+  setDocPinned,
   setGuidebookPinned,
   touchItem,
   updateGuidebook,
@@ -89,9 +90,24 @@ const PinnedGuidebookCard = ({
     }}
   >
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ color: 'var(--ember-deep)' }}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          void setGuidebookPinned(guidebook.id, false);
+        }}
+        title="unpin from landing"
+        style={{
+          border: 0,
+          background: 'transparent',
+          padding: 0,
+          color: 'var(--ember-deep)',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}
+      >
         <Icons.star size={12} />
-      </span>
+      </button>
       <span
         className="km-body"
         style={{
@@ -165,9 +181,25 @@ const PinnedDocCard = ({
       >
         {doc.title}
       </span>
-      <span className="km-pin">
-        <Icons.pin size={10} />
-      </span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          void setDocPinned(doc.id, false);
+        }}
+        title="unpin from landing"
+        className="km-pin"
+        style={{
+          border: 0,
+          background: 'transparent',
+          padding: '2px 4px',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          color: 'var(--ember-deep)',
+        }}
+      >
+        <Icons.pin size={12} /> <span style={{ fontSize: 10, marginLeft: 3 }}>unpin</span>
+      </button>
     </div>
     <div
       className="km-body-sm"
@@ -250,7 +282,7 @@ export const ProjectLanding = () => {
   useStoreVersion();
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
   const [activeTab, setActiveTab] = useState<
-    'items' | 'docs' | 'references' | 'guidebooks'
+    'items' | 'docs' | 'references'
   >('items');
   const [contextOpen, setContextOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -296,6 +328,13 @@ export const ProjectLanding = () => {
   const fieldNotesSince = formatRelative(fieldNotes?.updatedAt ?? new Date(0));
   const runbookTemp = temperatureForDate(runbook?.updatedAt, settings);
   const runbookSince = formatRelative(runbook?.updatedAt ?? new Date(0));
+  // Newest guidebook drives the panel temp; matches how fieldNotes/runbook
+  // colour their thermals.
+  const newestGuidebookAt = allGuidebooks
+    .map((g) => g.updatedAt)
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+  const guidebooksTemp = temperatureForDate(newestGuidebookAt, settings);
+  const guidebooksSince = formatRelative(newestGuidebookAt ?? new Date(0));
   // activeChats and staleChats are pre-sorted by lastSeenAt DESC; first
   // active beats any stale.
   const newestChat = activeChats[0] ?? staleChats[0];
@@ -682,6 +721,207 @@ export const ProjectLanding = () => {
               </ThermalPanel>
             </div>
 
+            {/* Guidebooks — peer of Field notes / Runbook / Conversations */}
+            <ThermalPanel temp={guidebooksTemp}>
+              <SectionHead
+                title="Guidebooks"
+                right={
+                  <>
+                    <Mono dim>
+                      {allGuidebooks.length === 0
+                        ? 'ordered references per topic'
+                        : `${allGuidebooks.length} in this thread`}
+                    </Mono>
+                    {allGuidebooks.length > 0 && (
+                      <ThermalStamp temp={guidebooksTemp} since={guidebooksSince} />
+                    )}
+                    <button
+                      className="km-btn km-btn-ghost"
+                      style={{ padding: '3px 8px', fontSize: 12 }}
+                      onClick={() => setCreateGuidebookOpen(true)}
+                    >
+                      <Icons.plus size={11} /> New guidebook
+                    </button>
+                  </>
+                }
+              />
+              <div className="km-rule" />
+              {allGuidebooks.length === 0 ? (
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <Mono dim>
+                    no guidebooks yet — group docs and references into an ordered
+                    spine
+                  </Mono>
+                </div>
+              ) : (
+                allGuidebooks.map((g, i) => {
+                  const isFirst = i === 0;
+                  const isLast = i === allGuidebooks.length - 1;
+                  const entryCount = getGuidebookEntryCount(g.id);
+                  const stop = (
+                    e: React.MouseEvent | React.KeyboardEvent,
+                  ): boolean => {
+                    e.stopPropagation();
+                    return true;
+                  };
+                  const swap = async (delta: 1 | -1) => {
+                    const target = i + delta;
+                    if (target < 0 || target >= allGuidebooks.length) return;
+                    const next = [...allGuidebooks];
+                    [next[i], next[target]] = [next[target], next[i]];
+                    await reorderGuidebooks(
+                      project.slug,
+                      next.map((x) => x.id),
+                    );
+                  };
+                  const rename = async () => {
+                    const next = window.prompt('Rename guidebook', g.name);
+                    if (next == null) return;
+                    const trimmed = next.trim();
+                    if (!trimmed || trimmed === g.name) return;
+                    await updateGuidebook(g.id, { name: trimmed });
+                  };
+                  const onDelete = async () => {
+                    if (
+                      !window.confirm(
+                        `Delete "${g.name}"? Source docs and references stay in the topic.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    await deleteGuidebook(g.id);
+                  };
+                  return (
+                    <div
+                      key={g.id}
+                      className="km-row"
+                      onClick={() =>
+                        navigate(`/project/${project.slug}/guidebook/${g.id}`)
+                      }
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          '20px 1fr 90px 26px 26px 26px 26px',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 16px',
+                        borderBottom:
+                          isLast ? 'none' : '1px solid var(--line)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <button
+                        className="km-btn km-btn-ghost"
+                        onClick={(e) => {
+                          stop(e);
+                          void setGuidebookPinned(g.id, !g.pinned);
+                        }}
+                        title={g.pinned ? 'unpin' : 'pin to landing'}
+                        style={{
+                          padding: 0,
+                          color: g.pinned
+                            ? 'var(--ember-deep)'
+                            : 'var(--fg-faint)',
+                        }}
+                      >
+                        <Icons.star size={14} />
+                      </button>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          className="km-body"
+                          style={{
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {g.name}
+                        </div>
+                        {g.description && (
+                          <Mono
+                            dim
+                            style={{
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {g.description}
+                          </Mono>
+                        )}
+                      </div>
+                      <Mono dim>
+                        {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
+                      </Mono>
+                      <button
+                        className="km-btn km-btn-ghost"
+                        onClick={(e) => {
+                          stop(e);
+                          void swap(-1);
+                        }}
+                        disabled={isFirst}
+                        title="move up"
+                        style={{
+                          padding: 0,
+                          opacity: isFirst ? 0.25 : 1,
+                          cursor: isFirst ? 'default' : 'pointer',
+                        }}
+                      >
+                        <Icons.arrowUp size={14} />
+                      </button>
+                      <button
+                        className="km-btn km-btn-ghost"
+                        onClick={(e) => {
+                          stop(e);
+                          void swap(1);
+                        }}
+                        disabled={isLast}
+                        title="move down"
+                        style={{
+                          padding: 0,
+                          opacity: isLast ? 0.25 : 1,
+                          cursor: isLast ? 'default' : 'pointer',
+                        }}
+                      >
+                        <Icons.arrowDown size={14} />
+                      </button>
+                      <button
+                        className="km-btn km-btn-ghost"
+                        onClick={(e) => {
+                          stop(e);
+                          void rename();
+                        }}
+                        title="rename"
+                        style={{ padding: 0, color: 'var(--fg-muted)' }}
+                      >
+                        <Icons.note size={14} />
+                      </button>
+                      <button
+                        className="km-btn km-btn-ghost"
+                        onClick={(e) => {
+                          stop(e);
+                          void onDelete();
+                        }}
+                        title="delete"
+                        style={{ padding: 0, color: 'var(--ember-deep)' }}
+                      >
+                        <Icons.trash size={14} />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </ThermalPanel>
+
             {/* Aging — per-thread let-go surface */}
             {agingItems.length > 0 && (
               <section
@@ -808,22 +1048,7 @@ export const ProjectLanding = () => {
                   active={activeTab === 'references'}
                   onClick={() => setActiveTab('references')}
                 />
-                <span style={{ width: 18 }} />
-                <TabButton
-                  label={`Guidebooks · ${allGuidebooks.length}`}
-                  active={activeTab === 'guidebooks'}
-                  onClick={() => setActiveTab('guidebooks')}
-                />
                 <span style={{ flex: 1 }} />
-                {activeTab === 'guidebooks' && (
-                  <button
-                    className="km-btn km-btn-ghost"
-                    onClick={() => setCreateGuidebookOpen(true)}
-                    style={{ fontSize: 12, color: 'var(--ember-deep)' }}
-                  >
-                    <Icons.plus size={12} /> New guidebook
-                  </button>
-                )}
               </div>
               <div>
                 {activeTab === 'items' && (
@@ -852,7 +1077,7 @@ export const ProjectLanding = () => {
                         onClick={() => navigate(`/doc/${d.id}`)}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: '14px 1fr 60px 90px',
+                          gridTemplateColumns: '14px 1fr 60px 90px 26px',
                           alignItems: 'center',
                           gap: 12,
                           padding: '8px 16px',
@@ -866,188 +1091,29 @@ export const ProjectLanding = () => {
                         </span>
                         <Mono>rev {d.revision}</Mono>
                         <Mono dim>{formatRelative(d.updatedAt)}</Mono>
-                      </div>
-                    ))
-                  )
-                )}
-                {activeTab === 'guidebooks' && (
-                  allGuidebooks.length === 0 ? (
-                    <div
-                      style={{
-                        padding: '24px 16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}
-                    >
-                      <Mono dim>no guidebooks in this thread</Mono>
-                      <button
-                        className="km-btn km-btn-primary"
-                        onClick={() => setCreateGuidebookOpen(true)}
-                        style={{ fontSize: 12 }}
-                      >
-                        <Icons.plus size={12} /> Create one
-                      </button>
-                    </div>
-                  ) : (
-                    allGuidebooks.map((g, i) => {
-                      const isFirst = i === 0;
-                      const isLast = i === allGuidebooks.length - 1;
-                      const entryCount = getGuidebookEntryCount(g.id);
-                      const stop = (
-                        e: React.MouseEvent | React.KeyboardEvent,
-                      ): boolean => {
-                        e.stopPropagation();
-                        return true;
-                      };
-                      const swap = async (delta: 1 | -1) => {
-                        const target = i + delta;
-                        if (target < 0 || target >= allGuidebooks.length) return;
-                        const next = [...allGuidebooks];
-                        [next[i], next[target]] = [next[target], next[i]];
-                        await reorderGuidebooks(
-                          project.slug,
-                          next.map((x) => x.id),
-                        );
-                      };
-                      const rename = async () => {
-                        const next = window.prompt('Rename guidebook', g.name);
-                        if (next == null) return;
-                        const trimmed = next.trim();
-                        if (!trimmed || trimmed === g.name) return;
-                        await updateGuidebook(g.id, { name: trimmed });
-                      };
-                      const onDelete = async () => {
-                        if (
-                          !window.confirm(
-                            `Delete "${g.name}"? Source docs and references stay in the topic.`,
-                          )
-                        ) {
-                          return;
-                        }
-                        await deleteGuidebook(g.id);
-                      };
-                      return (
-                        <div
-                          key={g.id}
-                          className="km-row"
-                          onClick={() =>
-                            navigate(`/project/${project.slug}/guidebook/${g.id}`)
-                          }
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void setDocPinned(d.id, !d.pinned);
+                          }}
+                          title={d.pinned ? 'unpin from landing' : 'pin to landing'}
                           style={{
-                            display: 'grid',
-                            gridTemplateColumns:
-                              '20px 1fr 90px 26px 26px 26px 26px',
-                            alignItems: 'center',
-                            gap: 10,
-                            padding: '8px 16px',
-                            borderBottom: '1px solid var(--line)',
+                            border: 0,
+                            background: 'transparent',
+                            padding: '2px 4px',
                             cursor: 'pointer',
+                            color: d.pinned
+                              ? 'var(--ember-deep)'
+                              : 'var(--fg-faint)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
                         >
-                          <button
-                            className="km-btn km-btn-ghost"
-                            onClick={(e) => {
-                              stop(e);
-                              void setGuidebookPinned(g.id, !g.pinned);
-                            }}
-                            title={g.pinned ? 'unpin' : 'pin to landing'}
-                            style={{
-                              padding: 0,
-                              color: g.pinned
-                                ? 'var(--ember-deep)'
-                                : 'var(--fg-faint)',
-                            }}
-                          >
-                            <Icons.star size={14} />
-                          </button>
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              className="km-body"
-                              style={{
-                                fontWeight: 500,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {g.name}
-                            </div>
-                            {g.description && (
-                              <Mono
-                                dim
-                                style={{
-                                  display: 'block',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {g.description}
-                              </Mono>
-                            )}
-                          </div>
-                          <Mono dim>
-                            {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
-                          </Mono>
-                          <button
-                            className="km-btn km-btn-ghost"
-                            onClick={(e) => {
-                              stop(e);
-                              void swap(-1);
-                            }}
-                            disabled={isFirst}
-                            title="move up"
-                            style={{
-                              padding: 0,
-                              opacity: isFirst ? 0.25 : 1,
-                              cursor: isFirst ? 'default' : 'pointer',
-                            }}
-                          >
-                            <Icons.arrowUp size={14} />
-                          </button>
-                          <button
-                            className="km-btn km-btn-ghost"
-                            onClick={(e) => {
-                              stop(e);
-                              void swap(1);
-                            }}
-                            disabled={isLast}
-                            title="move down"
-                            style={{
-                              padding: 0,
-                              opacity: isLast ? 0.25 : 1,
-                              cursor: isLast ? 'default' : 'pointer',
-                            }}
-                          >
-                            <Icons.arrowDown size={14} />
-                          </button>
-                          <button
-                            className="km-btn km-btn-ghost"
-                            onClick={(e) => {
-                              stop(e);
-                              void rename();
-                            }}
-                            title="rename"
-                            style={{ padding: 0, color: 'var(--fg-muted)' }}
-                          >
-                            <Icons.note size={14} />
-                          </button>
-                          <button
-                            className="km-btn km-btn-ghost"
-                            onClick={(e) => {
-                              stop(e);
-                              void onDelete();
-                            }}
-                            title="delete"
-                            style={{ padding: 0, color: 'var(--ember-deep)' }}
-                          >
-                            <Icons.trash size={14} />
-                          </button>
-                        </div>
-                      );
-                    })
+                          <Icons.pin size={12} />
+                        </button>
+                      </div>
+                    ))
                   )
                 )}
                 {activeTab === 'references' && (
