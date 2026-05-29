@@ -98,7 +98,7 @@ export const ComponentsBoard = () => (
 
       <CRow label="State indicator">
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="km-body-sm">inbox</span>
+          <span className="km-body-sm">on the bench</span>
           <span className="km-body-sm" style={{ color: 'var(--fg-faint)' }}>(no indicator)</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

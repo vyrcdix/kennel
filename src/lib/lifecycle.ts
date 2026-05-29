@@ -1,16 +1,17 @@
-// v0.3 vocabulary mapping — state → user-facing label / dot color / verb /
-// confirmation copy. Imported by screens and atoms; keeps the canonical
-// mapping in one place.
+// v0.3/v0.5 vocabulary mapping — state → user-facing label / dot color /
+// verb / confirmation copy. Imported by screens and atoms; keeps the
+// canonical mapping in one place. v0.5: "Dismissed" is now shown as "Let go"
+// in copy; schema value stays `dismissed`.
 
 import type { ItemState, ItemKind } from '../../shared/types';
 
 export const STATE_LABEL: Record<ItemState, string> = {
-  inbox: 'Captured',
+  inbox: 'On the bench',
   active: 'In focus',
   reflecting: 'Reflecting',
   crystallized: 'Crystallized',
   filed: 'Filed',
-  dismissed: 'Dismissed',
+  dismissed: 'Let go',
 };
 
 /** Maps a state to one of the existing `km-dot-*` classes in tokens.css. */
@@ -45,7 +46,7 @@ export const TRANSITION_VERB: Record<ItemState, string> = {
 
 /** Confirmation toasts / status copy per state transition target. */
 export const TRANSITION_CONFIRMATION: Record<ItemState, string> = {
-  inbox: 'Returned to inbox.',
+  inbox: 'Returned to the bench.',
   active: 'Picked up.',
   reflecting: 'Set aside.',
   crystallized: 'Crystallized.',

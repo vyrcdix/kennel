@@ -539,10 +539,10 @@ export const Dashboard = () => {
 
             {!focusMode && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {/* Inbox roll-up */}
+              {/* Bench roll-up */}
               <section className="km-card" style={{ padding: 0 }}>
                 <SectionHead
-                  title="Inbox"
+                  title="The bench"
                   right={
                     <>
                       <Mono>{inboxRollup.reduce((s, r) => s + r.count, 0)} unsorted</Mono>

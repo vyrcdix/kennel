@@ -39,7 +39,7 @@ const resolveProjectId = (db: DB, opts: { projectId?: string; projectSlug?: stri
 export const registerItemTools = (server: McpServer, db: DB) => {
   server.tool(
     'create_item',
-    'Capture an item into a project\'s inbox. Title required; body optional markdown; kind controls how it renders and what fields apply.',
+    'Capture an item onto the bench for a project (state=inbox in storage; "the bench" is the user-facing label). Title required; body optional markdown; kind controls how it renders and what fields apply.',
     {
       projectSlug: z.string().describe('Project slug to capture into.'),
       kind: KIND,
@@ -70,7 +70,7 @@ export const registerItemTools = (server: McpServer, db: DB) => {
 
   server.tool(
     'transition_item',
-    'Move an item between states: inbox / active / reflecting / crystallized / filed / dismissed. (Old aliases parked/done/archived also accepted, normalised to v0.3.) Logs activity.',
+    'Move an item between states: inbox ("the bench") / active ("in focus") / reflecting / crystallized / filed / dismissed ("let go"). User-facing copy uses the parenthesised labels; storage uses the bare values. (Old aliases parked/done/archived also accepted, normalised to v0.3.) Logs activity.',
     {
       itemId: z.string().describe('The item id.'),
       to: STATE,
@@ -86,7 +86,7 @@ export const registerItemTools = (server: McpServer, db: DB) => {
 
   server.tool(
     'list_queue',
-    'Inbox items + pending skill proposals awaiting triage. Optional project filter.',
+    'Items currently on the bench (state=inbox) + pending skill proposals awaiting sort. Optional project filter.',
     {
       projectSlug: z.string().optional(),
     },
@@ -169,7 +169,7 @@ export const registerItemTools = (server: McpServer, db: DB) => {
 
   server.tool(
     'convert_item',
-    'Convert an item into another shape. Targets idea/note/action/ref/question change the item\'s kind in place (and move it from inbox to active). Targets doc/reference create a new entity, link it from the source item, and dismiss the source.',
+    'Convert an item into another shape. Targets idea/note/action/ref/question change the item\'s kind in place (and move it off the bench into active). Targets doc/reference create a new entity, link it from the source item, and let go of the source.',
     {
       itemId: z.string(),
       target: z.enum(['idea', 'note', 'action', 'ref', 'question', 'doc', 'reference']),

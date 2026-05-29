@@ -351,7 +351,7 @@ export const TriageQueue = () => {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 10 }}>
               <div className="km-display-lg">Sort</div>
               <Mono>
-                {inboxCount} inbox · {proposalCount} proposals ·{' '}
+                {inboxCount} on the bench · {proposalCount} proposals ·{' '}
                 {projectFilter ?? 'global'} view
               </Mono>
             </div>
@@ -425,8 +425,8 @@ export const TriageQueue = () => {
             >
               {queue.length === 0 && (
                 <div style={{ padding: 32 }}>
-                  <div className="km-display-lg">Inbox is clear.</div>
-                  <Mono dim>nothing to triage</Mono>
+                  <div className="km-display-lg">The bench is clear.</div>
+                  <Mono dim>nothing to sort</Mono>
                 </div>
               )}
               {queue.map((entry) => {

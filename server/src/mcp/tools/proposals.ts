@@ -7,7 +7,7 @@ import { errorResult, jsonResult } from '../result.js';
 export const registerProposalTools = (server: McpServer, db: DB) => {
   server.tool(
     'propose_skill_update',
-    'Propose a replacement body for an existing skill. Lands in Craig\'s review queue alongside inbox items. Use this when you notice a skill\'s instructions could be more accurate based on observed work.',
+    'Propose a replacement body for an existing skill. Lands in Craig\'s review queue alongside items on the bench. Use this when you notice a skill\'s instructions could be more accurate based on observed work.',
     {
       skillId: z.string().describe('The skill to propose changes to.'),
       proposedBody: z.string().min(1)
