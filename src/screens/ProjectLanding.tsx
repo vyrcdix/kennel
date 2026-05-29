@@ -27,7 +27,9 @@ import {
 } from '../lib/temperature';
 import {
   crystallizeItem,
+  deleteChat,
   deleteGuidebook,
+  deleteReference,
   fileItem,
   reorderGuidebooks,
   setChatUrl,
@@ -35,6 +37,7 @@ import {
   setGuidebookPinned,
   touchItem,
   updateGuidebook,
+  ValidationError,
 } from '../data/actions';
 import {
   getAgingItems,
@@ -992,6 +995,11 @@ export const ProjectLanding = () => {
                           : undefined
                       }
                       onSaveUrl={(url) => void setChatUrl(c.id, url)}
+                      onDelete={async () => {
+                        if (window.confirm(`Delete conversation "${c.tagline.slice(0, 60)}…"? This can't be undone.`)) {
+                          await deleteChat(c.id);
+                        }
+                      }}
                     />
                   ))}
                   {staleChats.length > 0 && (
@@ -1012,6 +1020,11 @@ export const ProjectLanding = () => {
                               : undefined
                           }
                           onSaveUrl={(url) => void setChatUrl(c.id, url)}
+                          onDelete={async () => {
+                            if (window.confirm(`Delete conversation "${c.tagline.slice(0, 60)}…"? This can't be undone.`)) {
+                              await deleteChat(c.id);
+                            }
+                          }}
                           stale
                         />
                       ))}
@@ -1131,7 +1144,7 @@ export const ProjectLanding = () => {
                         }}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: '14px 1fr 90px',
+                          gridTemplateColumns: '14px 1fr 90px 26px',
                           alignItems: 'center',
                           gap: 12,
                           padding: '8px 16px',
@@ -1149,6 +1162,34 @@ export const ProjectLanding = () => {
                           )}
                         </div>
                         <Mono dim>{formatRelative(r.updatedAt)}</Mono>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm(`Delete reference "${r.label}"? Items pointing at it lose the link. This can't be undone.`)) return;
+                            try {
+                              await deleteReference(r.id);
+                            } catch (err) {
+                              if (err instanceof ValidationError && err.fields.reference === 'in_use_by_guidebook_entry') {
+                                window.alert('This reference is used by one or more guidebook entries. Remove the entries first, then delete.');
+                              } else {
+                                window.alert((err as Error).message);
+                              }
+                            }
+                          }}
+                          title="Delete reference"
+                          style={{
+                            border: 0,
+                            background: 'transparent',
+                            padding: '2px 4px',
+                            cursor: 'pointer',
+                            color: 'var(--ember-deep)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Icons.trash size={12} />
+                        </button>
                       </div>
                     ))
                   )

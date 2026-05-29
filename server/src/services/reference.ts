@@ -96,3 +96,46 @@ export const createReference = (
   });
   return getRefById(db, id)!;
 };
+
+/** Hard-delete a reference. Guidebook entries that point at it would
+ *  break the XOR-source CHECK, so we surface a friendly 409 listing
+ *  where it's still in use. Items pointing at it (items.reference_id)
+ *  get NULLed so they survive — they own the action / question, the
+ *  reference was just attached. */
+export const deleteReference = (
+  db: DB,
+  id: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const existing = getRefById(db, id);
+  if (!existing) throw notFound('reference', id);
+
+  const inUse = db
+    .prepare<[string], { c: number }>(
+      'SELECT COUNT(*) AS c FROM guidebook_entries WHERE reference_id = ?',
+    )
+    .get(id);
+  if ((inUse?.c ?? 0) > 0) {
+    throw validationError({
+      reference: 'in_use_by_guidebook_entry',
+    });
+  }
+
+  const now = nowIso();
+  const tx = db.transaction(() => {
+    db.prepare(
+      'UPDATE items SET reference_id = NULL, updated_at = ? WHERE reference_id = ?',
+    ).run(now, id);
+    db.prepare('DELETE FROM refs WHERE id = ?').run(id);
+  });
+  tx();
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'reference',
+    entityId: id,
+    verb: 'REMOVED',
+    target: `reference / ${existing.label}`,
+    actor,
+    occurredAt: now,
+  });
+};

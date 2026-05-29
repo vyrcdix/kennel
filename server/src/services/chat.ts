@@ -137,3 +137,24 @@ export const updateChatTagline = (
   });
   return rowToChat({ ...row, tagline: trimmed, last_seen_at: now, updated_at: now });
 };
+
+/** Hard-delete a chat. No FK dependents. */
+export const deleteChat = (
+  db: DB,
+  id: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const row = db.prepare<[string], ChatRow>('SELECT * FROM chats WHERE id = ?').get(id);
+  if (!row) throw notFound('chat', id);
+  const now = nowIso();
+  db.prepare('DELETE FROM chats WHERE id = ?').run(id);
+  logActivity(db, {
+    projectId: row.project_id,
+    entityType: 'chat',
+    entityId: id,
+    verb: 'REMOVED',
+    target: `chat / ${row.tagline.slice(0, 60)}`,
+    actor,
+    occurredAt: now,
+  });
+};

@@ -12,6 +12,8 @@ export type ChatRowProps = {
   /** When provided, a URL-less row shows an inline "add link" affordance
    *  that calls this with the pasted URL. */
   onSaveUrl?: (url: string) => void;
+  /** When provided, the row shows a trash button that calls this. */
+  onDelete?: () => void;
 };
 
 export const ChatRow = ({
@@ -21,6 +23,7 @@ export const ChatRow = ({
   claudeUrl,
   onClick,
   onSaveUrl,
+  onDelete,
 }: ChatRowProps) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -120,6 +123,26 @@ export const ChatRow = ({
           + link
         </button>
       ) : null}
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="Delete this conversation"
+          style={{
+            border: 0,
+            background: 'transparent',
+            padding: '2px 4px',
+            cursor: 'pointer',
+            color: 'var(--ember-deep)',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}
+        >
+          <Icons.trash size={11} />
+        </button>
+      )}
     </div>
   );
 };

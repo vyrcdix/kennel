@@ -1,7 +1,13 @@
 import { Router } from 'express';
 import type { DB } from '../db.js';
 import { asyncHandler, validationError } from '../errors.js';
-import { listChats, registerChat, setChatUrl, touchChat } from '../services/chat.js';
+import {
+  deleteChat,
+  listChats,
+  registerChat,
+  setChatUrl,
+  touchChat,
+} from '../services/chat.js';
 
 export const chatsRouter = (db: DB): Router => {
   const r = Router();
@@ -29,6 +35,13 @@ export const chatsRouter = (db: DB): Router => {
         throw validationError({ claudeUrl: 'string_or_null' });
       }
       res.json(setChatUrl(db, req.params.id, url));
+    }),
+  );
+  r.delete(
+    '/:id',
+    asyncHandler(async (req, res) => {
+      deleteChat(db, req.params.id);
+      res.status(204).end();
     }),
   );
   return r;

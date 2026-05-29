@@ -21,6 +21,7 @@ import { notify } from './store';
 import { api, ApiError, materializeDates } from './api';
 import type {
   Chat,
+  Doc,
   EntityComment,
   EntityType,
   FieldNotes,
@@ -160,6 +161,32 @@ export const captureItem = async (input: CaptureInput): Promise<Item> => {
   return created;
 };
 
+export type UpdateItemPatch = {
+  title?: string;
+  body?: string | null;
+};
+
+/** Title / body edit on an existing item — distinct from state
+ *  transitions (touchItem, fileItem, crystallizeItem) which own their
+ *  own routes. */
+export const updateItem = async (
+  id: string,
+  patch: UpdateItemPatch,
+): Promise<Item> => {
+  const updated = await wrap(() => api.patch<Item>(`/api/items/${id}`, patch));
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
+  notify();
+  return updated;
+};
+
+export const deleteItem = async (id: string): Promise<void> => {
+  await wrap(() => api.del(`/api/items/${id}`));
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items.splice(idx, 1);
+  notify();
+};
+
 // ─── References ──────────────────────────────────────────────────────────
 
 export type CreateReferenceInput = {
@@ -176,6 +203,16 @@ export const createReference = async (
   references.unshift(created);
   notify();
   return created;
+};
+
+export const deleteReference = async (id: string): Promise<void> => {
+  await wrap(() => api.del(`/api/references/${id}`));
+  const idx = references.findIndex((r) => r.id === id);
+  if (idx >= 0) references.splice(idx, 1);
+  for (const it of items) {
+    if (it.referenceId === id) it.referenceId = undefined;
+  }
+  notify();
 };
 
 // ─── Docs ────────────────────────────────────────────────────────────────
@@ -196,6 +233,45 @@ export const setDocPinned = async (id: string, pinned: boolean): Promise<void> =
   const idx = docs.findIndex((d) => d.id === id);
   if (idx >= 0) docs[idx] = updated as typeof docs[number];
   notify();
+};
+
+export type UploadDocInput = {
+  projectSlug: string;
+  filename: string;
+  kind: 'md' | 'docx';
+  /** Base64-encoded file body. The server decodes via Buffer.from(..., 'base64'). */
+  bodyBase64: string;
+  title?: string;
+};
+
+/** Create a new Doc from an uploaded file (.md or .docx). Wraps the
+ *  server's createDocFromUpload, which converts .docx via mammoth and
+ *  populates the provenance columns. */
+export const deleteDoc = async (id: string): Promise<void> => {
+  await wrap(() => api.del(`/api/docs/${id}`));
+  const idx = docs.findIndex((d) => d.id === id);
+  if (idx >= 0) docs.splice(idx, 1);
+  // Clear items.docId so any item that pointed at it loses the link
+  // immediately rather than waiting for the next bootstrap.
+  for (const it of items) {
+    if (it.docId === id) it.docId = undefined;
+  }
+  notify();
+};
+
+export const uploadDoc = async (input: UploadDocInput): Promise<Doc> => {
+  const created = await wrap(() =>
+    api.post<Doc>('/api/docs/upload', {
+      projectSlug: input.projectSlug,
+      filename: input.filename,
+      kind: input.kind,
+      body: input.bodyBase64,
+      title: input.title,
+    }),
+  );
+  docs.push(created);
+  notify();
+  return created;
 };
 
 // ─── Comments ────────────────────────────────────────────────────────────
@@ -291,6 +367,13 @@ export const touchChat = async (id: string): Promise<void> => {
   const updated = await wrap(() => api.post(`/api/chats/${id}/touch`));
   const idx = chats.findIndex((c) => c.id === id);
   if (idx >= 0) chats[idx] = updated as typeof chats[number];
+  notify();
+};
+
+export const deleteChat = async (id: string): Promise<void> => {
+  await wrap(() => api.del(`/api/chats/${id}`));
+  const idx = chats.findIndex((c) => c.id === id);
+  if (idx >= 0) chats.splice(idx, 1);
   notify();
 };
 

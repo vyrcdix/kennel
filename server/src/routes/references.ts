@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { DB } from '../db.js';
 import { asyncHandler } from '../errors.js';
-import { createReference } from '../services/reference.js';
+import { createReference, deleteReference } from '../services/reference.js';
 
 export const referencesRouter = (db: DB): Router => {
   const r = Router();
@@ -19,6 +19,13 @@ export const referencesRouter = (db: DB): Router => {
           description: body.description,
         }, 'craig'),
       );
+    }),
+  );
+  r.delete(
+    '/:id',
+    asyncHandler(async (req, res) => {
+      deleteReference(db, req.params.id);
+      res.status(204).end();
     }),
   );
   return r;

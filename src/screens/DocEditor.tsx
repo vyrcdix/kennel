@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
@@ -17,8 +17,10 @@ import {
 import {
   addComment,
   crystallizeItem,
+  deleteDoc,
   saveDoc,
   setDocPinned,
+  ValidationError,
 } from '../data/actions';
 import { items } from '../data/fixtures';
 import { useStoreVersion } from '../data/store';
@@ -40,6 +42,7 @@ const DocNotFound = ({ id }: { id: string }) => (
 
 const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>> }) => {
   useStoreVersion();
+  const navigate = useNavigate();
   const [draft, setDraft] = useState(doc.body);
   const [previewOnly, setPreviewOnly] = useState(false);
   const dirty = draft !== doc.body;
@@ -155,6 +158,26 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
                   style={previewOnly ? { color: 'var(--ember-deep)' } : undefined}
                 >
                   <Icons.side size={13} /> {previewOnly ? 'Show source' : 'Preview only'}
+                </button>
+                <button
+                  className="km-btn km-btn-ghost"
+                  onClick={async () => {
+                    if (!window.confirm(`Delete "${doc.title}"? The markdown file is removed and any items pointing at it lose the link. This can't be undone.`)) return;
+                    try {
+                      await deleteDoc(doc.id);
+                      navigate(project ? `/project/${project.slug}` : '/');
+                    } catch (err) {
+                      if (err instanceof ValidationError && err.fields.doc === 'in_use_by_guidebook_entry') {
+                        window.alert('This doc is the source of one or more guidebook entries. Remove the entries first, then delete.');
+                      } else {
+                        window.alert((err as Error).message);
+                      }
+                    }
+                  }}
+                  title="Delete this doc"
+                  style={{ color: 'var(--ember-deep)' }}
+                >
+                  <Icons.trash size={13} /> Delete
                 </button>
               </div>
             </div>

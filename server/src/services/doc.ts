@@ -277,6 +277,60 @@ export const setDocPinned = (db: DB, id: string, pinned: boolean): Doc => {
   return getDocById(db, id)!;
 };
 
+/** Hard-delete a doc + its on-disk markdown file. Items pointing at it
+ *  (items.doc_id) get NULLed so the item survives — same pattern as
+ *  deleteReference. Guidebook entries referencing the doc would break
+ *  the XOR CHECK, so we refuse the delete with a friendly 409 if any
+ *  exist. */
+export const deleteDoc = (
+  db: DB,
+  id: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const existing = getDocById(db, id);
+  if (!existing) throw notFound('doc', id);
+
+  const inUse = db
+    .prepare<[string], { c: number }>(
+      'SELECT COUNT(*) AS c FROM guidebook_entries WHERE doc_id = ?',
+    )
+    .get(id);
+  if ((inUse?.c ?? 0) > 0) {
+    throw validationError({ doc: 'in_use_by_guidebook_entry' });
+  }
+
+  const now = nowIso();
+  const tx = db.transaction(() => {
+    db.prepare(
+      'UPDATE items SET doc_id = NULL, updated_at = ? WHERE doc_id = ?',
+    ).run(now, id);
+    db.prepare('DELETE FROM docs WHERE id = ?').run(id);
+  });
+  tx();
+
+  // Best-effort file unlink; the row is already gone, so a stale .md is
+  // harmless. Don't throw — the user already sees the doc disappear from
+  // the UI and a content-dir clean-up sweep can pick up orphans.
+  try {
+    const path = absolutePath(existing.filePath);
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('node:fs') as typeof import('node:fs');
+    if (fs.existsSync(path)) fs.unlinkSync(path);
+  } catch {
+    /* leave the file; row is gone */
+  }
+
+  logActivity(db, {
+    projectId: existing.projectId,
+    entityType: 'doc',
+    entityId: id,
+    verb: 'REMOVED',
+    target: `doc / ${existing.title}`,
+    actor,
+    occurredAt: now,
+  });
+};
+
 export const updateDocBody = (db: DB, id: string, body: string): Doc => {
   const existing = getDocById(db, id);
   if (!existing) throw notFound('doc', id);
