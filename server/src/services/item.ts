@@ -26,10 +26,30 @@ type ItemRow = {
   reference_id: string | null;
   hash: string | null;
   metadata: string | null;
+  // v0.5 facets
+  ctype: string | null;
+  sources_from: string | null;     // JSON array of ids
+  serves_id: string | null;
+  last_surfaced_at: string | null;
+  surface_count: number;
   created_at: string;
   updated_at: string;
   last_touched_at: string | null;
 };
+
+/** Defensive parse for sources_from — corrupt rows yield []. */
+const parseSourcesFrom = (raw: string | null): string[] | undefined => {
+  if (!raw) return undefined;
+  try {
+    const v = JSON.parse(raw);
+    if (!Array.isArray(v)) return undefined;
+    return v.filter((s): s is string => typeof s === 'string');
+  } catch {
+    return undefined;
+  }
+};
+
+const CRYSTAL_TYPES = new Set(['principle', 'quote', 'reminder', 'hint', 'memory']);
 
 export const rowToItem = (r: ItemRow): Item => ({
   id: r.id,
@@ -49,6 +69,13 @@ export const rowToItem = (r: ItemRow): Item => ({
   referenceId: r.reference_id ?? undefined,
   hash: r.hash ?? undefined,
   lastTouchedAt: fromIso(r.last_touched_at),
+  ctype: r.ctype && CRYSTAL_TYPES.has(r.ctype)
+    ? (r.ctype as Item['ctype'])
+    : undefined,
+  sourcesFrom: parseSourcesFrom(r.sources_from),
+  servesId: r.serves_id ?? undefined,
+  lastSurfacedAt: fromIso(r.last_surfaced_at),
+  surfaceCount: r.surface_count ?? 0,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });
@@ -284,8 +311,9 @@ export const touchItem = (db: DB, id: string): void => {
 };
 
 /** Promote an item to a crystallization. Sets state=crystallized; optionally
- *  flips kind→'crystallization'. Records sources_from in metadata so the
- *  lineage ("from N items, M chats") can be shown on the panel. */
+ *  flips kind→'crystallization'. v0.5: sources_from now stores as its own
+ *  column; last_surfaced_at seeds to now so the resurface cadence starts
+ *  from the crystallisation moment. */
 export const crystallizeItem = (
   db: DB,
   id: string,
@@ -297,22 +325,20 @@ export const crystallizeItem = (
 
   const now = nowIso();
   const sources = opts.sourcesFrom ?? [];
-  const meta = JSON.stringify({
-    ...(item.body ? {} : {}),
-    sources_from: sources,
-  });
 
   db.prepare(
     `UPDATE items
      SET state = 'crystallized',
          kind = CASE WHEN ? = 1 THEN 'crystallization' ELSE kind END,
          done_at = ?, updated_at = ?, last_touched_at = ?,
-         metadata = ?
+         sources_from = ?,
+         last_surfaced_at = ?
      WHERE id = ?`,
   ).run(
     opts.promoteKind ? 1 : 0,
     now, now, now,
-    meta,
+    sources.length > 0 ? JSON.stringify(sources) : null,
+    now,
     id,
   );
 

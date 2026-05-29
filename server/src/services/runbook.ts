@@ -15,6 +15,7 @@ type RunbookRow = {
   troubleshoot: string | null;
   notes: string | null;
   revision: number;
+  supports_crystal_item_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -47,6 +48,7 @@ export const rowToRunbook = (r: RunbookRow): Runbook => ({
   troubleshoot: r.troubleshoot ?? undefined,
   notes: r.notes ?? undefined,
   revision: r.revision,
+  supportsCrystalItemId: r.supports_crystal_item_id ?? undefined,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });

@@ -41,6 +41,12 @@ export type Project = {
   updatedAt: Date;
 };
 
+/** Crystallization sub-type (v0.5). Nullable; only meaningful when
+ *  `kind === 'crystallization'`. Drives the typed card treatment on the
+ *  salient layer; `principle` gets the hero-sized card, others (and
+ *  null) get the default card. */
+export type CrystalType = 'principle' | 'quote' | 'reminder' | 'hint' | 'memory';
+
 export type Item = {
   id: string;
   projectId: string;
@@ -59,6 +65,17 @@ export type Item = {
   referenceId?: string;
   hash?: string;
   lastTouchedAt?: Date;
+  /** v0.5 facets — see handoff/kennel_v05_handoff/README.md §2. */
+  ctype?: CrystalType;
+  /** Backward lineage: source item / doc / chat ids the crystal was
+   *  distilled from. */
+  sourcesFrom?: string[];
+  /** Forward intent: the crystal / idea / thread anchor this action
+   *  serves. Orthogonal to sourcesFrom. */
+  servesId?: string;
+  /** Resurfacing cadence — when the crystal was last shown / acked. */
+  lastSurfacedAt?: Date;
+  surfaceCount: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -68,11 +85,20 @@ export type Settings = {
   filingPromptDays: 0 | 90 | 180;
   dormantThresholdDays: number;
   showTemperature: boolean;
+  /** v0.5: resurface cadence in days. Range 7–180; default 30. */
+  resurfaceIntervalDays: number;
   createdAt: Date;
   updatedAt: Date;
 };
 
 export type FieldNotesMode = 'scratchpad' | 'managed';
+
+export type FieldNotesSectionKey =
+  | 'premise'
+  | 'whatIKnow'
+  | 'openQuestions'
+  | 'sources'
+  | 'crystallizations';
 
 export type FieldNotes = {
   id: string;
@@ -87,11 +113,20 @@ export type FieldNotes = {
   sources?: string;
   crystallizations?: string;
   revision: number;
+  /** v0.5: section-level crystal links. Map of section key →
+   *  crystallization item id. Section-split-into-its-own-table is a
+   *  future migration; until then this column holds the linkage. */
+  supportsCrystals?: Partial<Record<FieldNotesSectionKey, string>>;
   createdAt: Date;
   updatedAt: Date;
 };
 
 export type DocSourceKind = 'md' | 'docx' | 'inline';
+
+/** v0.5: reserved for future plain-doc subtypes. Only `'doc'` is valid
+ *  today; enforced at the application layer so adding a subtype later
+ *  doesn't need a fresh migration. */
+export type DocType = 'doc';
 
 export type Doc = {
   id: string;
@@ -108,6 +143,13 @@ export type Doc = {
   /** How the doc's body got here. 'inline' = composed in-app / via MCP. */
   sourceKind?: DocSourceKind;
   sourceUploadedAt?: Date;
+  /** v0.5: plain-doc subtype. Defaults to 'doc'. */
+  doctype: DocType;
+  /** v0.5: nullable link to the crystallization this doc supports.
+   *  Set automatically when crystallizing if this doc is in
+   *  `sourcesFrom`; can also be set manually from the Crystal detail
+   *  "Built on" panel. */
+  supportsCrystal?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -142,6 +184,8 @@ export type Runbook = {
   troubleshoot?: string;
   notes?: string;
   revision: number;
+  /** v0.5: nullable link to the crystallization this runbook supports. */
+  supportsCrystalItemId?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -245,6 +289,8 @@ export type Guidebook = {
   pinned: boolean;
   /** Sort order among guidebooks within the same topic. */
   rank: number;
+  /** v0.5: nullable link to the crystallization this guidebook supports. */
+  supportsCrystalItemId?: string;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -13,6 +13,7 @@ type GuidebookRow = {
   description: string | null;
   pinned: number;
   rank: number | null;
+  supports_crystal_item_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -24,6 +25,7 @@ export const rowToGuidebook = (r: GuidebookRow): Guidebook => ({
   description: r.description ?? undefined,
   pinned: r.pinned === 1,
   rank: r.rank ?? 0,
+  supportsCrystalItemId: r.supports_crystal_item_id ?? undefined,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });

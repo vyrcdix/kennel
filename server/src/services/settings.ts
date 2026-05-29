@@ -9,6 +9,7 @@ type SettingsRow = {
   filing_prompt_days: number;
   dormant_threshold_days: number;
   show_temperature: number;
+  resurface_interval_days: number;
   created_at: string;
   updated_at: string;
 };
@@ -18,6 +19,7 @@ const rowToSettings = (r: SettingsRow): Settings => ({
   filingPromptDays: r.filing_prompt_days as 0 | 90 | 180,
   dormantThresholdDays: r.dormant_threshold_days,
   showTemperature: r.show_temperature !== 0,
+  resurfaceIntervalDays: r.resurface_interval_days ?? 30,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });
@@ -34,6 +36,7 @@ export type SettingsPatch = {
   filingPromptDays?: 0 | 90 | 180;
   dormantThresholdDays?: number;
   showTemperature?: boolean;
+  resurfaceIntervalDays?: number;
 };
 
 export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
@@ -52,6 +55,10 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
   if (patch.showTemperature !== undefined && typeof patch.showTemperature !== 'boolean') {
     fields.showTemperature = 'invalid';
   }
+  if (patch.resurfaceIntervalDays !== undefined) {
+    const n = patch.resurfaceIntervalDays;
+    if (!Number.isInteger(n) || n < 7 || n > 180) fields.resurfaceIntervalDays = 'out_of_range';
+  }
   if (Object.keys(fields).length) throw validationError(fields);
 
   const now = nowIso();
@@ -61,6 +68,8 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
     filingPromptDays: patch.filingPromptDays ?? current.filingPromptDays,
     dormantThresholdDays: patch.dormantThresholdDays ?? current.dormantThresholdDays,
     showTemperature: patch.showTemperature ?? current.showTemperature,
+    resurfaceIntervalDays:
+      patch.resurfaceIntervalDays ?? current.resurfaceIntervalDays,
     createdAt: current.createdAt,
     updatedAt: new Date(now),
   };
@@ -70,6 +79,7 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
          filing_prompt_days = ?,
          dormant_threshold_days = ?,
          show_temperature = ?,
+         resurface_interval_days = ?,
          updated_at = ?
      WHERE id = 1`,
   ).run(
@@ -77,6 +87,7 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
     next.filingPromptDays,
     next.dormantThresholdDays,
     next.showTemperature ? 1 : 0,
+    next.resurfaceIntervalDays,
     now,
   );
   return next;

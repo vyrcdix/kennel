@@ -26,8 +26,40 @@ type FieldNotesRow = {
   sources: string | null;
   crystallizations: string | null;
   revision: number;
+  supports_crystals: string | null;
   created_at: string;
   updated_at: string;
+};
+
+const SECTION_KEYS = new Set([
+  'premise',
+  'whatIKnow',
+  'openQuestions',
+  'sources',
+  'crystallizations',
+]);
+
+/** Defensive parse for the supports_crystals JSON map — corrupt rows
+ *  yield undefined. Only known section keys survive. */
+const parseSupportsCrystals = (
+  raw: string | null,
+): FieldNotes['supportsCrystals'] => {
+  if (!raw) return undefined;
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+    const out: Record<string, string> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (SECTION_KEYS.has(k) && typeof val === 'string' && val) {
+        out[k] = val;
+      }
+    }
+    return Object.keys(out).length > 0
+      ? (out as FieldNotes['supportsCrystals'])
+      : undefined;
+  } catch {
+    return undefined;
+  }
 };
 
 export const rowToFieldNotes = (r: FieldNotesRow): FieldNotes => ({
@@ -40,6 +72,7 @@ export const rowToFieldNotes = (r: FieldNotesRow): FieldNotes => ({
   sources: r.sources ?? undefined,
   crystallizations: r.crystallizations ?? undefined,
   revision: r.revision,
+  supportsCrystals: parseSupportsCrystals(r.supports_crystals),
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });

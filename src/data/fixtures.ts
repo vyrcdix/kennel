@@ -41,6 +41,7 @@ const DEFAULT_SETTINGS: Settings = {
   filingPromptDays: 0,
   dormantThresholdDays: 60,
   showTemperature: true,
+  resurfaceIntervalDays: 30,
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };

@@ -25,7 +25,7 @@ import { notFound, validationError } from '../errors.js';
 import { newId } from '../ids.js';
 import { fromIso, nowIso } from '../time.js';
 import { getProjectBySlug } from './project.js';
-import type { Doc, DocSourceKind } from '../../../shared/types.js';
+import type { Doc, DocSourceKind, DocType } from '../../../shared/types.js';
 
 type DocRow = {
   id: string;
@@ -41,11 +41,19 @@ type DocRow = {
   source_filename: string | null;
   source_kind: DocSourceKind | null;
   source_uploaded_at: string | null;
+  doctype: string;
+  supports_crystal: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const absolutePath = (filePath: string) => join(contentRoot(), filePath);
+
+/** v0.5: only 'doc' is valid today. Anything else falls back to 'doc' so
+ *  an out-of-band write can't poison the read path. */
+const VALID_DOCTYPES = new Set<DocType>(['doc']);
+const safeDoctype = (raw: string): DocType =>
+  VALID_DOCTYPES.has(raw as DocType) ? (raw as DocType) : 'doc';
 
 export const rowToDoc = (r: DocRow): Doc => ({
   id: r.id,
@@ -60,6 +68,8 @@ export const rowToDoc = (r: DocRow): Doc => ({
   sourceFilename: r.source_filename ?? undefined,
   sourceKind: r.source_kind ?? undefined,
   sourceUploadedAt: fromIso(r.source_uploaded_at ?? undefined),
+  doctype: safeDoctype(r.doctype),
+  supportsCrystal: r.supports_crystal ?? undefined,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });
