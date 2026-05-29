@@ -23,6 +23,7 @@ import {
   getNextUp,
   getPinnedProjects,
   getProjectById,
+  getProjects,
   getRecentChats,
   getSettings,
 } from '../data/selectors';
@@ -290,6 +291,9 @@ export const Dashboard = () => {
   const [focusMode, setFocusMode] = useFocusMode();
   const [registerChatOpen, setRegisterChatOpen] = useState(false);
   const pinned = getPinnedProjects();
+  // Active threads only (excludes archived) — drives the "no threads" gate
+  // and the fallback rail when nothing is pinned yet.
+  const allActiveProjects = getProjects().filter((p) => p.status !== 'archived');
   const recentChats = getRecentChats(4);
   const nextUp = getNextUp(undefined, 7);
   const inboxRollup = getInboxRollup();
@@ -311,7 +315,11 @@ export const Dashboard = () => {
     () => new Map(pinned.map((p) => [p.id, p])),
     [pinned],
   );
-  const hasProjects = pinned.length > 0 || nextUp.length > 0 || inboxRollup.length > 0;
+  const hasProjects =
+    allActiveProjects.length > 0 ||
+    pinned.length > 0 ||
+    nextUp.length > 0 ||
+    inboxRollup.length > 0;
 
   if (!hasProjects) {
     return (
@@ -366,32 +374,39 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          {/* Project rail */}
-          {!focusMode && (
-            <>
-              <Label style={{ marginBottom: 10 }}>Pinned threads</Label>
-              <div
-                className="km-scroll"
-                style={{
-                  display: 'flex',
-                  gap: 10,
-                  overflowX: 'auto',
-                  paddingBottom: 16,
-                  marginBottom: 18,
-                }}
-              >
-                {pinned.map((p, i) => (
-                  <ProjectCard
-                    key={p.id}
-                    project={p}
-                    active={i === 0}
-                    temp={temperatureForDate(lastTouchedById.get(p.id), settings)}
-                    counts={countsById.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 }}
-                  />
-                ))}
-              </div>
-            </>
-          )}
+          {/* Project rail — falls back to all active threads when none
+              are pinned, so brand-new prod installs aren't a dead end. */}
+          {!focusMode && (() => {
+            const railProjects = pinned.length > 0 ? pinned : allActiveProjects;
+            if (railProjects.length === 0) return null;
+            return (
+              <>
+                <Label style={{ marginBottom: 10 }}>
+                  {pinned.length > 0 ? 'Pinned threads' : 'All threads'}
+                </Label>
+                <div
+                  className="km-scroll"
+                  style={{
+                    display: 'flex',
+                    gap: 10,
+                    overflowX: 'auto',
+                    paddingBottom: 16,
+                    marginBottom: 18,
+                  }}
+                >
+                  {railProjects.map((p, i) => (
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      active={i === 0}
+                      temp={temperatureForDate(lastTouchedById.get(p.id), settings)}
+                      counts={countsById.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 }}
+                    />
+                  ))}
+                </div>
+              </>
+            );
+          })()}
 
           {/* Next up + side panels */}
           <div

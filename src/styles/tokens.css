@@ -82,7 +82,7 @@
   font-family: var(--ff-mono); font-size: 9px; letter-spacing: 0;
 }
 
-/* Project pill (slug) */
+/* Project pill (slug) — defaults to moss; per-thread color override below */
 .km-proj {
   display: inline-flex; align-items: center;
   padding: 1px 6px;
@@ -94,6 +94,15 @@
   line-height: 1.5;
 }
 .km-dark .km-proj { color: #A4C474; background: rgba(164,196,116,.14); }
+
+/* Per-thread color variants. Backgrounds are the palette colour at ~15%
+   alpha; foregrounds are the same hex tightened up so the text reads
+   against the wash. */
+.km-proj-moss  { color: var(--moss);       background: rgba(92,122,62,.15); }
+.km-proj-ember { color: var(--ember-deep); background: rgba(217,98,44,.13); }
+.km-proj-dust  { color: #8C6A38;           background: rgba(201,168,124,.22); }
+.km-proj-blaze { color: #9B7320;           background: rgba(232,181,71,.20); }
+.km-proj-slate { color: var(--slate-dark); background: rgba(58,63,69,.12); }
 
 /* Free-form tag */
 .km-tag {
