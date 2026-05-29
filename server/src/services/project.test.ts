@@ -35,11 +35,11 @@ describe('createProject', () => {
     const p = createProject(db, {
       name: 'Custom Slug',
       slug: 'custom-x',
-      color: 'moss',
+      color: 'sage',
       pinned: true,
     });
     expect(p.slug).toBe('custom-x');
-    expect(p.color).toBe('moss');
+    expect(p.color).toBe('sage');
     expect(p.pinned).toBe(true);
   });
 

@@ -135,27 +135,31 @@
   font-family: var(--ff-mono); font-size: 9px; letter-spacing: 0;
 }
 
-/* Project pill (slug) — defaults to moss; per-thread color override below */
+/* Project pill (slug). v0.5 §A: quiet neutral surface + a 3px coloured
+ *  left tint that carries the thread's label colour. NO surface fill in
+ *  the family colours (blaze/ember/moss/clay) — those are reserved. */
 .km-proj {
   display: inline-flex; align-items: center;
-  padding: 1px 6px;
-  background: rgba(92,122,62,.15);
-  color: var(--moss);
+  padding: 1px 7px 1px 6px;
+  background: rgba(43,32,20,.05);
+  color: var(--fg-muted);
   font-family: var(--ff-mono);
   font-size: 11px;
   border-radius: 3px;
+  border-left: 3px solid transparent;
   line-height: 1.5;
 }
-.km-dark .km-proj { color: #A4C474; background: rgba(164,196,116,.14); }
+.km-dark .km-proj { color: var(--fg-muted); background: rgba(232,226,210,.08); }
 
-/* Per-thread color variants. Backgrounds are the palette colour at ~15%
-   alpha; foregrounds are the same hex tightened up so the text reads
-   against the wash. */
-.km-proj-moss  { color: var(--moss);       background: rgba(92,122,62,.15); }
-.km-proj-ember { color: var(--ember-deep); background: rgba(217,98,44,.13); }
-.km-proj-dust  { color: #8C6A38;           background: rgba(201,168,124,.22); }
-.km-proj-blaze { color: #9B7320;           background: rgba(232,181,71,.20); }
-.km-proj-slate { color: var(--slate-dark); background: rgba(58,63,69,.12); }
+/* Per-thread label colour variants. Left-tint only — left border carries
+ *  the colour; the surface stays the neutral km-proj background so the
+ *  pill never competes with crystals (blaze) or actions (ember). */
+.km-proj-stone { border-left-color: #8C8275; color: var(--fg); }
+.km-proj-sage  { border-left-color: #79876F; color: var(--fg); }
+.km-proj-dusk  { border-left-color: #6C7A8C; color: var(--fg); }
+.km-proj-plum  { border-left-color: #87697C; color: var(--fg); }
+.km-proj-slate { border-left-color: #5A6066; color: var(--fg); }
+.km-proj-teal  { border-left-color: #5E807A; color: var(--fg); }
 
 /* Free-form tag */
 .km-tag {

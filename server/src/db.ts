@@ -34,6 +34,14 @@ const ensureMigrationsTable = (db: DB) => {
   `);
 };
 
+/** Migrations that include the SQLite "12-step" table-rebuild dance
+ *  need foreign_keys OFF for the duration, which can't be toggled
+ *  inside a transaction. They opt in via a `-- @rebuild` marker in the
+ *  first few lines of the file; the runner then disables FK checks
+ *  for that migration only, runs PRAGMA foreign_key_check inside the
+ *  transaction, and re-enables FK afterwards. */
+const REBUILD_MARKER = /^[\s-]*@rebuild\b/m;
+
 export const applyMigrations = (db: DB) => {
   ensureMigrationsTable(db);
   const applied = new Set(
@@ -48,11 +56,26 @@ export const applyMigrations = (db: DB) => {
   for (const file of files) {
     if (applied.has(file)) continue;
     const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
-    const tx = db.transaction(() => {
-      db.exec(sql);
-      insertApplied.run(file, nowIso());
-    });
-    tx();
+    const isRebuild = REBUILD_MARKER.test(sql.slice(0, 400));
+    if (isRebuild) db.pragma('foreign_keys = OFF');
+    try {
+      const tx = db.transaction(() => {
+        db.exec(sql);
+        if (isRebuild) {
+          // Rebuilds defer FK checks; verify before commit.
+          const violations = db.prepare('PRAGMA foreign_key_check').all();
+          if (violations.length > 0) {
+            throw new Error(
+              `[db] migration ${file} broke foreign keys: ${JSON.stringify(violations)}`,
+            );
+          }
+        }
+        insertApplied.run(file, nowIso());
+      });
+      tx();
+    } finally {
+      if (isRebuild) db.pragma('foreign_keys = ON');
+    }
     console.log(`[db] applied migration: ${file}`);
   }
 };

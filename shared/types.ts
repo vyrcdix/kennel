@@ -24,7 +24,18 @@ export type ProjectStatus = 'active' | 'paused' | 'archived';
 
 export type Actor = 'craig' | 'claude' | 'cli' | 'system';
 
-export type ProjectColor = 'moss' | 'ember' | 'dust' | 'blaze' | 'slate';
+/** v0.5 thread label palette (handoff §A). Six low-chroma label colours
+ *  with no semantic meaning, so the family language (blaze=crystals,
+ *  ember=action, moss=guidebook, clay=field-notes) stays unique. The
+ *  pre-v0.5 enum (moss/ember/dust/blaze/slate) migrates via
+ *  server/migrations/0011_thread_label_palette.sql. */
+export type ProjectColor =
+  | 'stone'
+  | 'sage'
+  | 'dusk'
+  | 'plum'
+  | 'slate'
+  | 'teal';
 
 export type Project = {
   id: string;

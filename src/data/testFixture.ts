@@ -20,7 +20,7 @@ export const makeTestFixture = (): BootstrapPayload => {
       status: 'active' as const,
       pinned: true,
       rank: 1,
-      color: 'moss' as const,
+      color: 'sage' as const,
       createdAt: ago(74 * DAY),
       updatedAt: ago(7 * MIN),
     },

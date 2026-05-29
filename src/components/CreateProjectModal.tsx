@@ -16,13 +16,16 @@ const DESCRIPTION_MAX = 140;
 const CONTEXT_SOFT = 2000;
 const CONTEXT_HARD = 8000;
 
+/** v0.5 §A thread label palette. The family-language tokens
+ *  (blaze/ember/moss/clay) are deliberately not selectable here. */
 const COLORS: { name: 'none' | ProjectColor; hex: string }[] = [
   { name: 'none',  hex: 'transparent' },
-  { name: 'moss',  hex: '#5C7A3E' },
-  { name: 'ember', hex: '#D9622C' },
-  { name: 'dust',  hex: '#C9A87C' },
-  { name: 'blaze', hex: '#E8B547' },
-  { name: 'slate', hex: '#3A3F45' },
+  { name: 'stone', hex: '#8C8275' },
+  { name: 'sage',  hex: '#79876F' },
+  { name: 'dusk',  hex: '#6C7A8C' },
+  { name: 'plum',  hex: '#87697C' },
+  { name: 'slate', hex: '#5A6066' },
+  { name: 'teal',  hex: '#5E807A' },
 ];
 
 type FocusField = 'name' | 'slug' | 'description' | 'context' | null;

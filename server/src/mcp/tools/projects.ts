@@ -11,7 +11,8 @@ import {
 import { notFound } from '../../errors.js';
 import { errorResult, jsonResult } from '../result.js';
 
-const COLOR = z.enum(['moss', 'ember', 'dust', 'blaze', 'slate']);
+/** v0.5 §A label palette — see also shared/types.ts ProjectColor. */
+const COLOR = z.enum(['stone', 'sage', 'dusk', 'plum', 'slate', 'teal']);
 
 export const registerProjectTools = (server: McpServer, db: DB) => {
   server.tool(
