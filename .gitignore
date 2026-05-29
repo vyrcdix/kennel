@@ -10,6 +10,9 @@ dist-ssr
 # Per-user Claude Code settings (permissions etc.)
 .claude/settings.local.json
 
+# Local operator notes — server IPs, hostnames, account specifics. Never tracked.
+private-notes.md
+
 # Server runtime artifacts
 server/kennel.db
 server/kennel.db.bak
