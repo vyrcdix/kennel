@@ -42,6 +42,8 @@ const DEFAULT_SETTINGS: Settings = {
   dormantThresholdDays: 60,
   showTemperature: true,
   resurfaceIntervalDays: 30,
+  routingDailyCap: 200,
+  routingConfidenceThreshold: 0.55,
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };

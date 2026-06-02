@@ -98,6 +98,11 @@ export type Settings = {
   showTemperature: boolean;
   /** v0.5: resurface cadence in days. Range 7–180; default 30. */
   resurfaceIntervalDays: number;
+  /** Smart Routing — max classifier calls per day. Range 1–500; default 200. */
+  routingDailyCap: number;
+  /** Smart Routing — confidence floor; classifier picks under this
+   *  threshold get rewritten to 'bench'. Range 0.3–0.85; default 0.55. */
+  routingConfidenceThreshold: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -256,7 +261,10 @@ export type EntityType = 'item' | 'doc' | 'reference' | 'runbook';
 export type ActivityEntityType =
   | EntityType
   | 'guidebook'
-  | 'guidebook_entry';
+  | 'guidebook_entry'
+  | 'routing'
+  | 'field_notes'
+  | 'chat';
 
 export type EntityComment = {
   id: string;
@@ -326,4 +334,56 @@ export type GuidebookEntry = {
   rank: number;
   createdAt: Date;
   updatedAt: Date;
+};
+
+// ─── Smart Routing (Phase 0+) ─────────────────────────────────────────
+
+/** Where the classifier dispatched a routing. 1:1 with existing Steep
+ *  artefact services — no new entity types. */
+export type RoutingAction =
+  | 'bench'
+  | 'doc'
+  | 'guidebook'
+  | 'runbook'
+  | 'field-notes';
+
+/** What the dispatcher actually created or modified. Used together
+ *  with `artefactId` to resolve back to the underlying row. */
+export type RoutingArtefactKind =
+  | 'item'
+  | 'doc'
+  | 'guidebook_entry'
+  | 'runbook'
+  | 'field_notes';
+
+/** Phase 0 ships 'paste'; Phase 1 adds 'email'. The column already
+ *  accepts both so the email transport doesn't need a fresh migration. */
+export type RoutingSourceKind = 'paste' | 'email';
+
+/** One classifier event — the raw source, what Claude said, what got
+ *  created. Drives the Recently sorted strip and the activity feed. */
+export type Routing = {
+  id: string;
+  projectId: string;
+  sourceKind: RoutingSourceKind;
+  /** Provenance for email (`{ sender }`); null for paste. */
+  sourceMeta?: { sender?: string };
+  rawContent: string;
+  /** User's optional hint at dispatch time. */
+  hint?: RoutingAction;
+  classifier: {
+    action: RoutingAction;
+    /** 0–1; null when over the daily cap (no Anthropic call was made). */
+    confidence?: number;
+    /** One-line rationale (or downgrade reason) from the dispatcher. */
+    explanation?: string;
+    overAiBudget: boolean;
+  };
+  artefact: {
+    kind: RoutingArtefactKind;
+    id: string;
+  };
+  /** Phase 2: set when the user marks the routing as rejected via Undo. */
+  rejectedAt?: Date;
+  createdAt: Date;
 };

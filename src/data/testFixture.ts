@@ -181,6 +181,8 @@ export const makeTestFixture = (): BootstrapPayload => {
       dormantThresholdDays: 60,
       showTemperature: true,
       resurfaceIntervalDays: 30,
+      routingDailyCap: 200,
+      routingConfidenceThreshold: 0.55,
       createdAt: now(),
       updatedAt: now(),
     },

@@ -10,6 +10,8 @@ type SettingsRow = {
   dormant_threshold_days: number;
   show_temperature: number;
   resurface_interval_days: number;
+  routing_daily_cap: number;
+  routing_confidence_threshold: number;
   created_at: string;
   updated_at: string;
 };
@@ -20,6 +22,8 @@ const rowToSettings = (r: SettingsRow): Settings => ({
   dormantThresholdDays: r.dormant_threshold_days,
   showTemperature: r.show_temperature !== 0,
   resurfaceIntervalDays: r.resurface_interval_days ?? 30,
+  routingDailyCap: r.routing_daily_cap ?? 200,
+  routingConfidenceThreshold: r.routing_confidence_threshold ?? 0.55,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });
@@ -37,6 +41,8 @@ export type SettingsPatch = {
   dormantThresholdDays?: number;
   showTemperature?: boolean;
   resurfaceIntervalDays?: number;
+  routingDailyCap?: number;
+  routingConfidenceThreshold?: number;
 };
 
 export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
@@ -59,6 +65,16 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
     const n = patch.resurfaceIntervalDays;
     if (!Number.isInteger(n) || n < 7 || n > 180) fields.resurfaceIntervalDays = 'out_of_range';
   }
+  if (patch.routingDailyCap !== undefined) {
+    const n = patch.routingDailyCap;
+    if (!Number.isInteger(n) || n < 1 || n > 500) fields.routingDailyCap = 'out_of_range';
+  }
+  if (patch.routingConfidenceThreshold !== undefined) {
+    const n = patch.routingConfidenceThreshold;
+    if (typeof n !== 'number' || n < 0.3 || n > 0.85) {
+      fields.routingConfidenceThreshold = 'out_of_range';
+    }
+  }
   if (Object.keys(fields).length) throw validationError(fields);
 
   const now = nowIso();
@@ -70,6 +86,9 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
     showTemperature: patch.showTemperature ?? current.showTemperature,
     resurfaceIntervalDays:
       patch.resurfaceIntervalDays ?? current.resurfaceIntervalDays,
+    routingDailyCap: patch.routingDailyCap ?? current.routingDailyCap,
+    routingConfidenceThreshold:
+      patch.routingConfidenceThreshold ?? current.routingConfidenceThreshold,
     createdAt: current.createdAt,
     updatedAt: new Date(now),
   };
@@ -80,6 +99,8 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
          dormant_threshold_days = ?,
          show_temperature = ?,
          resurface_interval_days = ?,
+         routing_daily_cap = ?,
+         routing_confidence_threshold = ?,
          updated_at = ?
      WHERE id = 1`,
   ).run(
@@ -88,6 +109,8 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
     next.dormantThresholdDays,
     next.showTemperature ? 1 : 0,
     next.resurfaceIntervalDays,
+    next.routingDailyCap,
+    next.routingConfidenceThreshold,
     now,
   );
   return next;
