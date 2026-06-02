@@ -659,6 +659,8 @@ export type SettingsPatch = {
   dormantThresholdDays?: number;
   showTemperature?: boolean;
   resurfaceIntervalDays?: number;
+  routingDailyCap?: number;
+  routingConfidenceThreshold?: number;
 };
 
 export const updateSettings = async (patch: SettingsPatch): Promise<Settings> => {
@@ -936,6 +938,17 @@ export const fetchProjectRoutings = async (
   }
   notify();
   return list;
+};
+
+export type RoutingStatus = {
+  configured: boolean;
+  fingerprint: string | null;
+};
+
+/** Drives the Settings → Smart Routing panel's status row. Cheap;
+ *  no caching since the key is rotated server-side. */
+export const fetchRoutingStatus = async (): Promise<RoutingStatus> => {
+  return wrap(() => api.get<RoutingStatus>('/api/routing/status'));
 };
 
 /** Reverse a routing — server deletes (or restores) the artefact and

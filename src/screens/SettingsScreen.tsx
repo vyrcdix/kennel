@@ -4,7 +4,11 @@ import { NavRail } from '../components/NavRail';
 import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SegBtn } from '../components/SegBtn';
-import { updateSettings } from '../data/actions';
+import {
+  fetchRoutingStatus,
+  updateSettings,
+  type RoutingStatus,
+} from '../data/actions';
 import { changePassword, logout } from '../data/auth';
 import { getSettings } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
@@ -75,11 +79,17 @@ const Toggle = ({
   </span>
 );
 
-type SectionKey = 'appearance' | 'lifecycle' | 'mcp' | 'account';
+type SectionKey =
+  | 'appearance'
+  | 'lifecycle'
+  | 'routing'
+  | 'mcp'
+  | 'account';
 
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'appearance', label: 'Appearance' },
   { key: 'lifecycle', label: 'Capture & Lifecycle' },
+  { key: 'routing', label: 'Smart Routing' },
   { key: 'mcp', label: 'MCP connection' },
   { key: 'account', label: 'Account' },
 ];
@@ -165,6 +175,54 @@ export const SettingsScreen = () => {
   const toggleShowTemperature = () => {
     void updateSettings({ showTemperature: !settings.showTemperature });
   };
+
+  // Smart Routing — daily classifier cap (1–500, default 200) and the
+  // confidence threshold (0.30–0.85, default 0.55).
+  const [capDraft, setCapDraft] = useState(settings.routingDailyCap);
+  useEffect(
+    () => setCapDraft(settings.routingDailyCap),
+    [settings.routingDailyCap],
+  );
+  const commitCap = () => {
+    const n = Math.round(capDraft);
+    if (n >= 1 && n <= 500 && n !== settings.routingDailyCap) {
+      void updateSettings({ routingDailyCap: n });
+    } else {
+      setCapDraft(settings.routingDailyCap);
+    }
+  };
+  const [thresholdDraft, setThresholdDraft] = useState(
+    settings.routingConfidenceThreshold,
+  );
+  useEffect(
+    () => setThresholdDraft(settings.routingConfidenceThreshold),
+    [settings.routingConfidenceThreshold],
+  );
+  const commitThreshold = () => {
+    // Round to the 0.01 the slider exposes so we don't chase float drift.
+    const n = Math.round(thresholdDraft * 100) / 100;
+    if (
+      n >= 0.3 &&
+      n <= 0.85 &&
+      Math.abs(n - settings.routingConfidenceThreshold) > 1e-6
+    ) {
+      void updateSettings({ routingConfidenceThreshold: n });
+    } else {
+      setThresholdDraft(settings.routingConfidenceThreshold);
+    }
+  };
+  // Server-side configured + key fingerprint. Fetched once on mount;
+  // a key rotation requires a service restart anyway, so we don't poll.
+  const [routingStatus, setRoutingStatus] = useState<RoutingStatus | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetchRoutingStatus().then((s) => {
+      if (live) setRoutingStatus(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -394,6 +452,100 @@ export const SettingsScreen = () => {
                   }
                 />
               </div>
+                </>
+              )}
+
+              {section === 'routing' && (
+                <>
+                  <div className="km-display-lg" style={{ marginBottom: 4 }}>
+                    Smart Routing
+                  </div>
+                  <div
+                    className="km-body"
+                    style={{ color: 'var(--fg-muted)', marginBottom: 20 }}
+                  >
+                    Paste a chunk of text (⌘⇧V from anywhere) and Claude picks
+                    where it lands — bench / doc / guidebook entry / runbook
+                    section / field-notes section. The cap is daily; the
+                    threshold below floors the classifier's confidence (anything
+                    weaker falls through to the bench).
+                  </div>
+                  <div style={{ borderBottom: '1px solid var(--line)' }}>
+                    <SettingsRow
+                      label="Anthropic API key"
+                      hint="Read-only — the key lives in the server's secrets.env (prod) or .env.local (dev). Rotate by editing that file and restarting kennel; the UI never holds the value."
+                      control={
+                        routingStatus === null ? (
+                          <Mono dim>checking…</Mono>
+                        ) : routingStatus.configured ? (
+                          <Mono>
+                            {routingStatus.fingerprint ?? '<set>'}
+                          </Mono>
+                        ) : (
+                          <Mono style={{ color: 'var(--ember-deep)' }}>
+                            not set — paste classification disabled
+                          </Mono>
+                        )
+                      }
+                    />
+                    <SettingsRow
+                      label="Daily classifier cap"
+                      hint="Maximum classifier calls per day across every thread. Past this point, paste/email routings still land but go straight to the bench (no Anthropic call). Range 1–500."
+                      control={
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="number"
+                            min={1}
+                            max={500}
+                            value={capDraft}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              if (Number.isFinite(n)) setCapDraft(n);
+                            }}
+                            onBlur={commitCap}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter')
+                                (e.target as HTMLInputElement).blur();
+                            }}
+                            style={{
+                              width: 72,
+                              padding: '4px 8px',
+                              fontFamily: 'var(--ff-mono)',
+                              fontSize: 13,
+                              background: 'var(--surface-1)',
+                              color: 'var(--fg)',
+                              border: '1px solid var(--line)',
+                              borderRadius: 3,
+                            }}
+                          />
+                          <Mono dim>routings · default 200</Mono>
+                        </div>
+                      }
+                    />
+                    <SettingsRow
+                      label="Confidence threshold"
+                      hint="Classifier picks below this confidence get rewritten to the bench (with the original action recorded in the explanation). Higher = more conservative routing. Range 0.30–0.85."
+                      control={
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input
+                            type="range"
+                            min={30}
+                            max={85}
+                            step={1}
+                            value={Math.round(thresholdDraft * 100)}
+                            onChange={(e) =>
+                              setThresholdDraft(Number(e.target.value) / 100)
+                            }
+                            onMouseUp={commitThreshold}
+                            onKeyUp={commitThreshold}
+                            style={{ width: 160 }}
+                          />
+                          <Mono>{thresholdDraft.toFixed(2)}</Mono>
+                          <Mono dim>default 0.55</Mono>
+                        </div>
+                      }
+                    />
+                  </div>
                 </>
               )}
 

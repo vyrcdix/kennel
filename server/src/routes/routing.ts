@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import type { DB } from '../db.js';
 import { asyncHandler, notFound, validationError } from '../errors.js';
+import { isAnthropicConfigured } from '../services/anthropic.js';
 import { getProjectBySlug } from '../services/project.js';
 import {
   ClassifierUnavailableError,
@@ -14,8 +15,31 @@ import {
   undoRouting,
 } from '../services/routing.js';
 
+/** Mask the Anthropic key into "<first 8>…<last 4>". The server side
+ *  of "which key is in use" — the UI shows it next to a configured-
+ *  or-not indicator. Returns null when the key is unset. */
+const fingerprint = (raw: string | undefined): string | null => {
+  if (!raw) return null;
+  if (raw.length <= 12) return '<short key>';
+  return `${raw.slice(0, 8)}…${raw.slice(-4)}`;
+};
+
 export const routingRouter = (db: DB): Router => {
   const r = Router();
+
+  // Status snapshot — drives the Settings → Smart Routing panel's
+  // "where's the key" indicator. Intentionally read-only: the key
+  // itself lives in the systemd unit / .env.local and is never
+  // editable from the UI.
+  r.get(
+    '/routing/status',
+    asyncHandler(async (_req, res) => {
+      res.json({
+        configured: isAnthropicConfigured(),
+        fingerprint: fingerprint(process.env.ANTHROPIC_API_KEY),
+      });
+    }),
+  );
 
   // Recent routings for one thread — feeds the Recently sorted strip
   // on the project landing.
