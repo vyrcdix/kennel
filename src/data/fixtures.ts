@@ -14,6 +14,7 @@ import type {
   Item,
   Project,
   Reference,
+  Routing,
   Runbook,
   Settings,
   Skill,
@@ -35,6 +36,7 @@ export const activity: ActivityEntry[] = [];
 export const tags: Tag[] = [];
 export const guidebooks: Guidebook[] = [];
 export const guidebookEntries: GuidebookEntry[] = [];
+export const routings: Routing[] = [];
 
 const DEFAULT_SETTINGS: Settings = {
   agingThresholdDays: 21,

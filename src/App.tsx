@@ -20,14 +20,17 @@ import { CaptureModal } from './components/CaptureModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
 import { EditItemModal } from './components/EditItemModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PasteRouteModal } from './components/PasteRouteModal';
 import { Toaster } from './components/Toaster';
 import { getItemById } from './data/selectors';
 import { useStoreVersion } from './data/store';
 import {
   openCreateProject,
+  openPasteRoute,
   useCaptureModal,
   useCreateProjectModal,
   useEditItemModal,
+  usePasteRouteModal,
 } from './lib/modals';
 import { toggleFocusMode } from './lib/focusMode';
 
@@ -50,6 +53,12 @@ const GlobalShortcuts = () => {
         e.preventDefault();
         toggleFocusMode();
       }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'v') {
+        // Smart Routing — paste & route. Doesn't conflict with the
+        // OS paste (⌘V) because the shift gate is mandatory.
+        e.preventDefault();
+        openPasteRoute();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -64,6 +73,7 @@ const ModalHost = () => {
   const [createOpen, closeCreate] = useCreateProjectModal();
   const [capture, closeCapture] = useCaptureModal();
   const [editItem, closeEditItem] = useEditItemModal();
+  const [pasteRoute, closePasteRoute] = usePasteRouteModal();
   const item = editItem.itemId ? getItemById(editItem.itemId) ?? null : null;
   return (
     <>
@@ -77,6 +87,11 @@ const ModalHost = () => {
         open={editItem.open && item != null}
         item={item}
         onClose={closeEditItem}
+      />
+      <PasteRouteModal
+        open={pasteRoute.open}
+        onClose={closePasteRoute}
+        defaultProjectSlug={pasteRoute.projectSlug}
       />
     </>
   );

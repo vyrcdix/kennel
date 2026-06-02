@@ -22,11 +22,14 @@ const createBus = <T = void>() => {
 const createProjectBus = createBus<void>();
 const captureBus = createBus<{ projectSlug?: string }>();
 const editItemBus = createBus<{ itemId: string }>();
+const pasteRouteBus = createBus<{ projectSlug?: string }>();
 
 export const openCreateProject = () => createProjectBus.emit();
 export const openCapture = (projectSlug?: string) =>
   captureBus.emit({ projectSlug });
 export const openEditItem = (itemId: string) => editItemBus.emit({ itemId });
+export const openPasteRoute = (projectSlug?: string) =>
+  pasteRouteBus.emit({ projectSlug });
 
 export const useCreateProjectModal = () => {
   const [open, setOpen] = useState(false);
@@ -54,6 +57,20 @@ export const useEditItemModal = (): [EditItemModalState, () => void] => {
   const [state, setState] = useState<EditItemModalState>({ open: false });
   useEffect(
     () => editItemBus.subscribe(({ itemId }) => setState({ open: true, itemId })),
+    [],
+  );
+  return [state, () => setState({ open: false })];
+};
+
+export type PasteRouteModalState = { open: boolean; projectSlug?: string };
+
+export const usePasteRouteModal = (): [PasteRouteModalState, () => void] => {
+  const [state, setState] = useState<PasteRouteModalState>({ open: false });
+  useEffect(
+    () =>
+      pasteRouteBus.subscribe(({ projectSlug }) =>
+        setState({ open: true, projectSlug }),
+      ),
     [],
   );
   return [state, () => setState({ open: false })];

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from './Icon';
-import { openCapture, openCreateProject } from '../lib/modals';
+import { openCapture, openCreateProject, openPasteRoute } from '../lib/modals';
 import { logout } from '../data/auth';
 
 export type ChromeBarProps = {
@@ -69,6 +69,14 @@ export const ChromeBar = ({
           style={{ padding: '5px 7px', color: 'var(--fg-muted)' }}
         >
           <Icons.plus size={14} />
+        </button>
+        <button
+          className="km-btn km-btn-ghost"
+          onClick={() => openPasteRoute(captureProjectSlug)}
+          title="Paste & route · ⌘⇧V"
+          style={{ padding: '5px 9px', color: 'var(--fg-muted)' }}
+        >
+          <Icons.bulb size={13} /> Paste &amp; route
         </button>
         <button
           className="km-btn km-btn-primary"

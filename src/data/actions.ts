@@ -12,6 +12,7 @@ import {
   items,
   projects,
   references,
+  routings,
   runbooks,
   settings,
   skillProposals,
@@ -35,6 +36,8 @@ import type {
   ProjectColor,
   ProjectStatus,
   Reference,
+  Routing,
+  RoutingAction,
   Runbook,
   RunbookUrl,
   Settings,
@@ -876,6 +879,63 @@ export const removeEntry = async (id: string): Promise<void> => {
   const idx = guidebookEntries.findIndex((e) => e.id === id);
   if (idx >= 0) guidebookEntries.splice(idx, 1);
   notify();
+};
+
+// ─── Smart Routing (Phase 0 slice 3) ─────────────────────────────────
+
+/** ANTHROPIC_API_KEY isn't set on the server. UI shows the paste
+ *  modal's "Try again later" copy + a Settings nudge. */
+export class ClassifierUnavailableError extends Error {
+  constructor() {
+    super('Smart Routing is offline. Set ANTHROPIC_API_KEY on the server to enable it.');
+    this.name = 'ClassifierUnavailableError';
+  }
+}
+
+export type SubmitPasteRoutingInput = {
+  projectSlug: string;
+  body: string;
+  hint?: RoutingAction;
+};
+
+export const submitPasteRouting = async (
+  input: SubmitPasteRoutingInput,
+): Promise<Routing> => {
+  let created: Routing;
+  try {
+    created = await api.post<Routing>('/api/routing/paste', {
+      projectSlug: input.projectSlug,
+      body: input.body,
+      hint: input.hint,
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      throw new ClassifierUnavailableError();
+    }
+    return translateApiError(err);
+  }
+  routings.unshift(created);
+  notify();
+  return created;
+};
+
+export const fetchProjectRoutings = async (
+  projectSlug: string,
+  days = 7,
+): Promise<Routing[]> => {
+  const list = await wrap(() =>
+    api.get<Routing[]>(`/api/projects/${projectSlug}/routings?days=${days}`),
+  );
+  // Refresh the cache for this project's recent window. Newer rows we
+  // already have via the paste path stay; older ones from the server
+  // may be new to us.
+  for (const r of list) {
+    const idx = routings.findIndex((x) => x.id === r.id);
+    if (idx >= 0) routings[idx] = r;
+    else routings.push(r);
+  }
+  notify();
+  return list;
 };
 
 // Re-export materializeDates for test convenience
