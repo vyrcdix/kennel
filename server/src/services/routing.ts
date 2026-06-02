@@ -5,8 +5,13 @@
 // strip and individual routing lookups.
 
 import type { DB } from '../db.js';
-import { fromIso } from '../time.js';
-import { notFound } from '../errors.js';
+import { logActivity } from '../activity.js';
+import { fromIso, nowIso } from '../time.js';
+import { notFound, validationError } from '../errors.js';
+import { newId } from '../ids.js';
+import { classifyPaste, type ClassifierVerdict } from './routingClassifier.js';
+import { dispatch, type DispatchPayloads } from './routingDispatcher.js';
+import { getProjectBySlug } from './project.js';
 import type {
   Routing,
   RoutingAction,
@@ -116,3 +121,122 @@ export const countRoutingsToday = (db: DB): number => {
     .get(startOfDay.toISOString());
   return row?.c ?? 0;
 };
+
+export class ClassifierUnavailableError extends Error {
+  constructor() {
+    super('classifier_unavailable');
+    this.name = 'ClassifierUnavailableError';
+  }
+}
+
+const HINTS: RoutingAction[] = [
+  'bench',
+  'doc',
+  'guidebook',
+  'runbook',
+  'field-notes',
+];
+
+const MAX_RAW_CONTENT_BYTES = 200_000;
+
+export type CreatePasteRoutingInput = {
+  projectSlug: string;
+  body: string;
+  hint?: string;
+};
+
+/** Phase 0 end-to-end: validate, classify, dispatch, persist, log.
+ *  Returns the Routing row that just landed so the route can ship it
+ *  back to the modal for the success toast. */
+export const createPasteRouting = async (
+  db: DB,
+  input: CreatePasteRoutingInput,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Promise<Routing> => {
+  const fields: Record<string, string> = {};
+  if (!input.projectSlug?.trim()) fields.projectSlug = 'required';
+  const body = (input.body ?? '').trim();
+  if (!body) fields.body = 'required';
+  else if (Buffer.byteLength(body, 'utf8') > MAX_RAW_CONTENT_BYTES) {
+    fields.body = 'too_large';
+  }
+  let hint: RoutingAction | undefined;
+  if (input.hint !== undefined && input.hint !== null && input.hint !== '') {
+    if (typeof input.hint !== 'string' || !HINTS.includes(input.hint as RoutingAction)) {
+      fields.hint = 'invalid';
+    } else {
+      hint = input.hint as RoutingAction;
+    }
+  }
+  if (Object.keys(fields).length > 0) throw validationError(fields);
+
+  const project = getProjectBySlug(db, input.projectSlug);
+  if (!project) throw notFound('project', input.projectSlug);
+
+  const verdict: ClassifierVerdict = await classifyPaste(db, {
+    projectId: project.id,
+    body,
+    hint,
+  });
+  if (verdict.kind === 'unavailable') throw new ClassifierUnavailableError();
+
+  // Over-budget routings still dispatch — to bench, with a marker.
+  const overBudget = verdict.kind === 'over_budget';
+  const action: RoutingAction =
+    verdict.kind === 'ok' ? verdict.action : 'bench';
+  const confidence: number | null =
+    verdict.kind === 'ok' ? verdict.confidence : null;
+  let explanation =
+    verdict.kind === 'ok'
+      ? verdict.explanation
+      : 'over daily AI budget — captured to bench';
+  const payload = verdict.kind === 'ok' ? verdict.payload : { body };
+
+  const dispatched = await dispatch(db, {
+    projectId: project.id,
+    rawContent: body,
+    action,
+    payload: payload as DispatchPayloads[typeof action],
+  });
+
+  if (dispatched.downgrade) {
+    explanation =
+      `${explanation} · downgraded from ${dispatched.downgrade.originalAction} → bench (${dispatched.downgrade.reason})`.trim();
+  }
+
+  const id = newId();
+  const now = nowIso();
+  db.prepare(
+    `INSERT INTO routings
+       (id, project_id, source_kind, source_meta, raw_content, hint,
+        classifier_action, classifier_confidence, classifier_explanation,
+        over_ai_budget, artefact_kind, artefact_id, rejected_at, created_at)
+     VALUES (?, ?, 'paste', NULL, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+  ).run(
+    id,
+    project.id,
+    body,
+    hint ?? null,
+    dispatched.action,
+    confidence,
+    explanation || null,
+    overBudget ? 1 : 0,
+    dispatched.artefactKind,
+    dispatched.artefactId,
+    now,
+  );
+
+  logActivity(db, {
+    projectId: project.id,
+    entityType: 'routing',
+    entityId: id,
+    verb: 'ROUTED',
+    target: `${dispatched.action} / ${dispatched.artefactKind}`,
+    payload: explanation || undefined,
+    actor,
+    occurredAt: now,
+  });
+
+  return getRoutingByIdOrThrow(db, id);
+};
+
