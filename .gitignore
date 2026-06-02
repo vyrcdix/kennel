@@ -13,6 +13,12 @@ dist-ssr
 # Local operator notes — server IPs, hostnames, account specifics. Never tracked.
 private-notes.md
 
+# Local secrets (Anthropic key, MCP token, etc.) loaded by Node's --env-file.
+# Prod reads the equivalent file via systemd EnvironmentFile=/etc/kennel/secrets.env.
+.env
+.env.*
+!.env.example
+
 # Server runtime artifacts
 server/kennel.db
 server/kennel.db.bak
