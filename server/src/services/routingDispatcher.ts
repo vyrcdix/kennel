@@ -12,11 +12,11 @@
 
 import type { DB } from '../db.js';
 import { notFound, validationError } from '../errors.js';
+import { nowIso } from '../time.js';
 import { listGuidebooksByProject } from './guidebook.js';
 import { addEntry } from './guidebookEntry.js';
 import { createDoc } from './doc.js';
 import { createItem } from './item.js';
-import { getProjectBySlug } from './project.js';
 import { getRunbookByProject, upsertRunbook } from './runbook.js';
 import {
   getFieldNotesByProject,
@@ -65,12 +65,42 @@ export type DispatchPayloads = {
   'field-notes': { section: FieldNotesSection; body: string };
 };
 
+/** Discriminated record of everything undo needs to reverse a
+ *  routing dispatch. Stored in routings.dispatch_snapshot as JSON.
+ *  Bench + doc carry no extra data — the artefact_id is enough. */
+export type DispatchSnapshot =
+  | { kind: 'bench' }
+  | { kind: 'doc' }
+  | {
+      kind: 'guidebook';
+      /** The doc the guidebook entry points at — created on the fly
+       *  by addEntry's upload variant. Undo also deletes this so
+       *  the entry removal doesn't orphan it. */
+      docId: string;
+    }
+  | {
+      kind: 'runbook';
+      section: string;
+      /** Snapshot of the section's content BEFORE the append, so
+       *  undo can restore it verbatim (rather than try to subtract
+       *  the appended block from the current value). null marks a
+       *  previously-empty section. */
+      previousValue: string | null;
+    }
+  | {
+      kind: 'field-notes';
+      section: string;
+      previousValue: string | null;
+    };
+
 export type DispatchResult = {
   /** What was actually shipped. May differ from the requested action
    *  when the dispatcher downgrades (e.g. to bench). */
   action: RoutingAction;
   artefactKind: RoutingArtefactKind;
   artefactId: string;
+  /** Per-action data captured for undo. */
+  snapshot: DispatchSnapshot;
   /** Set when the dispatcher couldn't honour the requested action
    *  verbatim. Recorded in the routings row's explanation. */
   downgrade?: {
@@ -158,7 +188,12 @@ export const dispatch = async (
       title,
       body: p.body?.trim() || rawContent.trim(),
     });
-    return { action, artefactKind: 'item', artefactId: item.id };
+    return {
+      action,
+      artefactKind: 'item',
+      artefactId: item.id,
+      snapshot: { kind: 'bench' },
+    };
   }
 
   if (action === 'doc') {
@@ -174,7 +209,12 @@ export const dispatch = async (
       body: p.body?.trim() || rawContent.trim(),
       pinned: false,
     });
-    return { action, artefactKind: 'doc', artefactId: doc.id };
+    return {
+      action,
+      artefactKind: 'doc',
+      artefactId: doc.id,
+      snapshot: { kind: 'doc' },
+    };
   }
 
   if (action === 'guidebook') {
@@ -194,6 +234,7 @@ export const dispatch = async (
         action: 'bench',
         artefactKind: 'item',
         artefactId: item.id,
+        snapshot: { kind: 'bench' },
         downgrade: {
           originalAction: 'guidebook',
           reason: 'no_guidebook_in_thread',
@@ -210,7 +251,15 @@ export const dispatch = async (
       description: p.description?.trim() || undefined,
       tags: Array.isArray(p.tags) ? p.tags : undefined,
     });
-    return { action, artefactKind: 'guidebook_entry', artefactId: entry.id };
+    // The entry's source is the freshly-created doc; pull its id out
+    // of the discriminated source pointer so undo can also delete it.
+    const docId = entry.source.kind === 'doc' ? entry.source.docId : '';
+    return {
+      action,
+      artefactKind: 'guidebook_entry',
+      artefactId: entry.id,
+      snapshot: { kind: 'guidebook', docId },
+    };
   }
 
   if (action === 'runbook') {
@@ -223,10 +272,15 @@ export const dispatch = async (
       .get(projectId);
     if (!projectRow) throw notFound('project', projectId);
     const existing = getRunbookByProject(db, projectId);
-    const previous = (existing?.[p.section] as string | undefined) ?? '';
-    const merged = previous + dateDivider(now) + (p.body?.trim() ?? rawContent.trim());
+    const previousValue = (existing?.[p.section] as string | undefined) ?? null;
+    const merged = (previousValue ?? '') + dateDivider(now) + (p.body?.trim() ?? rawContent.trim());
     const rb = upsertRunbook(db, projectId, { [p.section]: merged });
-    return { action, artefactKind: 'runbook', artefactId: rb.id };
+    return {
+      action,
+      artefactKind: 'runbook',
+      artefactId: rb.id,
+      snapshot: { kind: 'runbook', section: p.section, previousValue },
+    };
   }
 
   if (action === 'field-notes') {
@@ -239,11 +293,96 @@ export const dispatch = async (
       .get(projectId);
     if (!projectRow) throw notFound('project', projectId);
     const existing = getFieldNotesByProject(db, projectId);
-    const previous = (existing?.[p.section] as string | undefined) ?? '';
-    const merged = previous + dateDivider(now) + (p.body?.trim() ?? rawContent.trim());
+    const previousValue = (existing?.[p.section] as string | undefined) ?? null;
+    const merged = (previousValue ?? '') + dateDivider(now) + (p.body?.trim() ?? rawContent.trim());
     const fn = upsertFieldNotes(db, projectRow.slug, { [p.section]: merged });
-    return { action, artefactKind: 'field_notes', artefactId: fn.id };
+    return {
+      action,
+      artefactKind: 'field_notes',
+      artefactId: fn.id,
+      snapshot: { kind: 'field-notes', section: p.section, previousValue },
+    };
   }
 
   throw validationError({ action: 'unknown' });
+};
+
+/** Reverse a dispatched routing. Idempotent — calls into existing
+ *  delete / upsert services and silently no-ops when the artefact
+ *  has already been deleted out from under us. */
+export const revertDispatch = (
+  db: DB,
+  args: {
+    artefactKind: RoutingArtefactKind;
+    artefactId: string;
+    snapshot: DispatchSnapshot | null;
+    projectId: string;
+  },
+): void => {
+  const { artefactKind, artefactId, snapshot, projectId } = args;
+
+  if (artefactKind === 'item') {
+    // Lazy import to avoid the circular shape with item.ts (which
+    // imports activity which sometimes touches routing services).
+    const itemRow = db
+      .prepare<[string], { id: string }>('SELECT id FROM items WHERE id = ?')
+      .get(artefactId);
+    if (!itemRow) return;
+    db.prepare('DELETE FROM items WHERE id = ?').run(artefactId);
+    return;
+  }
+
+  if (artefactKind === 'doc') {
+    const row = db
+      .prepare<[string], { id: string }>('SELECT id FROM docs WHERE id = ?')
+      .get(artefactId);
+    if (!row) return;
+    db.prepare(
+      'UPDATE items SET doc_id = NULL, updated_at = ? WHERE doc_id = ?',
+    ).run(nowIso(), artefactId);
+    db.prepare('DELETE FROM docs WHERE id = ?').run(artefactId);
+    return;
+  }
+
+  if (artefactKind === 'guidebook_entry') {
+    // Drop the entry; if the snapshot tells us which doc it was
+    // pointing at, drop that too so the routing leaves nothing
+    // behind. (The doc was always created by the routing itself,
+    // never pre-existing, so this is safe.)
+    db.prepare('DELETE FROM guidebook_entries WHERE id = ?').run(artefactId);
+    if (snapshot?.kind === 'guidebook' && snapshot.docId) {
+      const row = db
+        .prepare<[string], { id: string }>('SELECT id FROM docs WHERE id = ?')
+        .get(snapshot.docId);
+      if (row) {
+        // Same NULL-out + delete dance as deleteDoc, hand-rolled to
+        // avoid the no-op import cycle.
+        db.prepare(
+          'UPDATE items SET doc_id = NULL, updated_at = ? WHERE doc_id = ?',
+        ).run(nowIso(), snapshot.docId);
+        db.prepare('DELETE FROM docs WHERE id = ?').run(snapshot.docId);
+      }
+    }
+    return;
+  }
+
+  if (artefactKind === 'runbook') {
+    if (snapshot?.kind !== 'runbook') return;
+    upsertRunbook(db, projectId, {
+      [snapshot.section]: snapshot.previousValue,
+    } as Record<string, string | null>);
+    return;
+  }
+
+  if (artefactKind === 'field_notes') {
+    if (snapshot?.kind !== 'field-notes') return;
+    const projectRow = db
+      .prepare<[string], { slug: string }>('SELECT slug FROM projects WHERE id = ?')
+      .get(projectId);
+    if (!projectRow) return;
+    upsertFieldNotes(db, projectRow.slug, {
+      [snapshot.section]: snapshot.previousValue,
+    } as Record<string, string | null>);
+    return;
+  }
 };

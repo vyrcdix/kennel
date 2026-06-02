@@ -938,5 +938,42 @@ export const fetchProjectRoutings = async (
   return list;
 };
 
+/** Reverse a routing — server deletes (or restores) the artefact and
+ *  the routings row. We also evict the matching cached artefact so
+ *  selectors don't keep returning a dangling pointer. */
+export const undoRouting = async (id: string): Promise<void> => {
+  const routing = routings.find((r) => r.id === id);
+  await wrap(() => api.post(`/api/routings/${id}/undo`));
+  const idx = routings.findIndex((r) => r.id === id);
+  if (idx >= 0) routings.splice(idx, 1);
+  if (routing) {
+    const artefactId = routing.artefact.id;
+    if (routing.artefact.kind === 'item') {
+      const i = items.findIndex((x) => x.id === artefactId);
+      if (i >= 0) items.splice(i, 1);
+    } else if (routing.artefact.kind === 'doc') {
+      const i = docs.findIndex((x) => x.id === artefactId);
+      if (i >= 0) docs.splice(i, 1);
+      // Any item that pointed at the doc loses its link.
+      for (const it of items) {
+        if (it.docId === artefactId) it.docId = undefined;
+      }
+    } else if (routing.artefact.kind === 'guidebook_entry') {
+      const i = guidebookEntries.findIndex((x) => x.id === artefactId);
+      if (i >= 0) guidebookEntries.splice(i, 1);
+      if (routing.dispatch?.kind === 'guidebook') {
+        const dId = routing.dispatch.docId;
+        const di = docs.findIndex((d) => d.id === dId);
+        if (di >= 0) docs.splice(di, 1);
+      }
+    }
+    // For runbook + field_notes we don't carry server-side
+    // previousValue on the client; the next page load (or an SSE
+    // tick) refreshes the underlying entity. The strip removes the
+    // routing immediately so the user sees the right thing.
+  }
+  notify();
+};
+
 // Re-export materializeDates for test convenience
 export { materializeDates };

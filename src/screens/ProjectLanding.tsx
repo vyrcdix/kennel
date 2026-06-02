@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { CreateGuidebookModal } from '../components/CreateGuidebookModal';
 import { CrystalCard } from '../components/CrystalCard';
+import { RecentlySortedStrip } from '../components/RecentlySortedStrip';
 import { ResurfacingSlot } from '../components/ResurfacingSlot';
 import { EditProjectModal } from '../components/EditProjectModal';
 import { RegisterChatModal } from '../components/RegisterChatModal';
@@ -34,6 +35,7 @@ import {
   fileItem,
   reorderGuidebooks,
   setChatUrl,
+  fetchProjectRoutings,
   setDocPinned,
   setGuidebookPinned,
   touchItem,
@@ -57,6 +59,7 @@ import {
   getProjectItems,
   getProjectLastTouched,
   getProjectReferences,
+  getProjectRoutings,
   getRunbook,
   getSettings,
 } from '../data/selectors';
@@ -306,6 +309,14 @@ export const ProjectLanding = () => {
   const fieldNotes = getFieldNotes(project.id);
   const crystallizations = getCrystallizations(project.id);
   const dueCrystals = getDueCrystals(project.id);
+  const recentRoutings = getProjectRoutings(project.id);
+
+  // Refresh the routings cache when the user lands on the page —
+  // covers the case where routings landed on another tab or session
+  // and aren't yet in the local cache.
+  useEffect(() => {
+    void fetchProjectRoutings(project.slug).catch(() => {});
+  }, [project.slug]);
   const allGuidebooks = getProjectGuidebooks(project.id);
   const pinnedGuidebooks = getPinnedGuidebooks(project.id);
   const settings = getSettings();
@@ -534,6 +545,10 @@ export const ProjectLanding = () => {
 
             {/* Worth revisiting — per-thread due crystals (v0.5 §B) */}
             <ResurfacingSlot label="Worth revisiting" crystals={dueCrystals} />
+
+            {/* Smart Routing — last 7 days of paste/email routings,
+                with Undo. Hidden when nothing's been routed recently. */}
+            <RecentlySortedStrip routings={recentRoutings} />
 
             {/* Trace teaser — v0.5 §F. Always shown; the trace view
                 renders empty content gracefully if there's nothing. */}

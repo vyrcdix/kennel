@@ -11,7 +11,12 @@ import { getFieldNotesByProject } from './fieldNotes.js';
 import { listEntries } from './guidebookEntry.js';
 import { getDocById } from './doc.js';
 import { getItemById } from './item.js';
-import { dateDivider, deriveTitle, dispatch } from './routingDispatcher.js';
+import {
+  dateDivider,
+  deriveTitle,
+  dispatch,
+  revertDispatch,
+} from './routingDispatcher.js';
 
 let db: DB;
 let cleanup: () => void;
@@ -178,5 +183,111 @@ describe('dispatch → field-notes', () => {
         payload: { section: 'bogus' as never, body: 'x' },
       }),
     ).rejects.toThrow(/validation/);
+  });
+});
+
+describe('revertDispatch', () => {
+  test('bench → deletes the item', async () => {
+    const p = createProject(db, { name: 'P', slug: 'p' });
+    const out = await dispatch(db, {
+      projectId: p.id,
+      rawContent: 'thought',
+      action: 'bench',
+      payload: {},
+    });
+    expect(getItemById(db, out.artefactId)).toBeDefined();
+    revertDispatch(db, {
+      artefactKind: out.artefactKind,
+      artefactId: out.artefactId,
+      snapshot: out.snapshot,
+      projectId: p.id,
+    });
+    expect(getItemById(db, out.artefactId)).toBeUndefined();
+  });
+
+  test('doc → deletes the doc and nulls items.doc_id', async () => {
+    const p = createProject(db, { name: 'P', slug: 'p' });
+    const out = await dispatch(db, {
+      projectId: p.id,
+      rawContent: 'b',
+      action: 'doc',
+      payload: { title: 'Spec', body: 'spec body' },
+    });
+    expect(getDocById(db, out.artefactId)).toBeDefined();
+    revertDispatch(db, {
+      artefactKind: out.artefactKind,
+      artefactId: out.artefactId,
+      snapshot: out.snapshot,
+      projectId: p.id,
+    });
+    expect(getDocById(db, out.artefactId)).toBeUndefined();
+  });
+
+  test('runbook → restores the previous section value', async () => {
+    const p = createProject(db, { name: 'P', slug: 'p' });
+    upsertRunbook(db, p.id, { deploy: 'original deploy notes' });
+    const out = await dispatch(db, {
+      projectId: p.id,
+      rawContent: 'b',
+      action: 'runbook',
+      payload: { section: 'deploy', body: 'new step' },
+      now: new Date('2026-06-02T00:00:00Z'),
+    });
+    const after = getRunbookByProject(db, p.id)!;
+    expect(after.deploy).toContain('new step');
+    revertDispatch(db, {
+      artefactKind: out.artefactKind,
+      artefactId: out.artefactId,
+      snapshot: out.snapshot,
+      projectId: p.id,
+    });
+    const reverted = getRunbookByProject(db, p.id)!;
+    expect(reverted.deploy).toBe('original deploy notes');
+  });
+
+  test('field-notes → restores the previous section value (incl. empty)', async () => {
+    const p = createProject(db, { name: 'P', slug: 'p' });
+    // No previous field notes; section was empty.
+    const out = await dispatch(db, {
+      projectId: p.id,
+      rawContent: 'b',
+      action: 'field-notes',
+      payload: { section: 'openQuestions', body: 'why?' },
+      now: new Date('2026-06-02T00:00:00Z'),
+    });
+    const after = getFieldNotesByProject(db, p.id)!;
+    expect(after.openQuestions).toContain('why?');
+    revertDispatch(db, {
+      artefactKind: out.artefactKind,
+      artefactId: out.artefactId,
+      snapshot: out.snapshot,
+      projectId: p.id,
+    });
+    const reverted = getFieldNotesByProject(db, p.id);
+    expect(reverted?.openQuestions ?? null).toBeNull();
+  });
+
+  test('guidebook → deletes the entry AND the doc it spawned', async () => {
+    const p = createProject(db, { name: 'P', slug: 'p' });
+    const gb = createGuidebook(db, { projectSlug: 'p', name: 'Reading' });
+    const out = await dispatch(db, {
+      projectId: p.id,
+      rawContent: '# topic\nbody body',
+      action: 'guidebook',
+      payload: { name: 'Topic' },
+    });
+    expect(listEntries(db, gb.id)).toHaveLength(1);
+    const docId =
+      out.snapshot.kind === 'guidebook' ? out.snapshot.docId : '';
+    expect(docId).toBeTruthy();
+    expect(getDocById(db, docId)).toBeDefined();
+    revertDispatch(db, {
+      artefactKind: out.artefactKind,
+      artefactId: out.artefactId,
+      snapshot: out.snapshot,
+      projectId: p.id,
+    });
+    expect(listEntries(db, gb.id)).toHaveLength(0);
+    expect(getDocById(db, docId)).toBeUndefined();
   });
 });

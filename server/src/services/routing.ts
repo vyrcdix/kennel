@@ -10,7 +10,12 @@ import { fromIso, nowIso } from '../time.js';
 import { notFound, validationError } from '../errors.js';
 import { newId } from '../ids.js';
 import { classifyPaste, type ClassifierVerdict } from './routingClassifier.js';
-import { dispatch, type DispatchPayloads } from './routingDispatcher.js';
+import {
+  dispatch,
+  revertDispatch,
+  type DispatchPayloads,
+  type DispatchSnapshot,
+} from './routingDispatcher.js';
 import { getProjectBySlug } from './project.js';
 import type {
   Routing,
@@ -32,8 +37,24 @@ type RoutingRow = {
   over_ai_budget: number;
   artefact_kind: RoutingArtefactKind;
   artefact_id: string;
+  dispatch_snapshot: string | null;
   rejected_at: string | null;
   created_at: string;
+};
+
+/** Defensive parse for dispatch_snapshot — corrupt or missing rows
+ *  (slice 1 + 2 routings predate the column) yield null. Undo
+ *  handles null by short-circuiting the runbook/field-notes paths
+ *  and best-effort-deleting items/docs. */
+const parseSnapshot = (raw: string | null): DispatchSnapshot | null => {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== 'object') return null;
+    return v as DispatchSnapshot;
+  } catch {
+    return null;
+  }
 };
 
 /** Defensive parse for source_meta — corrupt JSON yields undefined
@@ -54,6 +75,20 @@ const parseSourceMeta = (raw: string | null): Routing['sourceMeta'] => {
   }
 };
 
+/** Convert the persisted (server-only) dispatch snapshot into the
+ *  lightweight client-safe view used by the strip. Strips the
+ *  previousValue field — that's needed for undo, not for rendering. */
+const snapshotForApi = (s: DispatchSnapshot | null): Routing['dispatch'] => {
+  if (!s) return undefined;
+  if (s.kind === 'bench' || s.kind === 'doc') return { kind: s.kind };
+  if (s.kind === 'guidebook') return { kind: 'guidebook', docId: s.docId };
+  if (s.kind === 'runbook')
+    return { kind: 'runbook', section: s.section };
+  if (s.kind === 'field-notes')
+    return { kind: 'field-notes', section: s.section };
+  return undefined;
+};
+
 export const rowToRouting = (r: RoutingRow): Routing => ({
   id: r.id,
   projectId: r.project_id,
@@ -71,6 +106,7 @@ export const rowToRouting = (r: RoutingRow): Routing => ({
     kind: r.artefact_kind,
     id: r.artefact_id,
   },
+  dispatch: snapshotForApi(parseSnapshot(r.dispatch_snapshot)),
   rejectedAt: fromIso(r.rejected_at),
   createdAt: fromIso(r.created_at)!,
 });
@@ -210,8 +246,9 @@ export const createPasteRouting = async (
     `INSERT INTO routings
        (id, project_id, source_kind, source_meta, raw_content, hint,
         classifier_action, classifier_confidence, classifier_explanation,
-        over_ai_budget, artefact_kind, artefact_id, rejected_at, created_at)
-     VALUES (?, ?, 'paste', NULL, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+        over_ai_budget, artefact_kind, artefact_id, dispatch_snapshot,
+        rejected_at, created_at)
+     VALUES (?, ?, 'paste', NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
   ).run(
     id,
     project.id,
@@ -223,6 +260,7 @@ export const createPasteRouting = async (
     overBudget ? 1 : 0,
     dispatched.artefactKind,
     dispatched.artefactId,
+    JSON.stringify(dispatched.snapshot),
     now,
   );
 
@@ -238,5 +276,46 @@ export const createPasteRouting = async (
   });
 
   return getRoutingByIdOrThrow(db, id);
+};
+
+/** Slice 4: reverse a routing. The artefact is deleted (item / doc),
+ *  trimmed back (runbook / field-notes), or both (guidebook entry +
+ *  its synthetic doc). The routings row itself is then deleted so it
+ *  disappears from the Recently sorted strip. */
+export const undoRouting = (
+  db: DB,
+  id: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): void => {
+  const routing = getRoutingById(db, id);
+  if (!routing) throw notFound('routing', id);
+
+  // Re-read the snapshot from the raw row — Routing carries it via
+  // sourceMeta historically; the new column shape lives on the row.
+  const row = db
+    .prepare<[string], { dispatch_snapshot: string | null }>(
+      'SELECT dispatch_snapshot FROM routings WHERE id = ?',
+    )
+    .get(id);
+  const snapshot = parseSnapshot(row?.dispatch_snapshot ?? null);
+
+  revertDispatch(db, {
+    artefactKind: routing.artefact.kind,
+    artefactId: routing.artefact.id,
+    snapshot,
+    projectId: routing.projectId,
+  });
+
+  db.prepare('DELETE FROM routings WHERE id = ?').run(id);
+
+  logActivity(db, {
+    projectId: routing.projectId,
+    entityType: 'routing',
+    entityId: id,
+    verb: 'UNDONE',
+    target: `${routing.classifier.action} / ${routing.artefact.kind}`,
+    actor,
+    occurredAt: nowIso(),
+  });
 };
 

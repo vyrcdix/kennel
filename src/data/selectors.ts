@@ -11,6 +11,7 @@ import {
   items,
   projects,
   references,
+  routings,
   runbooks,
   skillProposals,
   skills,
@@ -296,6 +297,19 @@ export const getProjectTrace = (projectId: string): TraceEntry[] => {
 // so other selectors can opt into the same boundary.
 export const _sameCalendarDay = sameCalendarDay;
 
+// ─── Smart Routing (Phase 0 slice 4) ──────────────────────────────
+
+/** Recently routed entries for one thread, newest first. The
+ *  RecentlySortedStrip on ProjectLanding renders the top N. */
+export const getProjectRoutings = (projectId: string, days = 7) => {
+  const cutoff = Date.now() - days * 86400_000;
+  return routings
+    .filter(
+      (r) => r.projectId === projectId && r.createdAt.getTime() >= cutoff,
+    )
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+};
+
 /** Field-note sections that attach to this crystal — represented as
  *  `{ projectId, sectionKey }` pairs derived from each per-project
  *  field_notes.supports_crystals JSON map. */
@@ -488,6 +502,9 @@ export const getGuidebookEntries = (guidebookId: string): GuidebookEntry[] =>
 
 export const getGuidebookEntryCount = (guidebookId: string): number =>
   guidebookEntries.reduce((n, e) => (e.guidebookId === guidebookId ? n + 1 : n), 0);
+
+export const getGuidebookEntryById = (entryId: string) =>
+  guidebookEntries.find((e) => e.id === entryId);
 
 // ─── Chats ─────────────────────────────────────────────────────────────────
 

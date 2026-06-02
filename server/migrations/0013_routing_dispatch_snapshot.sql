@@ -1,0 +1,21 @@
+-- 0013 · Routing dispatch snapshot
+--
+-- Adds a JSON column that captures whatever undo needs to reverse a
+-- routing dispatch:
+--
+-- - bench  → nothing extra (deleteItem(artefact_id) handles it).
+-- - doc    → nothing extra (deleteDoc(artefact_id) handles it).
+-- - guidebook → the docId that addEntry created internally, so undo
+--   can also delete that doc and not orphan it. Stored alongside the
+--   entry id (which is artefact_id).
+-- - runbook → the section that was appended to + the section's
+--   previous value, so undo can restore it verbatim instead of
+--   trying to subtract the appended block.
+-- - field_notes → same shape as runbook.
+--
+-- The column is nullable so older slice-1/slice-2 rows (created
+-- before this migration) survive without a backfill — undo for
+-- those rows downgrades to "best effort delete" with a friendly
+-- explanation on the row.
+
+ALTER TABLE routings ADD COLUMN dispatch_snapshot TEXT;

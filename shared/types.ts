@@ -383,6 +383,18 @@ export type Routing = {
     kind: RoutingArtefactKind;
     id: string;
   };
+  /** Lightweight view of the dispatch result, safe to serve over the
+   *  API. Carries the section name for runbook/field-notes routings
+   *  so the Recently-sorted strip can render
+   *  "appended to runbook · deploy" without an extra round-trip. The
+   *  full undo state (previousValue) stays server-side in
+   *  routings.dispatch_snapshot. */
+  dispatch?:
+    | { kind: 'bench' }
+    | { kind: 'doc' }
+    | { kind: 'guidebook'; docId: string }
+    | { kind: 'runbook'; section: string }
+    | { kind: 'field-notes'; section: string };
   /** Phase 2: set when the user marks the routing as rejected via Undo. */
   rejectedAt?: Date;
   createdAt: Date;

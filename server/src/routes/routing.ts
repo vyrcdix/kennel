@@ -9,7 +9,9 @@ import { getProjectBySlug } from '../services/project.js';
 import {
   ClassifierUnavailableError,
   createPasteRouting,
+  getRoutingById,
   listRecentRoutingsByProject,
+  undoRouting,
 } from '../services/routing.js';
 
 export const routingRouter = (db: DB): Router => {
@@ -58,6 +60,19 @@ export const routingRouter = (db: DB): Router => {
         }
         throw err;
       }
+    }),
+  );
+
+  // Undo a routing — deletes the artefact (item / doc), trims back
+  // the runbook / field-notes section, or removes a guidebook entry
+  // and its synthetic doc. Routing row itself is dropped.
+  r.post(
+    '/routings/:id/undo',
+    asyncHandler(async (req, res) => {
+      const routing = getRoutingById(db, req.params.id);
+      if (!routing) throw notFound('routing', req.params.id);
+      undoRouting(db, req.params.id);
+      res.status(204).end();
     }),
   );
 
