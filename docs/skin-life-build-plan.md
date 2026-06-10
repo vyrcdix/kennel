@@ -1,8 +1,10 @@
 # Life skin ("Tidewater") — build plan
 
-Branch: `skin-life-tidewater` · Inputs: `handoff/design_handoff_tidewater/`
-(the chosen direction D) against `handoff/skin_life_brief/` · Open questions
-to design: `handoff/tidewater_eng_questions/README.md`.
+Branch: `skin-life-tidewater` · **Authoritative design source:
+`handoff/design_handoff_tidewater_2/`** (rev 2 = rev 1 + the `te-fresh` fix +
+`ENG-ANSWERS.md`; rev 1 kept for history) against `handoff/skin_life_brief/` ·
+Questions/answers: `handoff/tidewater_eng_questions/README.md` →
+`handoff/design_handoff_tidewater_2/ENG-ANSWERS.md`.
 
 ## Product decisions (recorded 2026-06-10)
 
@@ -21,10 +23,58 @@ to design: `handoff/tidewater_eng_questions/README.md`.
 5. **Chrome day/night toggle: dropped.** Theme control stays in Settings
    only, both skins.
 
-Design-side rulings still pending (see handback doc, fastest-path defaults
-stated there): Sort legend presentation (A1), suggests-slot degraded anatomy
-(A2), `te-fresh` sacred-hue exception (A3), uncovered surfaces (B1–B8),
-density values (B6).
+## Design rulings (ENG-ANSWERS.md, 2026-06-10) — all questions resolved
+
+- **A1 Sort legend.** Shipping key bindings unchanged; Tidewater verbs:
+  `A` Pick up · `P` Set aside · `C` Crystallize · `D` Crystallize now ·
+  `V` Convert · `S` Attach to a thread · `X` Let the tide take it.
+  **Tiered legend:** footer shows only `A` Pick up · `P` Set aside ·
+  `X` Let go; the rest behind a quiet **"more · ?"** affordance (hover or
+  `?` opens a small popover with the full map). All keys always live —
+  labels are tiered, bindings never are. No `↵` accept.
+- **A2 suggests slot.** Reserved slot shows current thread + kind as a
+  quiet editable block — labels "In" / "As a", `--ink-muted`,
+  inline-editable on click, **on `--card`** (not `--action-soft`; it must
+  read as state, not a CTA).
+- **A3 `te-fresh`.** Confirmed bug; fresh edge uses `--action` gradient.
+  Already fixed in rev 2's `skin-tokens.css:214`. Fresh is not a second
+  sacred site.
+- **B1 Login.** As proposed, plus a faint `Wave` divider under the wordmark
+  (opacity ≈ .35). No temperature, no motion on error states.
+- **B2 Aging board.** Anatomy = Reflecting (`AgingRow`), keys `U/C/F`,
+  3-verb legend. Strings: subtitle *"Threads settling deeper. Nothing's
+  wrong with that — just so you know."* · rows are "deepening", oldest
+  "still." · `U` = **"Bring back up"** · threshold *"show threads quiet
+  for"* + mono `[ 21 ] days` · empty *"Nothing's gone cold."* /
+  *"Everything's still within reach."*
+- **B3 Diff tokens** (proposal screen): `--diff-add-bg`
+  `rgba(78,138,106,.14)` day / `rgba(111,181,142,.16)` night ·
+  `--diff-add-ink` `#3F7458` / `#6FB58E` · `--diff-del-bg`
+  `rgba(156,122,82,.12)` / `rgba(193,154,110,.13)` · `--diff-del-ink`
+  `#8A6A45` / `#C19A6E` · proposal inset border `--fam-guide` 3px.
+  Diffs ride the family hues, never sacred/action.
+- **B4 Actor attribution.** `--action-soft` chip + `--action-ink` "CLAUDE"
+  label (the chat-row "AI" medallion is canonical). Never solid `--action`
+  fill — tint for attribution, accent itself only for actions.
+- **B5 Pin.** `--ink-muted` star, filled when pinned.
+- **B6 Density.** Only spacing tightens; **type never shrinks.**
+  Roomy/Cozy/Compact: `--pad-panel` 22/18/14 · `--gap-panel` 18/14/11 ·
+  `--density-row-pad` 12/9/7 · `--r-card`/`--r-ctrl` 17/11 · 15/10 · 13/9 ·
+  type scale 1.0 everywhere.
+- **B7 Drag.** `--action` 2px drop line (animates in under
+  `--motion-scale`), lifted row `--shadow-lift` + opacity ≈ .92, cursor
+  `grabbing`.
+- **B8 confirm dialogs.** Native for now; future in-app confirm uses modal
+  shell + release-promise voice ("Let the tide take it?" / "Still
+  recoverable from search.").
+- **C5 Aging whisper (dashboard).** Don't bury aging in a nav badge: one
+  quiet line at the foot of "Where you were" — *"6 more deepening on the
+  shelf →"* (`--ink-muted`, links to `/aging`). No card, no count badge.
+  Rest of the reflow mapping confirmed as planned.
+
+Still pending: A5 voice-table sanity pass by design once we extract it
+(slice 6), and from product: prod hosting details + whether the test
+instance gets a copy of real data.
 
 ## Architecture
 
@@ -56,9 +106,9 @@ density values (B6).
 | 1 | Skin plumbing | `skin.ts`, fonts (Bricolage Grotesque / Hanken Grotesk / Spline Sans Mono), minimal Settings skin row, env-driven vite proxy port | none |
 | 2 | Tidewater sheet | day + night token values, v4 remap, chrome/nav/atoms wearing Life dress everywhere | none |
 | 3 | Motion + permanence | toast kinds + Undo (all skins), two-phase `.item-leave`, day⇄night cross-fade | none |
-| 4 | Dashboard + Sort + Reflecting | orientation strip, hearth, lens toggle, two-col grid; Sort preview reflow w/ reserved slot; Reflecting inline action bar | A1, A2 |
-| 5 | ProjectLanding + CrystalDetail + WeeklyReview | header/stat row, Built-on, Still true, summary strip | — |
-| 6 | Secondary surfaces + voice | docs/trace/search/modals, full Settings Appearance (skin picker cards, density), per-skin copy table | B1–B8, A5 table review |
+| 4 | Dashboard + Sort + Reflecting | orientation strip, hearth, lens toggle, aging whisper (C5), two-col grid; Sort preview reflow w/ reserved slot (A2) + tiered legend (A1); Reflecting inline action bar | none |
+| 5 | ProjectLanding + CrystalDetail + WeeklyReview | header/stat row, Built-on, Still true, summary strip | none |
+| 6 | Secondary surfaces + voice | docs/trace/search/modals, Aging board strings (B2), proposal diff tokens (B3), full Settings Appearance (skin picker cards, density per B6), per-skin copy table | A5 table review (post-hoc) |
 | 7 | QA + parallel deploy | AA contrast both modes, reduced-motion pass, information-parity walkthrough, test instance | deploy info |
 
 ## Parallel test deployment
