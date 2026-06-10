@@ -111,13 +111,14 @@ instance gets a copy of real data.
 | 6 | Secondary surfaces + voice | docs/trace/search/modals, Aging board strings (B2), proposal diff tokens (B3), full Settings Appearance (skin picker cards, density per B6), per-skin copy table | A5 table review (post-hoc) |
 | 7 | QA + parallel deploy | AA contrast both modes, reduced-motion pass, information-parity walkthrough, test instance | deploy info |
 
-## Parallel test deployment
+## Parallel test deployment (decided 2026-06-10)
 
-Second checkout of the branch, server on `PORT=8422` with its own SQLite
-file, second built client pointed at it (vite proxy port becomes env-driven
-in slice 1). Pending from product: where prod runs (host/reverse proxy) and
-whether the test instance gets a copy of real data (recommended — re-entry
-feel can't be judged on fixtures).
+Hosted on Craig's Hetzner server alongside prod (`steep.work`), behind a
+subdomain (e.g. `tide.steep.work` — TBD). Second checkout of the branch,
+server on its own port (e.g. `PORT=8422`) with its own SQLite file, reverse
+proxy route added for the subdomain; built client served from that instance
+(vite proxy port becomes env-driven in slice 1 for local dev). Data:
+**fresh test data from scratch** (seed), not a copy of prod.
 
 ## Invariants checklist (brief §5 — verify before merge)
 
