@@ -1,6 +1,11 @@
 /* Kennel design tokens — inherits Pacecraft palette, adapted for tool context */
 
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Life skin ("Tidewater") type families. Loaded for all skins so the
+ * --ff-* remap in .km-skin-life (slice 2) has the faces available; Workshop
+ * never points at them. Bricolage Grotesque = display, Hanken Grotesk =
+ * body/UI, Spline Sans Mono = mono (slugs, timestamps, kbd). */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap');
 
 :root {
   /* Core palette */

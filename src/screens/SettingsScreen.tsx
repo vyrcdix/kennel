@@ -13,6 +13,7 @@ import { changePassword, logout } from '../data/auth';
 import { getSettings } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
 import { useTheme, type ThemeMode } from '../lib/theme';
+import { useSkin, type Skin } from '../lib/skin';
 
 const SettingsRow = ({
   label,
@@ -102,6 +103,12 @@ export const SettingsScreen = () => {
     { label: 'Light', value: 'light' },
     { label: 'Dark', value: 'dark' },
     { label: 'System', value: 'system' },
+  ];
+
+  const [skin, setSkinMode] = useSkin();
+  const skins: { label: string; value: Skin }[] = [
+    { label: 'Workshop', value: 'workshop' },
+    { label: 'Life', value: 'life' },
   ];
 
   const settings = getSettings();
@@ -280,6 +287,22 @@ export const SettingsScreen = () => {
               </div>
 
               <div style={{ borderBottom: '1px solid var(--line)' }}>
+                <SettingsRow
+                  label="Skin"
+                  hint="Workshop is the tool. Life (Tidewater) is the same app dressed for running a personal life."
+                  control={
+                    <div style={{ display: 'inline-flex' }}>
+                      {skins.map((s) => (
+                        <SegBtn
+                          key={s.value}
+                          label={s.label}
+                          active={skin === s.value}
+                          onClick={() => setSkinMode(s.value)}
+                        />
+                      ))}
+                    </div>
+                  }
+                />
                 <SettingsRow
                   label="Mode"
                   hint="Light is default. Dark is a peer."

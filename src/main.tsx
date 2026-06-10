@@ -1,6 +1,10 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/tokens.css';
+// Side-effect imports: each self-applies the persisted choice to the document
+// root on module load, so a hard reload starts in the right theme + skin.
+import './lib/theme';
+import './lib/skin';
 import App from './App';
 import LoginScreen from './screens/LoginScreen';
 import { ApiError, api, setUnauthorizedHandler } from './data/api';
