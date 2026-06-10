@@ -4,6 +4,7 @@
 // decoupled from where the modal actually lives.
 
 import { useEffect, useState } from 'react';
+import type { Item } from '../data/types';
 
 type Listener<T> = (payload: T) => void;
 const createBus = <T = void>() => {
@@ -28,6 +29,20 @@ export const openCreateProject = () => createProjectBus.emit();
 export const openCapture = (projectSlug?: string) =>
   captureBus.emit({ projectSlug });
 export const openEditItem = (itemId: string) => editItemBus.emit({ itemId });
+
+/** The one "where does clicking an item take you" policy, shared by every
+ *  row surface (NextUp, aging strips, Weekly Review, connections). Doc-backed
+ *  items open the editor — the content lives in the doc, even for crystals.
+ *  Other crystals open their detail; raw items open the edit modal. */
+export const openItem = (item: Item, navigate: (to: string) => void) => {
+  if (item.docId) {
+    navigate(`/doc/${item.docId}`);
+  } else if (item.kind === 'crystallization' || item.state === 'crystallized') {
+    navigate(`/crystal/${item.id}`);
+  } else {
+    openEditItem(item.id);
+  }
+};
 export const openPasteRoute = (projectSlug?: string) =>
   pasteRouteBus.emit({ projectSlug });
 

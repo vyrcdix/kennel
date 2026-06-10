@@ -29,6 +29,7 @@ import { routingRouter } from './routes/routing.js';
 import { runbooksRouter } from './routes/runbooks.js';
 import { searchRouter } from './routes/search.js';
 import { settingsRouter } from './routes/settings.js';
+import { tagsRouter } from './routes/tags.js';
 import { runSeedIfEmpty } from './seed.js';
 
 const PORT = Number(process.env.PORT ?? 8421);
@@ -77,6 +78,7 @@ app.use('/api/chats', chatsRouter(db));
 app.use('/api/references', referencesRouter(db));
 app.use('/api/skill-proposals', proposalsRouter(db));
 app.use('/api/entities/:type/:id/comments', commentsRouter(db));
+app.use('/api/entities/:type/:id/tags', tagsRouter(db));
 app.use('/api', runbooksRouter(db));
 app.use('/api', guidebooksRouter(db));
 app.use('/api', routingRouter(db));

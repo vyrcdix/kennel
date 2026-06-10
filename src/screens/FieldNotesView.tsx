@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AskClaude } from '../components/AskClaude';
 import { ChromeBar } from '../components/ChromeBar';
 import { Icons } from '../components/Icon';
 import { Mono } from '../components/Mono';
@@ -51,29 +52,6 @@ const FieldNotesNotFound = ({ slug }: { slug: string }) => (
   </div>
 );
 
-/** Copies a ready-made prompt to the clipboard so the user can paste it
- *  into a Claude chat connected to Steep. Closes the "but how" gap. */
-const AskClaudeButton = ({ slug, section }: { slug: string; section: string }) => {
-  const [copied, setCopied] = useState(false);
-  const prompt =
-    `Using the Steep MCP tools, read the field notes for project "${slug}" ` +
-    `and draft the ${section} section — keep it concise and concrete.`;
-  return (
-    <button
-      className="km-btn km-btn-ghost"
-      onClick={() => {
-        void navigator.clipboard?.writeText(prompt);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
-      }}
-      title="Copy a prompt to paste into a Claude chat connected to Steep"
-      style={{ fontSize: 11.5 }}
-    >
-      <Icons.bulb size={12} /> {copied ? 'Prompt copied' : 'Ask Claude'}
-    </button>
-  );
-};
-
 export const FieldNotesView = () => {
   const navigate = useNavigate();
   useStoreVersion();
@@ -118,6 +96,16 @@ export const FieldNotesView = () => {
           className="km-scroll"
           style={{ flex: 1, overflow: 'auto', padding: '22px 32px 32px' }}
         >
+          {/* Back link */}
+          <button
+            className="km-btn km-btn-ghost"
+            onClick={() => navigate(`/project/${project.slug}`)}
+            style={{ marginBottom: 12, padding: '2px 6px', color: 'var(--fg-muted)' }}
+          >
+            <Icons.arrowR size={12} style={{ transform: 'rotate(180deg)' }} />{' '}
+            {project.name}
+          </button>
+
           {/* Header */}
           <div
             style={{
@@ -219,9 +207,10 @@ export const FieldNotesView = () => {
               />
             ))}
             <span style={{ flex: 1 }} />
-            <AskClaudeButton
-              slug={project.slug}
-              section={SECTIONS.find((s) => s.key === active)?.label ?? ''}
+            <AskClaude
+              prompt={`Using the Steep MCP tools, read the field notes for project "${project.slug}" and draft the ${
+                SECTIONS.find((s) => s.key === active)?.label ?? ''
+              } section — keep it concise and concrete.`}
             />
             {/* Blob editor only for scratchpad blobs (not entity lists, not crystallizations) */}
             {active !== 'crystallizations' && !isEntitySection && (

@@ -5,7 +5,7 @@ import { ProjectTag } from './ProjectTag';
 import { StateDot } from './StateDot';
 import { Mono } from './Mono';
 import { formatDue } from '../data/time';
-import { openEditItem } from '../lib/modals';
+import { openItem } from '../lib/modals';
 import type { Item, Project } from '../data/types';
 
 export type NextUpRowProps = {
@@ -16,16 +16,7 @@ export type NextUpRowProps = {
 
 export const NextUpRow = ({ item, project, selected }: NextUpRowProps) => {
   const navigate = useNavigate();
-  // Doc-backed items open the full editor; everything else opens the
-  // lightweight title+body edit modal in-place. The old "fall through to
-  // project landing" behaviour was a dead-end for raw items.
-  const onOpen = () => {
-    if (item.docId) {
-      navigate(`/doc/${item.docId}`);
-    } else {
-      openEditItem(item.id);
-    }
-  };
+  const onOpen = () => openItem(item, navigate);
   return (
     <div
       className={`km-row ${selected ? 'km-active-row' : ''}`}

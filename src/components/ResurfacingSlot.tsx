@@ -129,8 +129,10 @@ export const ResurfacingSlot = ({
   crystals,
   limit = 3,
 }: ResurfacingSlotProps) => {
+  const [showAll, setShowAll] = useState(false);
   if (crystals.length === 0) return null;
-  const shown = crystals.slice(0, limit);
+  const overflow = crystals.length - limit;
+  const shown = showAll ? crystals : crystals.slice(0, limit);
   return (
     <section
       className="km-card"
@@ -153,8 +155,18 @@ export const ResurfacingSlot = ({
           {label.toUpperCase()}
         </span>
         <Mono dim style={{ marginLeft: 6 }}>
-          due to revisit · {crystals.length}{crystals.length > limit ? ` (showing ${limit})` : ''}
+          due to revisit · {crystals.length}
         </Mono>
+        <span style={{ flex: 1 }} />
+        {overflow > 0 && (
+          <button
+            className="km-btn km-btn-ghost"
+            onClick={() => setShowAll((v) => !v)}
+            style={{ padding: '3px 9px', fontSize: 11.5, color: '#B07E12' }}
+          >
+            {showAll ? 'Show fewer' : `${overflow} more due — show all`}
+          </button>
+        )}
       </div>
       <div className="km-rule" />
       {shown.map((c) => (

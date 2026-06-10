@@ -12,11 +12,14 @@ import {
   getActivitySince,
   getAgingItems,
   getCrystallizedThisWeek,
+  getDocById,
+  getItemById,
   getProjectById,
   getSettings,
 } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
 import { daysAgo, formatDate, formatRelative } from '../data/time';
+import { openItem } from '../lib/modals';
 import type { ActivityEntry, Item } from '../data/types';
 
 const DAY = 86_400_000;
@@ -27,7 +30,8 @@ const ItemRow = ({ item }: { item: Item }) => {
   const project = getProjectById(item.projectId);
   return (
     <div
-      onClick={() => item.docId && navigate(`/doc/${item.docId}`)}
+      className="km-row"
+      onClick={() => openItem(item, navigate)}
       style={{
         display: 'grid',
         gridTemplateColumns: '14px 110px 1fr 110px',
@@ -35,7 +39,7 @@ const ItemRow = ({ item }: { item: Item }) => {
         gap: 10,
         padding: '7px 14px',
         borderBottom: '1px solid var(--line)',
-        cursor: item.docId ? 'pointer' : 'default',
+        cursor: 'pointer',
       }}
     >
       <KindIcon kind={item.kind} />
@@ -56,8 +60,30 @@ const ItemRow = ({ item }: { item: Item }) => {
   );
 };
 
-const ActivityRow = ({ entry }: { entry: ActivityEntry }) => (
+const ActivityRow = ({ entry }: { entry: ActivityEntry }) => {
+  const navigate = useNavigate();
+  // Open the entity if it still exists (items via the shared openItem
+  // policy, docs in the editor); fall back to the activity's thread.
+  const item =
+    entry.entityType === 'item' && entry.entityId
+      ? getItemById(entry.entityId)
+      : undefined;
+  const doc =
+    entry.entityType === 'doc' && entry.entityId
+      ? getDocById(entry.entityId)
+      : undefined;
+  const project = entry.projectId ? getProjectById(entry.projectId) : undefined;
+  const onOpen = item
+    ? () => openItem(item, navigate)
+    : doc
+      ? () => navigate(`/doc/${doc.id}`)
+      : project
+        ? () => navigate(`/project/${project.slug}`)
+        : undefined;
+  return (
   <div
+    className={onOpen ? 'km-row' : undefined}
+    onClick={onOpen}
     style={{
       display: 'grid',
       gridTemplateColumns: '90px 1fr 100px',
@@ -65,6 +91,7 @@ const ActivityRow = ({ entry }: { entry: ActivityEntry }) => (
       gap: 10,
       padding: '6px 14px',
       borderBottom: '1px solid var(--line)',
+      cursor: onOpen ? 'pointer' : 'default',
     }}
   >
     <Mono>{entry.verb}</Mono>
@@ -78,7 +105,8 @@ const ActivityRow = ({ entry }: { entry: ActivityEntry }) => (
     </span>
     <Mono dim>{formatRelative(entry.occurredAt)}</Mono>
   </div>
-);
+  );
+};
 
 export const WeeklyReview = () => {
   useStoreVersion();
@@ -261,6 +289,8 @@ export const WeeklyReview = () => {
                 return (
                   <div
                     key={item.id}
+                    className="km-row"
+                    onClick={() => openItem(item, navigate)}
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '14px 110px 1fr 90px',
@@ -269,6 +299,7 @@ export const WeeklyReview = () => {
                       padding: '7px 14px',
                       borderBottom: '1px solid var(--line)',
                       opacity: 0.82,
+                      cursor: 'pointer',
                     }}
                   >
                     <KindIcon kind={item.kind} />

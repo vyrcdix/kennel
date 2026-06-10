@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AskClaude } from '../components/AskClaude';
 import { ChromeBar } from '../components/ChromeBar';
 import { Icons } from '../components/Icon';
 import { KindIcon } from '../components/KindIcon';
@@ -481,6 +482,10 @@ export const TraceView = () => {
                 onClick={() => setFilter(f.value)}
               />
             ))}
+            <span style={{ flex: 1 }} />
+            <AskClaude
+              prompt={`Using the Steep MCP tools, review the thinking trace for project "${project.slug}" and summarize how it evolved — crystals as milestones, and why things were let go.`}
+            />
           </div>
 
           {visible.length === 0 ? (

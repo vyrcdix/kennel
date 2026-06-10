@@ -1,82 +1,81 @@
-import { useMemo, useState } from 'react';
+// Reflecting lens — items deliberately set aside ("Set aside" / P at
+// Sort) land in `reflecting` and used to have no surface listing them:
+// they only resurfaced by accident once they aged past the threshold.
+// This board is the door back out. Shares AgingRow and the keyboard
+// driver with AgingBoard; scope with ?project=<slug> (per-project counts
+// on Dashboard/ProjectLanding link here scoped).
+
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AgingRow } from '../components/AgingRow';
 import { ChromeBar } from '../components/ChromeBar';
-import { Icons } from '../components/Icon';
 import { Mono } from '../components/Mono';
 import { NavRail } from '../components/NavRail';
 import { ThermalPanel } from '../components/ThermalPanel';
 import {
   crystallizeItem,
   fileItem,
-  touchItem,
+  transitionItem,
 } from '../data/actions';
 import {
-  getAgingItems,
   getProjectById,
-  getSettings,
+  getProjectBySlug,
+  getReflectingItems,
 } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
 import { useKeyedListNav } from '../lib/useKeyedListNav';
 
-export const AgingBoard = () => {
-  const v = useStoreVersion();
-  const settings = getSettings();
-  const [threshold, setThreshold] = useState(settings.agingThresholdDays);
-  const aging = useMemo(() => getAgingItems(threshold), [threshold, v]);
+const shelvedLabel = (days: number) =>
+  days === 0 ? 'shelved today' : `shelved ${days}d`;
 
-  // Keyboard: J/K nav, U pick up, C crystallize, F file.
-  const [selectedId] = useKeyedListNav(aging, {
-    u: (id) => void touchItem(id),
+export const ReflectingBoard = () => {
+  const v = useStoreVersion();
+  const [params, setParams] = useSearchParams();
+  const projectSlug = params.get('project') ?? undefined;
+  const project = projectSlug ? getProjectBySlug(projectSlug) : undefined;
+  const reflecting = useMemo(
+    () => getReflectingItems(project?.id),
+    [v, project?.id],
+  );
+
+  const [selectedId] = useKeyedListNav(reflecting, {
+    u: (id) => void transitionItem(id, 'active'),
     c: (id) => void crystallizeItem(id, { promoteKind: true }),
     f: (id) => void fileItem(id),
+    x: (id) => void transitionItem(id, 'dismissed'),
   });
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
       <ChromeBar />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <NavRail active="" />
+        <NavRail active="reflecting" activeProjectSlug={project?.slug} />
         <main className="km-scroll" style={{ flex: 1, overflow: 'auto', padding: '22px 32px 32px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
-            <div className="km-display-lg">Aging</div>
+            <div className="km-display-lg">Reflecting</div>
             <Mono dim>
-              across all threads · untouched ≥ {threshold}d · {aging.length} items · pick up / crystallize / file
+              {project ? `thread "${project.slug}"` : 'across all threads'} ·{' '}
+              {reflecting.length} set aside · pick up / crystallize / file / let go
             </Mono>
-            <span style={{ flex: 1 }} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Mono dim>threshold</Mono>
-              <input
-                type="number"
-                min={7}
-                max={180}
-                value={threshold}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (n >= 7 && n <= 180) setThreshold(n);
-                }}
-                style={{
-                  width: 60,
-                  padding: '3px 6px',
-                  fontFamily: 'var(--ff-mono)',
-                  fontSize: 12.5,
-                  background: 'var(--surface-1)',
-                  color: 'var(--fg)',
-                  border: '1px solid var(--line)',
-                  borderRadius: 3,
-                }}
-              />
-              <Mono dim>days</Mono>
-            </label>
+            {project && (
+              <button
+                className="km-btn km-btn-ghost"
+                onClick={() => setParams({})}
+                style={{ padding: '3px 9px', fontSize: 11.5 }}
+              >
+                Show all threads
+              </button>
+            )}
           </div>
           <div
             className="km-body"
             style={{ color: 'var(--fg-muted)', maxWidth: 720, marginBottom: 22, lineHeight: 1.55 }}
           >
-            Items that haven't been touched in a while. Most should be let go; some are worth picking back up.
-            Each decision is one keystroke.
+            Things you set aside on purpose. Come back through them deliberately —
+            pick up what's ripened, crystallize what settled, let go of the rest.
           </div>
 
-          {aging.length === 0 ? (
+          {reflecting.length === 0 ? (
             <div
               style={{
                 padding: 32,
@@ -85,20 +84,26 @@ export const AgingBoard = () => {
                 borderRadius: 3,
               }}
             >
-              <div className="km-display-md" style={{ marginBottom: 4 }}>Nothing's gone cold.</div>
-              <Mono dim>everything's been touched within the last {threshold} days</Mono>
+              <div className="km-display-md" style={{ marginBottom: 4 }}>Nothing's set aside.</div>
+              <Mono dim>
+                {project
+                  ? `nothing reflecting in "${project.slug}" — Show all threads to widen`
+                  : 'set aside from Sort lands here'}
+              </Mono>
             </div>
           ) : (
-            <ThermalPanel temp="aging">
-              {aging.map((item) => (
+            <ThermalPanel temp="active">
+              {reflecting.map((item) => (
                 <AgingRow
                   key={item.id}
                   item={item}
                   project={getProjectById(item.projectId)}
                   selected={item.id === selectedId}
-                  onPickUp={() => touchItem(item.id)}
+                  agedLabel={shelvedLabel}
+                  onPickUp={() => transitionItem(item.id, 'active')}
                   onCrystallize={() => crystallizeItem(item.id, { promoteKind: true })}
                   onFile={() => fileItem(item.id)}
+                  onLetGo={() => transitionItem(item.id, 'dismissed')}
                 />
               ))}
             </ThermalPanel>
@@ -130,8 +135,9 @@ export const AgingBoard = () => {
             <span style={{ margin: '0 6px', color: 'var(--fg-faint)' }}>·</span>
             <span className="km-kbd">F</span>
             <span className="km-body-sm">file</span>
-            <span style={{ flex: 1 }} />
-            <Icons.filter size={11} />
+            <span style={{ margin: '0 6px', color: 'var(--fg-faint)' }}>·</span>
+            <span className="km-kbd">X</span>
+            <span className="km-body-sm">let go</span>
           </div>
         </main>
       </div>
@@ -139,4 +145,4 @@ export const AgingBoard = () => {
   );
 };
 
-export default AgingBoard;
+export default ReflectingBoard;

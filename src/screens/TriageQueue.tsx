@@ -7,8 +7,11 @@ import { KindIcon } from '../components/KindIcon';
 import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { Icons } from '../components/Icon';
+import { TagChips } from '../components/TagChips';
 import {
+  getEntityIdsWithTag,
   getProjects,
+  getTagUsage,
   getTriageQueue,
   type TriageEntry,
 } from '../data/selectors';
@@ -283,13 +286,37 @@ export const TriageQueue = () => {
     });
   const clearKindFilter = () => setKindFilter(new Set());
 
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  // Item assignments only — the queue filter matches items, so chips must
+  // not advertise doc/ref/runbook-only tags or counts.
+  const tagUsage = useMemo(() => getTagUsage('item'), [v]);
+  // The chip row (and its "all" clearer) unmounts when usage hits zero;
+  // drop the filter with it so the queue can't get stuck invisibly empty.
+  useEffect(() => {
+    if (tagFilter && !tagUsage.some((u) => u.tag.id === tagFilter)) {
+      setTagFilter(null);
+    }
+  }, [tagFilter, tagUsage]);
+  const taggedIds = useMemo(
+    () => (tagFilter ? getEntityIdsWithTag('item', tagFilter) : null),
+    [tagFilter, v],
+  );
+
   const queue = useMemo(() => {
-    if (kindFilter.size === 0) return rawQueue;
-    return rawQueue.filter((entry) => {
-      if (entry.kind === 'item') return kindFilter.has(entry.item.kind as KindFilter);
-      return kindFilter.has('proposal');
-    });
-  }, [rawQueue, kindFilter]);
+    let entries = rawQueue;
+    if (kindFilter.size > 0) {
+      entries = entries.filter((entry) => {
+        if (entry.kind === 'item') return kindFilter.has(entry.item.kind as KindFilter);
+        return kindFilter.has('proposal');
+      });
+    }
+    if (taggedIds) {
+      entries = entries.filter(
+        (entry) => entry.kind === 'item' && taggedIds.has(entry.item.id),
+      );
+    }
+    return entries;
+  }, [rawQueue, kindFilter, taggedIds]);
 
   const kindCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -434,6 +461,27 @@ export const TriageQueue = () => {
                   onClick={() => toggleKind('proposal')}
                 />
               )}
+              {tagUsage.length > 0 && (
+                <>
+                  <span style={{ width: 18 }} />
+                  <span className="km-display-sm">tag</span>
+                  <FilterChip
+                    label="all"
+                    active={!tagFilter}
+                    onClick={() => setTagFilter(null)}
+                  />
+                  {tagUsage.map(({ tag, count }) => (
+                    <FilterChip
+                      key={tag.id}
+                      label={`#${tag.name} · ${count}`}
+                      active={tagFilter === tag.id}
+                      onClick={() =>
+                        setTagFilter((cur) => (cur === tag.id ? null : tag.id))
+                      }
+                    />
+                  ))}
+                </>
+              )}
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Mono dim>shortcuts</Mono>
@@ -534,6 +582,9 @@ export const TriageQueue = () => {
                   </div>
                   <div className="km-display-md" style={{ marginBottom: 10 }}>
                     {selected.item.title}
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <TagChips entityType="item" entityId={selected.item.id} editable />
                   </div>
                   <div className="km-body" style={{ lineHeight: 1.6, color: 'var(--fg)' }}>
                     {selected.item.body

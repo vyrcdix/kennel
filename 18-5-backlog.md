@@ -68,6 +68,17 @@ unlocks daily use.
     whole bootstrap. Fine at this scale; would matter past ~1000
     items.
 
+## Claude integration
+
+25. **In-app Claude chat (deep link / embedded)** — let the user run a
+    Claude conversation *inside* Steep instead of copying a prompt into an
+    external client. The real value is Claude having the Steep MCP tools, so
+    this means a server-side agent loop: an endpoint that calls the Anthropic
+    API with a key, runs the tool-use loop against Steep, stores the
+    conversation, and streams to a chat UI. ~2–4 days + API key + per-message
+    cost. The `AskClaude` copy-a-prompt button (now on every thread page,
+    with an ⓘ explainer) is the deliberate stopgap until this lands.
+
 ## Brand & meta
 
 23. **Kennel logo** — commission is outside the code work; the slot

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AskClaude } from '../components/AskClaude';
 import { ChromeBar } from '../components/ChromeBar';
 import { CreateGuidebookModal } from '../components/CreateGuidebookModal';
 import { CrystalCard } from '../components/CrystalCard';
@@ -69,7 +70,7 @@ import {
   formatRelativeLoose,
 } from '../data/time';
 import { stripFence } from '../lib/markdown';
-import { openCapture } from '../lib/modals';
+import { openCapture, openItem } from '../lib/modals';
 import { useStoreVersion } from '../data/store';
 import type { Doc, Guidebook, Item } from '../data/types';
 
@@ -227,11 +228,15 @@ const PinnedDocCard = ({
 };
 
 const AgingStripRow = ({ item }: { item: Item }) => {
+  const navigate = useNavigate();
   const last = item.lastTouchedAt ?? item.updatedAt;
   const days = Math.floor((Date.now() - last.getTime()) / DAY);
+  // Row click opens the item (shared openItem policy); buttons act on it.
+  const onOpen = () => openItem(item, navigate);
   return (
     <div
       className="km-row"
+      onClick={onOpen}
       style={{
         display: 'grid',
         gridTemplateColumns: '14px 1fr 90px auto',
@@ -239,13 +244,14 @@ const AgingStripRow = ({ item }: { item: Item }) => {
         gap: 12,
         padding: '8px 14px',
         opacity: 0.78,
+        cursor: 'pointer',
         borderBottom: '1px solid var(--line)',
       }}
     >
       <KindIcon kind={item.kind} />
       <span className="km-body">{item.title}</span>
       <Mono>{days}d cold</Mono>
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
         <button
           className="km-btn km-btn-ghost"
           onClick={() => touchItem(item.id)}
@@ -456,6 +462,9 @@ export const ProjectLanding = () => {
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AskClaude
+                  prompt={`Using the Steep MCP tools, look at the thread "${project.slug}" — its items, field notes, and runbook — and help me make progress on it.`}
+                />
                 <button className="km-btn" onClick={() => openCapture(project.slug)}>
                   <Icons.plus size={12} /> New item
                 </button>
@@ -491,7 +500,14 @@ export const ProjectLanding = () => {
                 right={
                   <>
                     <Mono dim>
-                      {counts.active} in focus · {counts.reflecting} reflecting
+                      {counts.active} in focus ·{' '}
+                      <span
+                        onClick={() => navigate(`/reflecting?project=${project.slug}`)}
+                        title="Open the Reflecting lens for this thread"
+                        style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
+                      >
+                        {counts.reflecting} reflecting
+                      </span>
                     </Mono>
                     <ThermalStamp temp={inFocusTemp} since={inFocusSince} />
                   </>
@@ -1186,14 +1202,17 @@ export const ProjectLanding = () => {
                           cursor: r.url ? 'pointer' : 'default',
                         }}
                       >
-                        <Icons.ext size={12} />
+                        <span style={{ opacity: r.url ? 1 : 0.4 }}>
+                          <Icons.ext size={12} />
+                        </span>
                         <div style={{ minWidth: 0 }}>
-                          <div className="km-body" style={{ fontWeight: 500 }}>
+                          <div
+                            className="km-body"
+                            style={{ fontWeight: 500, opacity: r.url ? 1 : 0.7 }}
+                          >
                             {r.label}
                           </div>
-                          {r.url && (
-                            <Mono dim>{r.url}</Mono>
-                          )}
+                          <Mono dim>{r.url ?? 'no link · notes only'}</Mono>
                         </div>
                         <Mono dim>{formatRelative(r.updatedAt)}</Mono>
                         <button

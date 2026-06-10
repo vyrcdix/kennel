@@ -4,6 +4,7 @@ import { KindIcon } from './KindIcon';
 import { Label } from './Label';
 import { Mono } from './Mono';
 import { ProjectTag } from './ProjectTag';
+import { TagChips } from './TagChips';
 import { deleteItem, updateItem, ValidationError } from '../data/actions';
 import { getProjectById } from '../data/selectors';
 import type { Item } from '../data/types';
@@ -139,6 +140,8 @@ export const EditItemModal = ({ open, item, onClose }: EditItemModalProps) => {
           onChange={(e) => setBody(e.target.value)}
           style={{ resize: 'vertical', fontFamily: 'var(--ff-mono)', fontSize: 12.5 }}
         />
+
+        <TagChips entityType="item" entityId={item.id} editable />
 
         {error && (
           <Mono style={{ color: 'var(--ember-deep)' }}>{error}</Mono>

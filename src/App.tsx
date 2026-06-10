@@ -8,6 +8,7 @@ import Dashboard from './screens/Dashboard';
 import FieldNotesView from './screens/FieldNotesView';
 import GuidebookView from './screens/GuidebookView';
 import ProjectLanding from './screens/ProjectLanding';
+import ReflectingBoard from './screens/ReflectingBoard';
 import TriageQueue from './screens/TriageQueue';
 import DocEditor from './screens/DocEditor';
 import RunbookView from './screens/RunbookView';
@@ -118,6 +119,7 @@ export const App = () => (
       <Route path="/crystal/:id" element={<CrystalDetail />} />
       <Route path="/project/:slug/trace" element={<TraceView />} />
       <Route path="/aging" element={<AgingBoard />} />
+      <Route path="/reflecting" element={<ReflectingBoard />} />
       <Route path="/proposal" element={<SkillProposal />} />
       <Route path="/proposal/:id" element={<SkillProposal />} />
       <Route path="/search" element={<GlobalSearch />} />

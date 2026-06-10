@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AskClaude } from '../components/AskClaude';
 import { ChromeBar } from '../components/ChromeBar';
+import { ConnectionsPanel } from '../components/ConnectionsPanel';
+import { KindIcon } from '../components/KindIcon';
 import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
 import { Label } from '../components/Label';
@@ -8,10 +11,14 @@ import { Mono } from '../components/Mono';
 import { Rev } from '../components/Rev';
 import { Actor } from '../components/Actor';
 import { Icons } from '../components/Icon';
+import { TagChips } from '../components/TagChips';
 import {
+  getCrystalsBuiltFrom,
   getDefaultDoc,
   getDocById,
   getDocComments,
+  getGuidebooksContainingDoc,
+  getItemById,
   getProjectById,
 } from '../data/selectors';
 import {
@@ -77,6 +84,11 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
   const project = getProjectById(doc.projectId);
   const comments = getDocComments(doc.id);
   const linkedItem = items.find((i) => i.docId === doc.id);
+  const supportedCrystal = doc.supportsCrystal
+    ? getItemById(doc.supportsCrystal)
+    : undefined;
+  const distilledInto = getCrystalsBuiltFrom(doc.id);
+  const guidebookMemberships = getGuidebooksContainingDoc(doc.id);
   const promoted =
     !!linkedItem &&
     (linkedItem.kind === 'crystallization' || linkedItem.state === 'crystallized');
@@ -93,6 +105,16 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Doc header */}
           <div style={{ padding: '16px 28px 14px', borderBottom: '1px solid var(--line)' }}>
+            {project && (
+              <button
+                className="km-btn km-btn-ghost"
+                onClick={() => navigate(`/project/${project.slug}`)}
+                style={{ marginBottom: 10, padding: '2px 6px', color: 'var(--fg-muted)' }}
+              >
+                <Icons.arrowR size={12} style={{ transform: 'rotate(180deg)' }} />{' '}
+                {project.name}
+              </button>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               {project && <ProjectTag slug={project.slug} />}
               <Mono>{doc.filePath}</Mono>
@@ -142,6 +164,11 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
                 <Mono>
                   {dirty ? `editing · ⌘S to save` : `saved ${formatTime(doc.updatedAt)}`}
                 </Mono>
+                <AskClaude
+                  prompt={`Using the Steep MCP tools, read the doc "${doc.title}" (kennel:///doc/${doc.id})${
+                    project ? ` in project "${project.slug}"` : ''
+                  } and help me work on it.`}
+                />
                 {!promoted && (
                   <button
                     className="km-btn km-btn-ghost"
@@ -232,6 +259,73 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
               className="km-scroll"
               style={{ overflow: 'auto', padding: '18px 18px', background: 'var(--surface-1)' }}
             >
+              <div style={{ marginBottom: 16 }}>
+                <TagChips entityType="doc" entityId={doc.id} editable />
+              </div>
+              <div style={{ marginBottom: 18 }}>
+                <ConnectionsPanel
+                  groups={[
+                    {
+                      label: 'BACKS ITEM',
+                      accent: 'var(--ember-deep)',
+                      rows: linkedItem
+                        ? [
+                            {
+                              key: linkedItem.id,
+                              icon: <KindIcon kind={linkedItem.kind} size={13} muted />,
+                              label: linkedItem.title,
+                              sub: linkedItem.state,
+                              onOpen: () => {
+                                const p = getProjectById(linkedItem.projectId);
+                                if (p) navigate(`/project/${p.slug}`);
+                              },
+                            },
+                          ]
+                        : [],
+                    },
+                    {
+                      label: 'SUPPORTS CRYSTAL',
+                      accent: 'var(--blaze)',
+                      rows: supportedCrystal
+                        ? [
+                            {
+                              key: supportedCrystal.id,
+                              icon: <Icons.gem size={13} stroke="var(--blaze)" />,
+                              label: supportedCrystal.title,
+                              sub: supportedCrystal.ctype,
+                              onOpen: () => navigate(`/crystal/${supportedCrystal.id}`),
+                            },
+                          ]
+                        : [],
+                    },
+                    {
+                      label: 'DISTILLED INTO',
+                      accent: 'var(--blaze)',
+                      rows: distilledInto.map((c) => ({
+                        key: c.id,
+                        icon: <Icons.gem size={13} stroke="var(--blaze)" />,
+                        label: c.title,
+                        sub: c.ctype,
+                        onOpen: () => navigate(`/crystal/${c.id}`),
+                      })),
+                    },
+                    {
+                      label: 'IN GUIDEBOOKS',
+                      accent: 'var(--moss)',
+                      rows: guidebookMemberships.map(({ guidebook, entry }) => ({
+                        key: entry.id,
+                        icon: <Icons.doc size={13} stroke="var(--moss)" />,
+                        label: guidebook.name,
+                        sub: entry.name !== doc.title ? `as "${entry.name}"` : undefined,
+                        onOpen: () => {
+                          const p = getProjectById(guidebook.projectId);
+                          if (p) navigate(`/project/${p.slug}/guidebook/${guidebook.id}`);
+                        },
+                      })),
+                    },
+                  ]}
+                />
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
                 <Label>Comments</Label>
                 <span style={{ flex: 1 }} />

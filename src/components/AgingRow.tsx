@@ -10,18 +10,25 @@ export type AgingRowProps = {
   item: Item;
   project?: Project;
   selected?: boolean;
+  /** Age column copy; defaults to "Xd cold". The Reflecting lens passes
+   *  "shelved Xd" — same row, different framing. */
+  agedLabel?: (days: number) => string;
   onPickUp: () => void;
   onCrystallize: () => void;
   onFile: () => void;
+  /** When present, renders a fourth "Let go" button (Reflecting lens). */
+  onLetGo?: () => void;
 };
 
 export const AgingRow = ({
   item,
   project,
   selected,
+  agedLabel,
   onPickUp,
   onCrystallize,
   onFile,
+  onLetGo,
 }: AgingRowProps) => {
   const last = item.lastTouchedAt ?? item.updatedAt;
   const days = Math.floor((Date.now() - last.getTime()) / DAY);
@@ -44,7 +51,7 @@ export const AgingRow = ({
       <span className="km-body" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {item.title}
       </span>
-      <Mono>{days}d cold</Mono>
+      <Mono>{agedLabel ? agedLabel(days) : `${days}d cold`}</Mono>
       <Mono dim>{formatDate(last)}</Mono>
       <div style={{ display: 'flex', gap: 6 }}>
         <button
@@ -64,10 +71,25 @@ export const AgingRow = ({
         <button
           className="km-btn km-btn-ghost"
           onClick={onFile}
-          style={{ padding: '4px 9px', fontSize: 11.5, color: 'var(--ember-deep)' }}
+          style={{
+            padding: '4px 9px',
+            fontSize: 11.5,
+            // The terminal action carries the ember warning tint; with a
+            // Let go button present, File is the milder of the two.
+            color: onLetGo ? undefined : 'var(--ember-deep)',
+          }}
         >
           File
         </button>
+        {onLetGo && (
+          <button
+            className="km-btn km-btn-ghost"
+            onClick={onLetGo}
+            style={{ padding: '4px 9px', fontSize: 11.5, color: 'var(--ember-deep)' }}
+          >
+            Let go
+          </button>
+        )}
       </div>
     </div>
   );

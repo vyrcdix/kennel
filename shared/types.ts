@@ -295,6 +295,15 @@ export type Tag = {
   color?: string;
 };
 
+/** One row of the entity_tags join table — a tag applied to an entity.
+ *  Shipped in bootstrap so the client can render and filter by shared
+ *  tags without per-entity fetches. */
+export type EntityTag = {
+  entityType: EntityType;
+  entityId: string;
+  tagId: string;
+};
+
 /** A per-topic ordered collection of source references. Hosts entries
  *  that point at Docs or References already in the topic; the entry's
  *  name/description form the guidebook's scannable spine. See

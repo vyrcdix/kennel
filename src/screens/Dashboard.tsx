@@ -44,7 +44,7 @@ import {
   formatRelativeLoose,
 } from '../data/time';
 import { useStoreVersion } from '../data/store';
-import { openCreateProject } from '../lib/modals';
+import { openCreateProject, openItem } from '../lib/modals';
 import type { Item, Project } from '../data/types';
 
 const DAY = 86400_000;
@@ -121,7 +121,14 @@ const ProjectCard = ({ project, active, temp, counts }: ProjectCardProps) => {
           <span className="km-dot km-dot-ember" />
           <Mono>{counts.active}</Mono>
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/reflecting?project=${project.slug}`);
+          }}
+          title="Set-aside items in this thread · open the Reflecting lens"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
+        >
           <span className="km-dot km-dot-dust" />
           <Mono>{counts.reflecting}</Mono>
         </span>
@@ -152,10 +159,13 @@ const AgingDashboardRow = ({ item }: { item: Item }) => {
   const project = getProjectById(item.projectId);
   const last = item.lastTouchedAt ?? item.updatedAt;
   const days = Math.floor((Date.now() - last.getTime()) / DAY);
+  // Clicking a row opens the item itself (shared openItem policy); the
+  // aging board stays reachable via the section's "Review all" affordance.
+  const onOpen = () => openItem(item, navigate);
   return (
     <div
       className="km-row"
-      onClick={() => navigate('/aging')}
+      onClick={onOpen}
       style={{
         display: 'grid',
         gridTemplateColumns: '14px 90px 1fr 70px auto',

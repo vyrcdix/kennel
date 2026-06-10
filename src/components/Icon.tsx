@@ -72,6 +72,7 @@ export const Icons: Record<string, IconFn> = {
   cmd:       make('M9 6a3 3 0 1 1-3 3h12a3 3 0 1 1-3-3v12a3 3 0 1 1 3-3H6a3 3 0 1 1 3 3z'),
   bell:      make(['M6 16V11a6 6 0 1 1 12 0v5l2 2H4z','M10 20a2 2 0 0 0 4 0']),
   caret:     make('m9 6 6 6-6 6'),
+  info:      make(['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z','M12 11v5','M12 8h.01']),
 };
 
 export default Icon;

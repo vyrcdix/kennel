@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
@@ -7,6 +7,7 @@ import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { Rev } from '../components/Rev';
 import { Icons } from '../components/Icon';
+import { AskClaude } from '../components/AskClaude';
 import { updateRunbookSection, updateRunbookUrls } from '../data/actions';
 import type { RunbookSection } from '../data/actions';
 import type { RunbookUrl } from '../data/types';
@@ -269,6 +270,7 @@ const UrlsSection = ({
 };
 
 export const RunbookView = () => {
+  const navigate = useNavigate();
   useStoreVersion();
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
   const [editing, setEditing] = useState<RunbookSection | null>(null);
@@ -288,6 +290,16 @@ export const RunbookView = () => {
           className="km-scroll"
           style={{ flex: 1, overflow: 'auto', padding: '22px 32px 32px' }}
         >
+          {/* Back link */}
+          <button
+            className="km-btn km-btn-ghost"
+            onClick={() => navigate(`/project/${project.slug}`)}
+            style={{ marginBottom: 12, padding: '2px 6px', color: 'var(--fg-muted)' }}
+          >
+            <Icons.arrowR size={12} style={{ transform: 'rotate(180deg)' }} />{' '}
+            {project.name}
+          </button>
+
           {/* Header */}
           <div
             style={{
@@ -328,6 +340,9 @@ export const RunbookView = () => {
                   <Mono dim>no runbook yet · edit a section to create</Mono>
                 )}
               </div>
+              <AskClaude
+                prompt={`Using the Steep MCP tools, read the runbook for project "${project.slug}" and help me work on it.`}
+              />
               <button
                 className="km-btn"
                 disabled={!runbook}

@@ -6,6 +6,7 @@ import {
   getAllCrystals,
   getProjectCounts,
   getProjects,
+  getTotalReflectingCount,
   getTriageBadgeCount,
 } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
@@ -15,6 +16,7 @@ export type NavRailActive =
   | 'dashboard'
   | 'crystals'
   | 'triage'
+  | 'reflecting'
   | 'search'
   | 'skills'
   | 'settings'
@@ -40,10 +42,12 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
 
   const triageCount = getTriageBadgeCount();
   const crystalCount = getAllCrystals().length;
+  const reflectingCount = getTotalReflectingCount();
   const sys: SysItem[] = [
     { id: 'dashboard', icon: Icons.menu,   label: 'Dashboard',     to: '/' },
     { id: 'crystals',  icon: Icons.gem,    label: 'All crystals',  to: '/crystals', n: crystalCount },
     { id: 'triage',    icon: Icons.filter, label: 'The bench',     to: '/triage', n: triageCount },
+    { id: 'reflecting', icon: Icons.park,  label: 'Reflecting',    to: '/reflecting', n: reflectingCount },
     { id: 'search',    icon: Icons.search, label: 'Search',        to: '/search' },
     { id: 'skills',    icon: Icons.star,   label: 'Skills',        to: '/proposal' },
     { id: 'settings',  icon: Icons.cog,    label: 'Settings',      to: '/settings' },

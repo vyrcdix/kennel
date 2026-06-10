@@ -6,6 +6,7 @@ import {
   chats,
   comments,
   docs,
+  entityTags,
   fieldNotes,
   guidebookEntries,
   guidebooks,
@@ -17,6 +18,7 @@ import {
   settings,
   skillProposals,
   skills,
+  tags,
 } from './fixtures';
 import { notify } from './store';
 import { api, ApiError, materializeDates } from './api';
@@ -43,6 +45,7 @@ import type {
   Settings,
   Skill,
   SkillProposal,
+  Tag,
 } from './types';
 
 // ─── Error classes (signature preserved for UI handlers) ─────────────────
@@ -408,6 +411,48 @@ export const addComment = async (
   comments.push(created);
   notify();
   return created;
+};
+
+// ─── Shared tags ─────────────────────────────────────────────────────────
+
+/** Apply a shared tag to an entity. Find-or-create by name on the
+ *  server; the returned Tag is cached along with the assignment. */
+export const applyTagTo = async (
+  entityType: EntityType,
+  entityId: string,
+  name: string,
+): Promise<Tag> => {
+  const tag = await wrap(() =>
+    api.post<Tag>(`/api/entities/${entityType}/${entityId}/tags`, { name }),
+  );
+  if (!tags.some((t) => t.id === tag.id)) tags.push(tag);
+  const exists = entityTags.some(
+    (et) =>
+      et.entityType === entityType &&
+      et.entityId === entityId &&
+      et.tagId === tag.id,
+  );
+  if (!exists) entityTags.push({ entityType, entityId, tagId: tag.id });
+  notify();
+  return tag;
+};
+
+export const removeTagFrom = async (
+  entityType: EntityType,
+  entityId: string,
+  tagId: string,
+): Promise<void> => {
+  await wrap(() =>
+    api.del(`/api/entities/${entityType}/${entityId}/tags/${tagId}`),
+  );
+  const idx = entityTags.findIndex(
+    (et) =>
+      et.entityType === entityType &&
+      et.entityId === entityId &&
+      et.tagId === tagId,
+  );
+  if (idx >= 0) entityTags.splice(idx, 1);
+  notify();
 };
 
 // ─── Skill proposals ─────────────────────────────────────────────────────

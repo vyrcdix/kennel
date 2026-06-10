@@ -8,6 +8,7 @@ import type {
   Chat,
   Doc,
   EntityComment,
+  EntityTag,
   FieldNotes,
   Guidebook,
   GuidebookEntry,
@@ -34,6 +35,7 @@ export const skillProposals: SkillProposal[] = [];
 export const comments: EntityComment[] = [];
 export const activity: ActivityEntry[] = [];
 export const tags: Tag[] = [];
+export const entityTags: EntityTag[] = [];
 export const guidebooks: Guidebook[] = [];
 export const guidebookEntries: GuidebookEntry[] = [];
 export const routings: Routing[] = [];
@@ -67,6 +69,7 @@ export type BootstrapPayload = {
   comments: EntityComment[];
   activity: ActivityEntry[];
   tags: Tag[];
+  entityTags?: EntityTag[];
   guidebooks: Guidebook[];
   guidebookEntries: GuidebookEntry[];
   settings: Settings;
@@ -91,6 +94,7 @@ export const hydrate = (payload: BootstrapPayload) => {
   replace(comments, payload.comments);
   replace(activity, payload.activity);
   replace(tags, payload.tags);
+  replace(entityTags, payload.entityTags ?? []);
   replace(guidebooks, payload.guidebooks ?? []);
   replace(guidebookEntries, payload.guidebookEntries ?? []);
   settings.current = payload.settings ?? DEFAULT_SETTINGS;

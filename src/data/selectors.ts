@@ -6,6 +6,7 @@ import {
   chats,
   comments,
   docs,
+  entityTags,
   guidebookEntries,
   guidebooks,
   items,
@@ -15,12 +16,14 @@ import {
   runbooks,
   skillProposals,
   skills,
+  tags,
 } from './fixtures';
 import { NOW, daysAgo, isStale } from './time';
 import type {
   ActivityEntry,
   Chat,
   EntityComment,
+  EntityType,
   Guidebook,
   GuidebookEntry,
   Item,
@@ -30,6 +33,7 @@ import type {
   Runbook,
   Skill,
   SkillProposal,
+  Tag,
 } from './types';
 
 // ─── Projects ───────────────────────────────────────────────────────────────
@@ -110,6 +114,23 @@ export const getAgingItems = (thresholdDays: number, projectId?: string) => {
         (b.lastTouchedAt ?? b.updatedAt).getTime(),
     );
 };
+
+/** Items set aside into `reflecting`, longest-shelved first. The
+ *  Reflecting lens lists these for deliberate re-triage — without it,
+ *  set-aside items only resurface by accident (aging past threshold). */
+export const getReflectingItems = (projectId?: string) =>
+  items
+    .filter(
+      (it) =>
+        it.state === 'reflecting' && (!projectId || it.projectId === projectId),
+    )
+    .sort(
+      (a, b) =>
+        (a.lastTouchedAt ?? a.updatedAt).getTime() -
+        (b.lastTouchedAt ?? b.updatedAt).getTime(),
+    );
+
+export const getTotalReflectingCount = () => getReflectingItems().length;
 
 /** Items that are crystallizations (kind or state). */
 export const getCrystallizations = (projectId?: string) =>
@@ -356,6 +377,55 @@ export const getCrystalSources = (crystal: Item) => {
     .filter((i): i is Item => !!i);
 };
 
+// ─── Inbound edges (Connections) ───────────────────────────────────
+// Every edge below already exists in the data; these selectors surface
+// the reverse direction so entities can show what points AT them.
+
+/** Actions/items attached to this crystal / idea via serves_id.
+ *  Pass `'thread:<projectId>'` for thread-anchored actions. Retired
+ *  items (filed/dismissed) drop out — they no longer serve anything. */
+export const getItemsServing = (servesId: string) =>
+  items
+    .filter(
+      (it) =>
+        it.servesId === servesId &&
+        it.state !== 'filed' &&
+        it.state !== 'dismissed',
+    )
+    .sort(touchCmp);
+
+/** Crystals whose sources_from lineage includes this entity (item, doc,
+ *  or reference id) — i.e. "this fed these crystals." */
+export const getCrystalsBuiltFrom = (sourceId: string) =>
+  getCrystallizations().filter((c) => c.sourcesFrom?.includes(sourceId));
+
+/** The item a doc backs (items.doc_id), if any. */
+export const getItemBackedByDoc = (docId: string) =>
+  items.find((it) => it.docId === docId);
+
+/** Guidebook memberships for a doc — which spines include it. */
+export const getGuidebooksContainingDoc = (docId: string) => {
+  const out: { guidebook: Guidebook; entry: GuidebookEntry }[] = [];
+  for (const e of guidebookEntries) {
+    if (e.source.kind !== 'doc' || e.source.docId !== docId) continue;
+    const guidebook = guidebooks.find((g) => g.id === e.guidebookId);
+    if (guidebook) out.push({ guidebook, entry: e });
+  }
+  return out;
+};
+
+/** Guidebook memberships for a reference. */
+export const getGuidebooksContainingReference = (referenceId: string) => {
+  const out: { guidebook: Guidebook; entry: GuidebookEntry }[] = [];
+  for (const e of guidebookEntries) {
+    if (e.source.kind !== 'reference' || e.source.referenceId !== referenceId)
+      continue;
+    const guidebook = guidebooks.find((g) => g.id === e.guidebookId);
+    if (guidebook) out.push({ guidebook, entry: e });
+  }
+  return out;
+};
+
 
 import { fieldNotes, settings } from './fixtures';
 import type { FieldNotes } from './types';
@@ -506,6 +576,50 @@ export const getGuidebookEntryCount = (guidebookId: string): number =>
 export const getGuidebookEntryById = (entryId: string) =>
   guidebookEntries.find((e) => e.id === entryId);
 
+// ─── Shared tags ───────────────────────────────────────────────────────────
+
+export const getAllTags = (): Tag[] =>
+  [...tags].sort((a, b) => a.name.localeCompare(b.name));
+
+export const getTagById = (id: string): Tag | undefined =>
+  tags.find((t) => t.id === id);
+
+/** Shared tags applied to one entity, alphabetical. */
+export const getTagsFor = (entityType: EntityType, entityId: string): Tag[] =>
+  entityTags
+    .filter((et) => et.entityType === entityType && et.entityId === entityId)
+    .map((et) => getTagById(et.tagId))
+    .filter((t): t is Tag => !!t)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+/** Entity ids of one type carrying a given tag — for filtering lists. */
+export const getEntityIdsWithTag = (
+  entityType: EntityType,
+  tagId: string,
+): Set<string> => {
+  const out = new Set<string>();
+  for (const et of entityTags) {
+    if (et.entityType === entityType && et.tagId === tagId) out.add(et.entityId);
+  }
+  return out;
+};
+
+/** Tags in use, with usage counts — drives filter chip rows. Pass an
+ *  entityType to count only that type's assignments; a filter UI that
+ *  matches items must not advertise doc-only tags. */
+export const getTagUsage = (
+  entityType?: EntityType,
+): { tag: Tag; count: number }[] => {
+  const counts = new Map<string, number>();
+  for (const et of entityTags) {
+    if (entityType && et.entityType !== entityType) continue;
+    counts.set(et.tagId, (counts.get(et.tagId) ?? 0) + 1);
+  }
+  return getAllTags()
+    .map((tag) => ({ tag, count: counts.get(tag.id) ?? 0 }))
+    .filter((u) => u.count > 0);
+};
+
 // ─── Chats ─────────────────────────────────────────────────────────────────
 
 export type ProjectChats = { active: Chat[]; stale: Chat[] };
@@ -637,12 +751,44 @@ const truncate = (s: string, around: string, span = 120) => {
 import { formatRelative } from './time';
 
 export const search = (query: string): SearchGroup[] => {
-  const q = query.trim();
-  if (!q) return [];
+  if (!query.trim()) return [];
+
+  // `tag:#name` / `tag:name` filter — restricts taggable entities
+  // (items, docs, references, runbooks) to those carrying the tag.
+  // The rest of the query matches as before; a bare `tag:x` query
+  // returns everything with that tag.
+  const tagNames: string[] = [];
+  const q = query
+    .replace(/\btag:#?([a-z0-9-]+)/gi, (_m, name: string) => {
+      tagNames.push(name.toLowerCase());
+      return '';
+    })
+    .replace(/\s+/g, ' ') // collapse the gap a stripped token leaves
+    .trim();
+  const tagIds =
+    tagNames.length > 0
+      ? new Set(tags.filter((t) => tagNames.includes(t.name)).map((t) => t.id))
+      : null;
+  const taggedIds = (entityType: EntityType): Set<string> | null => {
+    if (!tagIds) return null;
+    const out = new Set<string>();
+    for (const et of entityTags) {
+      if (et.entityType === entityType && tagIds.has(et.tagId)) {
+        out.add(et.entityId);
+      }
+    }
+    return out;
+  };
+  const taggedItems = taggedIds('item');
+  const taggedDocs = taggedIds('doc');
+  const taggedRefs = taggedIds('reference');
+  const taggedRunbooks = taggedIds('runbook');
+
   const slugById = buildProjectSlugMap();
   const slugOf = (id: string) => slugById.get(id) ?? '';
 
   const itemHits = items
+    .filter((it) => !taggedItems || taggedItems.has(it.id))
     .filter((it) => matches(it.title, q) || matches(it.body, q))
     .map<SearchHit>((it) => ({
       kind: it.kind,
@@ -654,6 +800,7 @@ export const search = (query: string): SearchGroup[] => {
     }));
 
   const docHits = docs
+    .filter((d) => !taggedDocs || taggedDocs.has(d.id))
     .filter((d) => matches(d.title, q) || matches(d.body, q))
     .map<SearchHit>((d) => ({
       kind: 'doc',
@@ -665,6 +812,7 @@ export const search = (query: string): SearchGroup[] => {
     }));
 
   const refHits = references
+    .filter((r) => !taggedRefs || taggedRefs.has(r.id))
     .filter((r) => matches(r.label, q) || matches(r.notes, q))
     .map<SearchHit>((r) => ({
       kind: 'ref',
@@ -677,6 +825,7 @@ export const search = (query: string): SearchGroup[] => {
     }));
 
   const runbookHits = runbooks
+    .filter((r) => !taggedRunbooks || taggedRunbooks.has(r.id))
     .filter((r) =>
       [r.prerequisites, r.setup, r.run, r.deploy, r.troubleshoot, r.notes].some(
         (s) => matches(s, q),
@@ -691,7 +840,8 @@ export const search = (query: string): SearchGroup[] => {
       target: `/runbook/${slugOf(r.projectId)}`,
     }));
 
-  const skillHits = skills
+  // Skills + chats aren't taggable; a tag-filtered search excludes them.
+  const skillHits = (tagIds ? [] : skills)
     .filter((s) => matches(s.name, q) || matches(s.body, q))
     .map<SearchHit>((s) => {
       const pending = skillProposals.find(
@@ -711,7 +861,7 @@ export const search = (query: string): SearchGroup[] => {
       };
     });
 
-  const chatHits = chats
+  const chatHits = (tagIds ? [] : chats)
     .filter((c) => matches(c.tagline, q))
     .map<SearchHit>((c) => ({
       kind: 'chat',

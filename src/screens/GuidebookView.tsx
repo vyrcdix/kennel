@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AddGuidebookEntryModal } from '../components/AddGuidebookEntryModal';
+import { AskClaude } from '../components/AskClaude';
 import { ChromeBar } from '../components/ChromeBar';
 import { Icons } from '../components/Icon';
 import { Mono } from '../components/Mono';
@@ -438,7 +439,7 @@ type ViewMode = 'order' | 'tags';
 
 export const GuidebookView = () => {
   const navigate = useNavigate();
-  useStoreVersion();
+  const storeVersion = useStoreVersion();
   const { id = '' } = useParams<{ slug?: string; id?: string }>();
   const guidebook = getGuidebookById(id);
   const project = guidebook ? getProjectById(guidebook.projectId) : undefined;
@@ -469,9 +470,12 @@ export const GuidebookView = () => {
     if (editingDescription) descriptionInputRef.current?.focus();
   }, [editingDescription]);
 
+  // Depend on storeVersion too: reordering entries mutates the entries
+  // array, not the guidebook object, so keying on `guidebook` alone left
+  // this memo stale after a drag — the list snapped back to the old order.
   const entries = useMemo(
     () => (guidebook ? getGuidebookEntries(guidebook.id) : []),
-    [guidebook],
+    [guidebook, storeVersion],
   );
 
   // Unique tags in user-defined entry order — the first time a tag
@@ -791,6 +795,9 @@ export const GuidebookView = () => {
               </div>
               <Mono dim>{reorderHint}</Mono>
               <span style={{ flex: 1 }} />
+              <AskClaude
+                prompt={`Using the Steep MCP tools, read the guidebook "${guidebook.name}" in project "${project.slug}" and help me work on it.`}
+              />
               <button
                 className="km-btn km-btn-primary"
                 onClick={() => setAddOpen(true)}

@@ -1,14 +1,14 @@
 // v0.5 — Crystal detail (the hub). Left pane: the crystal itself with
-// blaze wash + body + "Distilled into" sub-artefacts. Right pane: the
-// "Built on" doorways into the supporting structures (field notes,
-// guidebook, runbook) — that lineage UI is the phase 8 scope; this
-// screen renders a skeleton with the sources we can resolve today
-// (from item.sourcesFrom) and leaves the per-table attachments empty
-// behind a "phase 8" placeholder strip.
+// blaze wash + body + inbound connections (actions serving it, crystals
+// built on it). Right pane: the "Built on" doorways into the supporting
+// structures (field notes, guidebook, runbook, docs) with an attach
+// picker scoped to the crystal's own thread (the server rejects
+// cross-topic attachment), plus the item lineage from sources_from.
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChromeBar } from '../components/ChromeBar';
+import { ConnectionsPanel } from '../components/ConnectionsPanel';
 import { Icons } from '../components/Icon';
 import { KindIcon } from '../components/KindIcon';
 import { Label } from '../components/Label';
@@ -17,13 +17,19 @@ import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
 import { SegBtn } from '../components/SegBtn';
 import {
+  getCrystalsBuiltFrom,
   getDocById,
   getDocsForCrystal,
+  getFieldNotes,
   getFieldNoteSectionsForCrystal,
   getGuidebooksForCrystal,
   getItemById,
+  getItemsServing,
   getProjectById,
+  getProjectDocs,
+  getProjectGuidebooks,
   getReferenceById,
+  getRunbook,
   getRunbooksForCrystal,
 } from '../data/selectors';
 import {
@@ -37,7 +43,7 @@ import {
 } from '../data/actions';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
-import type { CrystalType, Item } from '../data/types';
+import type { CrystalType, FieldNotesSectionKey, Item } from '../data/types';
 
 const CTYPES: { value: CrystalType; label: string }[] = [
   { value: 'principle', label: 'Principle' },
@@ -125,21 +131,116 @@ const FIELD_SECTION_LABEL: Record<string, string> = {
   crystallizations: 'Crystallizations',
 };
 
+const PickerGroup = ({
+  label,
+  accent,
+  children,
+}: {
+  label: string;
+  accent: string;
+  children: React.ReactNode;
+}) => (
+  <div style={{ marginBottom: 12 }}>
+    <div
+      className="km-mono-sm"
+      style={{ color: accent, letterSpacing: '.1em', marginBottom: 6 }}
+    >
+      {label}
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</div>
+  </div>
+);
+
+const PickerRow = ({
+  icon,
+  label,
+  sub,
+  onAttach,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  sub?: string;
+  onAttach: () => void;
+}) => (
+  <div
+    onClick={onAttach}
+    className="km-row"
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '6px 9px',
+      borderRadius: 4,
+      cursor: 'pointer',
+    }}
+    title="Attach to this crystal"
+  >
+    <span style={{ display: 'inline-flex' }}>{icon}</span>
+    <span
+      style={{
+        flex: 1,
+        fontSize: 13,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
+      {label}
+    </span>
+    {sub && <Mono dim>{sub}</Mono>}
+    <Icons.plus size={11} stroke="var(--v-soft)" />
+  </div>
+);
+
 const BuiltOnPanel = ({
-  crystalId,
+  crystal,
   lineage,
 }: {
-  crystalId: string;
+  crystal: Item;
   lineage: ResolvedSource[];
 }) => {
   const navigate = useNavigate();
+  const crystalId = crystal.id;
+  const project = getProjectById(crystal.projectId);
   const guidebooks = getGuidebooksForCrystal(crystalId);
   const runbooks = getRunbooksForCrystal(crystalId);
   const docs = getDocsForCrystal(crystalId);
   const fieldSections = getFieldNoteSectionsForCrystal(crystalId);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const totalAttachments =
     guidebooks.length + runbooks.length + docs.length + fieldSections.length;
+
+  // Attach candidates — the server rejects cross-topic attachment
+  // (`wrong_topic`), so only this crystal's own thread is offered.
+  const candidateDocs = project
+    ? getProjectDocs(project.id).filter((d) => d.supportsCrystal !== crystalId)
+    : [];
+  const candidateGuidebooks = project
+    ? getProjectGuidebooks(project.id).filter(
+        (g) => g.supportsCrystalItemId !== crystalId,
+      )
+    : [];
+  const projectRunbook = project ? getRunbook(project.id) : undefined;
+  const candidateRunbook =
+    projectRunbook && projectRunbook.supportsCrystalItemId !== crystalId
+      ? projectRunbook
+      : undefined;
+  const projectFieldNotes = project ? getFieldNotes(project.id) : undefined;
+  const candidateSections = projectFieldNotes
+    ? (Object.keys(FIELD_SECTION_LABEL) as FieldNotesSectionKey[]).filter(
+        (key) => projectFieldNotes.supportsCrystals?.[key] !== crystalId,
+      )
+    : [];
+
+  const attach = async (fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+      setPickerOpen(false);
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
+  };
 
   const onDetachGuidebook = async (id: string) => {
     try {
@@ -273,7 +374,22 @@ const BuiltOnPanel = ({
         borderLeft: '1px solid var(--v-line)',
       }}
     >
-      <Label>Built on</Label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Label>Built on</Label>
+        <span style={{ flex: 1 }} />
+        <button
+          className="km-btn km-btn-ghost"
+          onClick={() => setPickerOpen((v) => !v)}
+          title="Attach a doc, guidebook, runbook, or field-notes section from this thread"
+          style={{
+            padding: '3px 9px',
+            fontSize: 11.5,
+            color: pickerOpen ? 'var(--ember-deep)' : undefined,
+          }}
+        >
+          <Icons.plus size={11} /> Attach
+        </button>
+      </div>
       <div style={{ marginTop: 4, marginBottom: 18 }}>
         <Mono dim>
           {totalAttachments === 0 && lineage.length === 0
@@ -281,6 +397,100 @@ const BuiltOnPanel = ({
             : `${totalAttachments} doorway${totalAttachments === 1 ? '' : 's'} · ${lineage.length} lineage source${lineage.length === 1 ? '' : 's'}`}
         </Mono>
       </div>
+
+      {pickerOpen && (
+        <div
+          style={{
+            marginBottom: 18,
+            padding: '12px 14px',
+            background: 'var(--v-card)',
+            border: '1px solid var(--v-line2)',
+            borderRadius: 6,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+            <Mono dim>
+              attach from {project ? `"${project.slug}"` : 'this thread'} — a
+              doorway supports one crystal; attaching moves it here
+            </Mono>
+          </div>
+
+          {candidateSections.length > 0 && project && (
+            <PickerGroup label="FIELD NOTES" accent="var(--v-clay)">
+              {candidateSections.map((key) => (
+                <PickerRow
+                  key={key}
+                  icon={<Icons.note size={12} stroke="var(--v-clay)" />}
+                  label={FIELD_SECTION_LABEL[key]}
+                  sub={
+                    projectFieldNotes?.supportsCrystals?.[key]
+                      ? 'supports another crystal'
+                      : undefined
+                  }
+                  onAttach={() =>
+                    attach(() =>
+                      attachFieldNoteSectionToCrystal(project.slug, key, crystalId),
+                    )
+                  }
+                />
+              ))}
+            </PickerGroup>
+          )}
+
+          {candidateGuidebooks.length > 0 && (
+            <PickerGroup label="GUIDEBOOKS" accent="var(--v-moss)">
+              {candidateGuidebooks.map((g) => (
+                <PickerRow
+                  key={g.id}
+                  icon={<Icons.doc size={12} stroke="var(--v-moss)" />}
+                  label={g.name}
+                  sub={g.supportsCrystalItemId ? 'supports another crystal' : undefined}
+                  onAttach={() => attach(() => attachGuidebookToCrystal(g.id, crystalId))}
+                />
+              ))}
+            </PickerGroup>
+          )}
+
+          {candidateRunbook && project && (
+            <PickerGroup label="RUNBOOK" accent="var(--v-ember-dk)">
+              <PickerRow
+                icon={<Icons.runbook size={12} stroke="var(--v-ember-dk)" />}
+                label={`${project.name} · runbook`}
+                sub={
+                  candidateRunbook.supportsCrystalItemId
+                    ? 'supports another crystal'
+                    : `rev ${candidateRunbook.revision}`
+                }
+                onAttach={() => attach(() => attachRunbookToCrystal(project.slug, crystalId))}
+              />
+            </PickerGroup>
+          )}
+
+          {candidateDocs.length > 0 && (
+            <PickerGroup label="DOCS" accent="var(--v-soft)">
+              {candidateDocs.map((d) => (
+                <PickerRow
+                  key={d.id}
+                  icon={<Icons.doc size={12} stroke="var(--v-soft)" />}
+                  label={d.title}
+                  sub={d.supportsCrystal ? 'supports another crystal' : `rev ${d.revision}`}
+                  onAttach={() => attach(() => attachDocToCrystal(d.id, crystalId))}
+                />
+              ))}
+            </PickerGroup>
+          )}
+
+          {candidateDocs.length === 0 &&
+            candidateGuidebooks.length === 0 &&
+            !candidateRunbook &&
+            candidateSections.length === 0 && (
+              <Mono dim>
+                nothing left to attach — everything in this thread already
+                supports this crystal
+              </Mono>
+            )}
+        </div>
+      )}
 
       {fieldSections.length > 0 && (
         <Group label="FIELD NOTES · mine" accent="var(--v-clay)">
@@ -418,7 +628,7 @@ const BuiltOnPanel = ({
         </Group>
       )}
 
-      {totalAttachments === 0 && lineage.length === 0 && (
+      {totalAttachments === 0 && lineage.length === 0 && !pickerOpen && (
         <div
           style={{
             padding: '14px 16px',
@@ -428,9 +638,8 @@ const BuiltOnPanel = ({
           }}
         >
           <Mono dim>
-            Attach a guidebook, runbook, doc, or field-notes section from its own
-            screen by setting "Supports crystal" — the attach picker UI ships
-            in a follow-up slice.
+            Nothing supports this crystal yet — use Attach above to link a
+            guidebook, runbook, doc, or field-notes section from this thread.
           </Mono>
         </div>
       )}
@@ -484,6 +693,9 @@ export const CrystalDetail = () => {
   if (!crystal) return <NotFoundFor id={id} />;
   const project = getProjectById(crystal.projectId);
   const sources = resolveSources(crystal);
+  const serving = getItemsServing(crystal.id);
+  const distilledInto = getCrystalsBuiltFrom(crystal.id);
+  const backingDoc = crystal.docId ? getDocById(crystal.docId) : undefined;
 
   return (
     <div className="km km-v4" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -529,6 +741,32 @@ export const CrystalDetail = () => {
             />
             all crystals
           </button>
+          {project && (
+            <button
+              onClick={() => navigate(`/project/${project.slug}`)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '2px 6px',
+                marginLeft: 8,
+                border: 0,
+                background: 'transparent',
+                color: 'var(--v-soft)',
+                cursor: 'pointer',
+                fontFamily: 'var(--ff-mono)',
+                fontSize: 11,
+                marginBottom: 12,
+              }}
+            >
+              <Icons.arrowR
+                size={11}
+                stroke="var(--v-soft)"
+                style={{ transform: 'rotate(180deg)' }}
+              />
+              {project.name}
+            </button>
+          )}
 
           <div
             style={{
@@ -597,10 +835,60 @@ export const CrystalDetail = () => {
               · kept fresh
             </Mono>
           )}
+
+          {/* Inbound edges — what serves this crystal, and what it fed.
+              The forward direction (sources, doorways) lives in the
+              Built-on pane; this is the reverse. */}
+          <div style={{ marginTop: 28 }}>
+            <ConnectionsPanel
+              groups={[
+                {
+                  label: 'BACKED BY DOC',
+                  accent: 'var(--v-soft)',
+                  rows: backingDoc
+                    ? [
+                        {
+                          key: backingDoc.id,
+                          icon: <Icons.doc size={13} stroke="var(--v-soft)" />,
+                          label: backingDoc.title,
+                          sub: `rev ${backingDoc.revision}`,
+                          onOpen: () => navigate(`/doc/${backingDoc.id}`),
+                        },
+                      ]
+                    : [],
+                },
+                {
+                  label: 'IN SERVICE · actions serving this',
+                  accent: 'var(--ember-deep)',
+                  rows: serving.map((it) => ({
+                    key: it.id,
+                    icon: <KindIcon kind={it.kind} size={13} muted />,
+                    label: it.title,
+                    sub: it.state === 'active' ? 'in focus' : it.state,
+                    onOpen: () => {
+                      const p = getProjectById(it.projectId);
+                      if (p) navigate(`/project/${p.slug}`);
+                    },
+                  })),
+                },
+                {
+                  label: 'DISTILLED INTO · crystals built on this',
+                  accent: 'var(--blaze)',
+                  rows: distilledInto.map((c) => ({
+                    key: c.id,
+                    icon: <Icons.gem size={13} stroke="var(--v-blaze-dk)" />,
+                    label: c.title,
+                    sub: c.ctype,
+                    onOpen: () => navigate(`/crystal/${c.id}`),
+                  })),
+                },
+              ]}
+            />
+          </div>
         </div>
 
         {/* Right: Built on — three doorways + item lineage (v0.5 §D) */}
-        <BuiltOnPanel crystalId={crystal.id} lineage={sources} />
+        <BuiltOnPanel crystal={crystal} lineage={sources} />
 
       </div>
     </div>
