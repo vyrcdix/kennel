@@ -366,3 +366,153 @@
 /* App-level reset so the canvas fills the viewport */
 html, body, #root { height: 100%; margin: 0; padding: 0; }
 body { background: var(--surface-0); color: var(--fg); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   TIDEWATER — the "Life" skin. Ported from the design handoff's
+   skin-tokens.css: .sk-tide → .km-skin-life, .sk-tide.night →
+   .km-skin-life.km-dark. The skin is a pure custom-property remap over the
+   same km-* components and the same inline var(--…) references, so one class
+   on <html> re-dresses the whole app. Workshop is untouched (no class).
+
+   These blocks sit after :root / .km-dark / .km-v4 so equal-specificity
+   token defs win the cascade tie. .km-skin-life.km-dark (0,2,0) also beats
+   the base .km-dark (0,1,0), so it must re-state every night surface/ink.
+   ════════════════════════════════════════════════════════════════════════ */
+.km-skin-life {
+  /* ground / ink / line — warm sea-mist day */
+  --surface-0:   #EBEEE3;
+  --surface-1:   #F7F8F0;
+  --surface-2:   #DEE2D2;          /* tide --sunk (recessed chips, kbd) */
+  --line:        rgba(33,49,56,.11);
+  --line-strong: rgba(33,49,56,.20);
+  --fg:          #213138;
+  --fg-muted:    #566A66;
+  --fg-faint:    #8A988F;
+
+  /* base palette remapped to tide hues — drives the inline var(--ember…)
+   * references that slice 0 deliberately left in place */
+  --ember:       #14808A;          /* lagoon teal — action */
+  --ember-deep:  #0E5E66;          /* action ink — accent text/links */
+  --ember-dark:  #0E5E66;          /* action hover / darker */
+  --blaze:       #DB8A4C;          /* sea-glass amber — sacred */
+  --moss:        #4E8A6A;          /* sea-green — guide family */
+  --dust:        #8A988F;          /* muted neutral — tags, recessed tints */
+  --slate:       #213138;          /* dark medallion */
+  --slate-light: #8A988F;          /* filed dot / dormant edge */
+  --slate-dark:  #0A151A;
+  --bone:        #F7F8F0;          /* light ink on coloured chips */
+
+  /* semantic tokens that carried literal Workshop values in :root */
+  --sacred-ink:      #A85F22;
+  --sacred-ink-deep: #8A4E18;
+  --fam-field:   #9C7A52;          /* driftwood */
+  --fam-run:     #3E6E8C;          /* deep blue */
+  --dot-reflect: #7FA39B;          /* decoupled from --dust (sea-foam) */
+  --tint-stone:  #8C8275;
+  --tint-sage:   #6F8A5E;
+  --tint-dusk:   #5E7C9C;
+  --tint-plum:   #8A6886;
+  --tint-slate:  #566270;
+  --tint-teal:   #3E8A82;
+  --scrim:       #0E1B20;          /* deep harbour water behind modals */
+  --r-card:      17px;
+  --r-ctrl:      11px;
+  --motion-scale: 1;
+
+  /* type */
+  --ff-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --ff-sans:    'Hanken Grotesk', system-ui, sans-serif;
+  --ff-mono:    'Spline Sans Mono', ui-monospace, monospace;
+
+  /* tide-only tokens (consumed by later slices' reflows) */
+  --card-2:       #FFFFFF;
+  --sacred-soft:  rgba(219,138,76,.14);
+  --action-soft:  rgba(20,128,138,.10);
+  --shadow-panel: 0 1px 2px rgba(33,49,56,.04), 0 8px 22px rgba(33,49,56,.06);
+  --shadow-lift:  0 2px 6px rgba(33,49,56,.06), 0 18px 40px rgba(33,49,56,.11);
+}
+
+/* Tidewater — cool night (deep water; the one warm thing is sea-glass amber).
+ * Re-states every surface/ink so it beats the base .km-dark on specificity.
+ * Radii, motion and fonts inherit from .km-skin-life (same element). */
+.km-skin-life.km-dark {
+  --surface-0:   #0E1B20;
+  --surface-1:   #16272D;
+  --surface-2:   #0A151A;
+  --line:        rgba(220,231,227,.10);
+  --line-strong: rgba(220,231,227,.19);
+  --fg:          #DCE7E3;
+  --fg-muted:    #93A8A3;
+  --fg-faint:    #5F7570;
+
+  --ember:       #2BA2AC;
+  --ember-deep:  #6FCAD2;          /* bright accent text on dark */
+  --ember-dark:  #1B7A83;          /* deep action / hover */
+  --blaze:       #E89A57;
+  --moss:        #6FB58E;
+  --dust:        #5F7570;
+  --slate:       #1B3038;
+  --slate-light: #5F7570;
+  --slate-dark:  #060E12;
+  --bone:        #F2F7F4;
+
+  --sacred-ink:      #F0BA8A;
+  --sacred-ink-deep: #F0BA8A;
+  --fam-field:   #C19A6E;
+  --fam-run:     #6FA3C6;
+  --dot-reflect: #8FB6AE;
+  --tint-stone:  #B3A99A;
+  --tint-sage:   #9FB587;
+  --tint-dusk:   #8FA8C6;
+  --tint-plum:   #BE9BB6;
+  --tint-slate:  #8A99A8;
+  --tint-teal:   #6FB8AF;
+  --scrim:       #060E12;
+
+  --card-2:       #1B3038;
+  --sacred-soft:  rgba(232,154,87,.17);
+  --action-soft:  rgba(43,162,172,.15);
+  --shadow-panel: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px rgba(0,0,0,.34);
+  --shadow-lift:  0 2px 8px rgba(0,0,0,.36), 0 22px 48px rgba(0,0,0,.46);
+}
+
+/* km-v4 vars remapped so CrystalDetail / Trace / CrystalCard / CrystalsGallery
+ * re-dress without forking their component styles. These MUST be descendant
+ * rules on .km-v4 itself: .km-v4 defines --v-* directly on the element, which
+ * would otherwise override the value inherited from .km-skin-life on <html>.
+ * .km-skin-life .km-v4 (0,2,0) beats .km-v4 (0,1,0); the night rule (0,3,0)
+ * beats the base .km-dark .km-v4 (0,2,0). */
+.km-skin-life .km-v4 {
+  --v-bg:   #EBEEE3; --v-sunk: #DEE2D2; --v-card: #F7F8F0;
+  --v-ink:  #213138; --v-soft: #566A66; --v-faint: #8A988F;
+  --v-line: rgba(33,49,56,.11); --v-line2: rgba(33,49,56,.20);
+  --v-blaze: #DB8A4C; --v-blaze-dk: #A85F22; --v-dust: #8A988F;
+  --v-ember: #14808A; --v-ember-dk: #0E5E66; --v-moss: #4E8A6A; --v-clay: #9C7A52;
+}
+.km-skin-life.km-dark .km-v4 {
+  --v-bg:   #0E1B20; --v-sunk: #0A151A; --v-card: #16272D;
+  --v-ink:  #DCE7E3; --v-soft: #93A8A3; --v-faint: #5F7570;
+  --v-line: rgba(220,231,227,.10); --v-line2: rgba(220,231,227,.19);
+  --v-blaze: #E89A57; --v-blaze-dk: #F0BA8A; --v-dust: #5F7570;
+  --v-ember: #2BA2AC; --v-ember-dk: #1B7A83; --v-moss: #6FB58E; --v-clay: #C19A6E;
+}
+
+/* ── Life dress for chrome / atoms ─────────────────────────────────────── */
+/* The signature tide wash on the app canvas + a touch more line-height. */
+.km-skin-life .km {
+  line-height: 1.5;
+  background:
+    radial-gradient(120% 80% at 80% -10%, rgba(20,128,138,.06), transparent 60%),
+    radial-gradient(110% 70% at -10% 110%, rgba(78,138,106,.07), transparent 55%),
+    var(--surface-0);
+}
+.km-skin-life.km-dark .km {
+  background:
+    radial-gradient(120% 80% at 82% -12%, rgba(43,162,172,.14), transparent 58%),
+    radial-gradient(110% 75% at -10% 112%, rgba(111,181,142,.10), transparent 55%),
+    radial-gradient(90% 60% at 50% 120%, rgba(232,154,87,.05), transparent 60%),
+    var(--surface-0);
+}
+.km-skin-life body { background: var(--surface-0); }
+/* Cards/panels gain the soft tide lift (Workshop cards stay flat). */
+.km-skin-life .km-card { box-shadow: var(--shadow-panel); }
