@@ -1,0 +1,289 @@
+/* ════════════════════════════════════════════════════════════════
+   Steep — Life skin tokens (.km-skin-life candidates)
+   Each skin is a class that remaps custom properties over the same
+   component classes below. Shared by the boards + the standalone pages.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── B · Morning Kitchen ───────────────────────────────────────── */
+.sk-kitchen {
+  --bg:        #F4EEE3;   /* warm daylight ground */
+  --bg-tint:   #F4EEE3;
+  --card:      #FCFAF4;   /* matte lifted surface */
+  --card-2:    #FFFFFF;
+  --sunk:      #ECE4D5;
+  --ink:       #2F2A23;
+  --ink-muted: #6F6658;
+  --ink-faint: #9A9081;
+  --line:      rgba(47,42,35,.11);
+  --line-strong: rgba(47,42,35,.20);
+
+  --sacred:      #C2912F;   /* honey — crystals, the one kept-thing hue */
+  --sacred-ink:  #8A6312;
+  --sacred-soft: rgba(194,145,47,.13);
+  --action:      #BC5A39;   /* terracotta — primary action + in-focus */
+  --action-deep: #974326;
+  --action-ink:  #9A4226;
+  --action-soft: rgba(188,90,57,.11);
+
+  --fam-field:  #A9774E;
+  --fam-guide:  #7C8A57;
+  --fam-run:    #6E7C8A;
+
+  --dot-focus:   var(--action);
+  --dot-reflect: #C2A36F;
+  --dot-crystal: #7C8A57;
+  --dot-filed:   #9A9081;
+
+  --r-card: 13px;
+  --r-ctrl: 9px;
+  --pad-panel: 22px;
+  --gap-panel: 18px;
+
+  --ff-display: 'Hanken Grotesk', system-ui, sans-serif;
+  --ff-sans:    'Hanken Grotesk', system-ui, sans-serif;
+  --ff-mono:    'Spline Sans Mono', ui-monospace, monospace;
+
+  --shadow-panel: 0 1px 2px rgba(47,42,35,.04), 0 6px 18px rgba(47,42,35,.05);
+  --shadow-lift:  0 2px 4px rgba(47,42,35,.05), 0 14px 34px rgba(47,42,35,.09);
+}
+
+/* ── D · Tidewater ─────────────────────────────────────────────── */
+.sk-tide {
+  --bg:        #EBEEE3;   /* warm sea-mist sand */
+  --bg-tint:   #EBEEE3;
+  --card:      #F7F8F0;
+  --card-2:    #FFFFFF;
+  --sunk:      #DEE2D2;
+  --ink:       #213138;
+  --ink-muted: #566A66;
+  --ink-faint: #8A988F;
+  --line:      rgba(33,49,56,.11);
+  --line-strong: rgba(33,49,56,.20);
+
+  --sacred:      #DB8A4C;   /* sea-glass amber — crystals, glows warm */
+  --sacred-ink:  #A85F22;
+  --sacred-soft: rgba(219,138,76,.14);
+  --action:      #14808A;   /* lagoon teal — primary action + in-focus */
+  --action-deep: #0E5E66;
+  --action-ink:  #0E5E66;
+  --action-soft: rgba(20,128,138,.10);
+
+  --fam-field:  #9C7A52;    /* driftwood */
+  --fam-guide:  #4E8A6A;    /* sea-green */
+  --fam-run:    #3E6E8C;    /* deep blue */
+
+  --dot-focus:   var(--action);
+  --dot-reflect: #7FA39B;
+  --dot-crystal: #4E8A6A;
+  --dot-filed:   #8A988F;
+
+  /* thread label hues — left tint on the project pill only */
+  --tint-stone: #8C8275;
+  --tint-sage:  #6F8A5E;
+  --tint-dusk:  #5E7C9C;
+  --tint-plum:  #8A6886;
+  --tint-slate: #566270;
+  --tint-teal:  #3E8A82;
+
+  --r-card: 17px;
+  --r-ctrl: 11px;
+  --pad-panel: 22px;
+  --gap-panel: 18px;
+
+  --ff-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --ff-sans:    'Hanken Grotesk', system-ui, sans-serif;
+  --ff-mono:    'Spline Sans Mono', ui-monospace, monospace;
+
+  --shadow-panel: 0 1px 2px rgba(33,49,56,.04), 0 8px 22px rgba(33,49,56,.06);
+  --shadow-lift:  0 2px 6px rgba(33,49,56,.06), 0 18px 40px rgba(33,49,56,.11);
+  --motion-scale: 1;   /* 0 = motionless, matches base skin */
+}
+
+/* ── D · Tidewater — NIGHT (cool lamplight) ────────────────────── */
+/* Warm day above; cool night here. Deep water after dark — the one
+   warm thing left glowing is the sea-glass amber of a kept crystal. */
+.sk-tide.night {
+  --bg:        #0E1B20;   /* deep harbour water */
+  --bg-tint:   #0E1B20;
+  --card:      #16272D;   /* lamplit surface just above the water */
+  --card-2:    #1B3038;
+  --sunk:      #0A151A;
+  --ink:       #DCE7E3;
+  --ink-muted: #93A8A3;
+  --ink-faint: #5F7570;
+  --line:      rgba(220,231,227,.10);
+  --line-strong: rgba(220,231,227,.19);
+
+  --sacred:      #E89A57;   /* sea-glass amber — still warm, now luminous */
+  --sacred-ink:  #F0BA8A;
+  --sacred-soft: rgba(232,154,87,.17);
+  --action:      #2BA2AC;   /* lagoon teal, brightened for dark contrast */
+  --action-deep: #1B7A83;
+  --action-ink:  #6FCAD2;
+  --action-soft: rgba(43,162,172,.15);
+
+  --fam-field:  #C19A6E;
+  --fam-guide:  #6FB58E;
+  --fam-run:    #6FA3C6;
+
+  --dot-focus:   var(--action);
+  --dot-reflect: #8FB6AE;
+  --dot-crystal: #6FB58E;
+  --dot-filed:   #5F7570;
+
+  --tint-stone: #B3A99A;
+  --tint-sage:  #9FB587;
+  --tint-dusk:  #8FA8C6;
+  --tint-plum:  #BE9BB6;
+  --tint-slate: #8A99A8;
+  --tint-teal:  #6FB8AF;
+
+  --shadow-panel: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px rgba(0,0,0,.34);
+  --shadow-lift:  0 2px 8px rgba(0,0,0,.36), 0 22px 48px rgba(0,0,0,.46);
+}
+
+/* ════════════════ shared component layer (reads the vars) ════════ */
+.skin { font-family: var(--ff-sans); color: var(--ink); background: var(--bg);
+  -webkit-font-smoothing: antialiased; line-height: 1.5; height: 100%; }
+.sk-tide.skin {
+  background:
+    radial-gradient(120% 80% at 80% -10%, rgba(20,128,138,.06), transparent 60%),
+    radial-gradient(110% 70% at -10% 110%, rgba(78,138,106,.07), transparent 55%),
+    var(--bg);
+}
+.sk-tide.night.skin {
+  background:
+    radial-gradient(120% 80% at 82% -12%, rgba(43,162,172,.14), transparent 58%),
+    radial-gradient(110% 75% at -10% 112%, rgba(111,181,142,.10), transparent 55%),
+    radial-gradient(90% 60% at 50% 120%, rgba(232,154,87,.05), transparent 60%),
+    var(--bg);
+}
+.skin * { box-sizing: border-box; }
+.skin ::-webkit-scrollbar { display: none; }
+
+.mono   { font-family: var(--ff-mono); font-size: 12px; letter-spacing: -0.01em; color: var(--ink-muted); }
+.mono.tiny { font-size: 11px; }
+.display { font-family: var(--ff-display); }
+.eyebrow { font-family: var(--ff-display); font-weight: 600; font-size: 11.5px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }
+
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card);
+  box-shadow: var(--shadow-panel); }
+
+.skin h1, .skin h2 { white-space: nowrap; }
+.btn { font-family: var(--ff-sans); font-weight: 600; font-size: 13.5px; line-height: 1; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; cursor: pointer;
+  border-radius: var(--r-ctrl); border: 1px solid var(--line-strong); background: transparent; color: var(--ink); }
+.btn-primary { background: var(--action); border-color: var(--action); color: #FFF6EF; box-shadow: var(--shadow-panel); }
+.btn-soft { background: var(--sunk); border-color: transparent; color: var(--ink); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--ink-muted); padding: 8px 9px; }
+.btn-sm { font-size: 12.5px; padding: 7px 11px; }
+
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 8px;
+  background: color-mix(in oklab, var(--ink) 5%, transparent); color: var(--ink-muted);
+  font-family: var(--ff-mono); font-size: 11.5px; border-radius: 999px;
+  border-left: 3px solid var(--tint, transparent); }
+
+.tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 9px;
+  background: color-mix(in oklab, var(--sacred) 14%, transparent); color: var(--ink-muted);
+  font-family: var(--ff-mono); font-size: 11px; border-radius: 999px; }
+
+.chip { font-family: var(--ff-sans); font-weight: 500; font-size: 12.5px; padding: 5px 12px; white-space: nowrap;
+  border-radius: 999px; border: 1px solid var(--line-strong); background: transparent;
+  color: var(--ink-muted); cursor: pointer; }
+.chip.on { background: var(--ink); border-color: var(--ink); color: var(--card); }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
+.dot-focus { background: var(--dot-focus); }
+.dot-reflect { background: var(--dot-reflect); }
+.dot-crystal { background: var(--dot-crystal); }
+.dot-filed { background: var(--dot-filed); opacity: .5; }
+
+.kbd { font-family: var(--ff-mono); font-size: 11px; font-weight: 500; min-width: 18px;
+  text-align: center; display: inline-block; padding: 2px 6px; border-radius: 6px;
+  background: var(--sunk); color: var(--ink-muted); border: 1px solid var(--line); }
+.kbdhint { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-faint); }
+
+.row { border-radius: var(--r-ctrl); }
+.row:hover { background: color-mix(in oklab, var(--ink) 4%, transparent); }
+.row.sel { background: var(--card-2); box-shadow: var(--shadow-lift), inset 3px 0 0 var(--action); }
+
+.tedge { position: relative; }
+.tedge::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+  border-radius: var(--r-card) var(--r-card) 0 0; background: var(--te, transparent); }
+.te-fresh  { --te: linear-gradient(90deg, var(--sacred), color-mix(in oklab, var(--sacred) 30%, transparent)); }
+.te-aging  { --te: color-mix(in oklab, var(--ink) 16%, transparent); }
+.te-dormant{ --te: color-mix(in oklab, var(--ink) 10%, transparent); }
+
+.crystal { border: 1px solid color-mix(in oklab, var(--sacred) 38%, var(--line));
+  border-radius: var(--r-card); position: relative; overflow: hidden;
+  background:
+    radial-gradient(140% 120% at 100% 0%, var(--sacred-soft), transparent 55%),
+    var(--card); }
+
+.hearth { border-radius: var(--r-card); border: 1px solid color-mix(in oklab, var(--sacred) 30%, var(--line));
+  background:
+    radial-gradient(90% 140% at 0% 0%, var(--sacred-soft), transparent 60%),
+    var(--card); box-shadow: var(--shadow-lift); }
+
+.sk-tide .crystal, .sk-tide .hearth { box-shadow: var(--shadow-panel); }
+kbd { font: inherit; }
+
+/* markdown preview typography (Doc editor) */
+.md-body { color: var(--ink); font-size: 15px; line-height: 1.65; max-width: 60ch; }
+.md-body h2 { font-family: var(--ff-display); font-weight: 700; font-size: 24px; letter-spacing: -.015em; margin: 0 0 12px; }
+.md-body h3 { font-family: var(--ff-display); font-weight: 700; font-size: 18px; margin: 22px 0 8px; }
+.md-body h4 { font-family: var(--ff-display); font-weight: 600; font-size: 15px; margin: 18px 0 6px; }
+.md-body p { margin: 0 0 12px; }
+.md-body ul { margin: 0 0 12px; padding-left: 20px; }
+.md-body li { margin: 3px 0; }
+.md-body strong { font-weight: 700; }
+.md-body blockquote { margin: 14px 0; padding: 10px 16px; border-left: 3px solid var(--sacred);
+  background: var(--sacred-soft); border-radius: 0 10px 10px 0; color: var(--ink); font-style: italic; }
+.md-body code { font-family: var(--ff-mono); font-size: 12.5px; background: var(--sunk); padding: 1px 6px; border-radius: 5px; }
+
+/* search highlight */
+.hl { background: var(--sacred-soft); color: var(--sacred-ink); border-radius: 3px; padding: 0 2px; }
+
+/* ════════════════════════════════════════════════════════════════
+   MOTION LAYER — literal implementation of the §3 motion spec.
+   Everything is gated on prefers-reduced-motion AND scaled by
+   --motion-scale (0 = motionless, matches base skin). With reduced
+   motion (or scale 0) every surface shows its end-state instantly.
+   ════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: no-preference) {
+  /* day ⇄ night cross-fade — surfaces ease between palettes */
+  .skin,
+  .skin .panel, .skin .crystal, .skin .hearth,
+  .skin .btn, .skin .chip, .skin .pill, .skin .tag, .skin .kbd {
+    transition: background-color calc(260ms * var(--motion-scale)) ease,
+                border-color     calc(260ms * var(--motion-scale)) ease,
+                color            calc(260ms * var(--motion-scale)) ease;
+  }
+  /* row select / hover */
+  .row { transition: background-color calc(140ms * var(--motion-scale)) ease,
+                     box-shadow       calc(140ms * var(--motion-scale)) ease; }
+  .btn { transition: background-color calc(120ms * var(--motion-scale)) ease,
+                     border-color     calc(120ms * var(--motion-scale)) ease,
+                     transform        calc(120ms * var(--motion-scale)) ease; }
+  .btn:active { transform: translateY(1px); }
+
+  /* route / screen change — base state is visible; animation only dips in */
+  .screen-enter { animation: tideScreenIn calc(180ms * var(--motion-scale)) ease; }
+
+  /* item leaving a list — direction set per gesture via a modifier */
+  .item-leave        { animation: tidePickUp  calc(360ms * var(--motion-scale)) ease-in-out both; overflow: hidden; }
+  .item-leave.release{ animation: tideRelease calc(420ms * var(--motion-scale)) ease-in both; }
+  .item-leave.crystal{ animation: tideCrystal calc(300ms * var(--motion-scale)) ease-out both; }
+
+  /* toast */
+  .tide-toast { animation: tideToastIn calc(220ms * var(--motion-scale)) ease-out both; }
+}
+
+@keyframes tideScreenIn { from { transform: translateY(8px); } to { transform: none; } }
+@keyframes tidePickUp   { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
+@keyframes tideRelease  { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(14px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
+@keyframes tideCrystal  { 0% { opacity: 1; } 40% { box-shadow: 0 0 0 3px var(--sacred-soft), 0 0 26px var(--sacred-soft); } 100% { opacity: 0; transform: scale(.98); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
+@keyframes tideToastIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes tideModalIn  { from { transform: translateY(10px) scale(.99); } to { transform: none; } }
+@keyframes tideScrimIn  { from { opacity: .001; } to { opacity: 1; } }

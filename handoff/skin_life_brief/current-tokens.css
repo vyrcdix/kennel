@@ -1,0 +1,311 @@
+/* Kennel design tokens — inherits Pacecraft palette, adapted for tool context */
+
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Core palette */
+  --bone:        #F2EDE0;
+  --slate:       #3A3F45;
+  --slate-dark:  #2A2E33;
+  --moss:        #5C7A3E;
+  --ember:       #D9622C;
+  --dust:        #C9A87C;
+  --blaze:       #E8B547;
+
+  /* Derived shades */
+  --ember-dark:  #A84919;
+  --ember-deep:  #8A3A14;
+  --slate-light: #7A8088;
+
+  /* Surface layering (light) */
+  --surface-0:   #F2EDE0;          /* page bg (bone) */
+  --surface-1:   #ECE6D5;          /* card bg */
+  --surface-2:   #E4DCC7;          /* subtle elevated */
+  --line:        rgba(58,63,69,.14);
+  --line-strong: rgba(58,63,69,.28);
+
+  /* Text */
+  --fg:          #3A3F45;          /* slate */
+  --fg-muted:    rgba(58,63,69,.62);
+  --fg-faint:    rgba(58,63,69,.42);
+
+  /* Type families */
+  --ff-display: 'Oswald', 'Helvetica Neue', sans-serif;
+  --ff-sans:    'Inter', 'Helvetica Neue', sans-serif;
+  --ff-mono:    'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Dark mode tokens — applied via .km-dark on any container */
+.km-dark {
+  --surface-0:   #2A2E33;          /* slate-dark */
+  --surface-1:   #32373D;          /* mid surface */
+  --surface-2:   #3A3F45;          /* slate, third elevation */
+  --line:        rgba(242,237,224,.10);
+  --line-strong: rgba(242,237,224,.22);
+
+  --fg:          #E8E2D2;
+  --fg-muted:    rgba(232,226,210,.62);
+  --fg-faint:    rgba(232,226,210,.40);
+}
+
+/* ─── v0.4/v0.5 "blaze + dust" token set ────────────────────────────────────
+ * Opt-in via .km-v4 on any container. Coexists with .km / surface-* tokens
+ * so legacy screens stay unchanged during the rollout.
+ *
+ * Tone leads:
+ *   BLAZE  — crystallization glow (the light). Reserved for crystals.
+ *   DUST   — everyday surface (the room).
+ *   EMBER  — sparing action accent (primary buttons + the "in focus" marker).
+ *   MOSS   — guidebook family marker.
+ *   CLAY   — field-notes family marker.
+ * Reserve rules: blaze / ember / moss / clay are the family language only —
+ * they are NOT selectable as thread label colors (those live in §A of v0.5).
+ */
+.km-v4 {
+  --v-bg:      #EEE2C9;          /* dust ground */
+  --v-sunk:    #E5D4B4;          /* deeper dust — header bands, sunk panels */
+  --v-card:    #F8F1E0;          /* lighter than ground = lift, no shadow */
+  --v-ink:     #2B2014;          /* warm dark ink */
+  --v-soft:    rgba(43,32,20,.62);
+  --v-faint:   rgba(43,32,20,.40);
+  --v-line:    rgba(43,32,20,.13);
+  --v-line2:   rgba(43,32,20,.26);
+  --v-blaze:   #E8B547;          /* crystal glow — the light */
+  --v-blaze-dk:#B07E12;
+  --v-dust:    #C9A87C;
+  --v-ember:   #D9622C;          /* sparing action */
+  --v-ember-dk:#A84919;
+  --v-moss:    #5C7A3E;          /* guidebook family */
+  --v-clay:    #BC7A4E;          /* field-notes family */
+}
+
+/* Dark mode for the v4 set — full inversion per v0.5 §G. Backgrounds invert
+ * against slate-dark (never pure black); accents stay unchanged so the family
+ * language carries the same meaning under both modes. A fuller nuanced dark
+ * table (softening blaze on dark to avoid glare etc.) comes next round. */
+.km-v4.km-dark, .km-dark .km-v4 {
+  --v-bg:      #2A2E33;
+  --v-sunk:    #23262C;
+  --v-card:    #32373D;          /* lighter than bg = lift */
+  --v-ink:     #ECE3D0;          /* warm bone tint */
+  --v-soft:    rgba(236,227,208,.62);
+  --v-faint:   rgba(236,227,208,.40);
+  --v-line:    rgba(236,227,208,.12);
+  --v-line2:   rgba(236,227,208,.24);
+}
+
+/* v4 type helpers — Oswald display tightened to 600 for the new hero
+ * headlines per v0.5 §2 ("Type: Oswald 600 weight for hero"). */
+.km-v4 .vd   { font-family: var(--ff-display); font-weight: 600; letter-spacing: .01em; color: var(--v-ink); }
+.km-v4 .vlab { font-family: var(--ff-display); font-weight: 500; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--v-soft); }
+.km-v4 .vm   { font-family: var(--ff-mono); font-size: 11px; color: var(--v-faint); }
+.km-v4 .vm-bz{ font-family: var(--ff-mono); font-size: 11px; color: var(--v-blaze-dk); }
+
+/* Reset within artboards */
+.km, .km * { box-sizing: border-box; }
+.km {
+  font-family: var(--ff-sans);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface-0);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display / label types */
+.km-display-lg { font-family: var(--ff-display); font-weight: 500; font-size: 28px; letter-spacing: 0.02em; color: var(--fg); }
+.km-display-md { font-family: var(--ff-display); font-weight: 500; font-size: 20px; letter-spacing: 0.04em; color: var(--fg); }
+.km-display-sm { font-family: var(--ff-display); font-weight: 500; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-muted); }
+.km-body-lg    { font-family: var(--ff-sans); font-weight: 500; font-size: 16px; color: var(--fg); }
+.km-body       { font-family: var(--ff-sans); font-weight: 400; font-size: 14px; color: var(--fg); }
+.km-body-sm    { font-family: var(--ff-sans); font-weight: 400; font-size: 12px; color: var(--fg-muted); }
+.km-mono       { font-family: var(--ff-mono); font-weight: 400; font-size: 12.5px; color: var(--fg); font-feature-settings: "calt" 0; }
+.km-mono-sm    { font-family: var(--ff-mono); font-weight: 400; font-size: 11px; color: var(--fg-muted); letter-spacing: -0.01em; }
+
+/* Logo slot */
+.km-logo-slot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--fg-faint);
+  font-family: var(--ff-mono); font-size: 9px; letter-spacing: 0;
+}
+
+/* Project pill (slug). v0.5 §A: quiet neutral surface + a 3px coloured
+ *  left tint that carries the thread's label colour. NO surface fill in
+ *  the family colours (blaze/ember/moss/clay) — those are reserved. */
+.km-proj {
+  display: inline-flex; align-items: center;
+  padding: 1px 7px 1px 6px;
+  background: rgba(43,32,20,.05);
+  color: var(--fg-muted);
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  border-radius: 3px;
+  border-left: 3px solid transparent;
+  line-height: 1.5;
+}
+.km-dark .km-proj { color: var(--fg-muted); background: rgba(232,226,210,.08); }
+
+/* Per-thread label colour variants. Left-tint only — left border carries
+ *  the colour; the surface stays the neutral km-proj background so the
+ *  pill never competes with crystals (blaze) or actions (ember). */
+.km-proj-stone { border-left-color: #8C8275; color: var(--fg); }
+.km-proj-sage  { border-left-color: #79876F; color: var(--fg); }
+.km-proj-dusk  { border-left-color: #6C7A8C; color: var(--fg); }
+.km-proj-plum  { border-left-color: #87697C; color: var(--fg); }
+.km-proj-slate { border-left-color: #5A6066; color: var(--fg); }
+.km-proj-teal  { border-left-color: #5E807A; color: var(--fg); }
+
+/* Free-form tag */
+.km-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 6px;
+  background: rgba(201,168,124,.25);
+  color: var(--fg);
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  border-radius: 3px;
+  line-height: 1.5;
+}
+.km-dark .km-tag { background: rgba(201,168,124,.18); color: var(--fg); }
+
+/* Buttons */
+.km-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--ff-sans);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 6px 11px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  line-height: 1;
+}
+.km-btn-primary {
+  background: var(--ember);
+  color: #FFF6EC;
+  border-color: var(--ember);
+}
+.km-btn-primary:hover { background: var(--ember-dark); border-color: var(--ember-dark); }
+.km-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-muted);
+}
+.km-btn-moss {
+  background: var(--moss);
+  color: #F2EDE0;
+  border-color: var(--moss);
+}
+
+/* Inputs */
+.km-input {
+  font-family: var(--ff-sans);
+  font-size: 13px;
+  padding: 6px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--fg);
+  width: 100%;
+  outline: none;
+}
+.km-input:focus { border-color: var(--ember); }
+.km-input-mono { font-family: var(--ff-mono); font-size: 12.5px; }
+
+/* Dot indicators */
+.km-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+.km-dot-ember  { background: var(--ember); }
+.km-dot-moss   { background: var(--moss); }
+.km-dot-dust   { background: var(--dust); }
+.km-dot-slate  { background: var(--slate-light); opacity: .5; }
+.km-dot-blaze  { background: var(--blaze); }
+
+/* Card */
+.km-card {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+/* Active item ember left border */
+.km-active-row { box-shadow: inset 2px 0 0 var(--ember); }
+
+/* Row hover */
+.km-row { transition: background .15s ease; }
+.km-row:hover { background: rgba(58,63,69,.04); }
+.km-dark .km-row:hover { background: rgba(242,237,224,.04); }
+
+/* Underline links */
+.km-link { color: var(--fg); border-bottom: 1px solid var(--line-strong); cursor: pointer; }
+.km-link-ember { color: var(--ember-deep); border-bottom-color: var(--ember-deep); }
+
+/* Subtle keyboard key */
+.km-kbd {
+  display: inline-block;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  line-height: 1.4;
+}
+
+/* Scroll containers should hide scrollbars in artboards */
+.km-scroll::-webkit-scrollbar { display: none; }
+.km-scroll { scrollbar-width: none; }
+
+/* Field-manual section divider */
+.km-rule {
+  height: 1px;
+  background: var(--line);
+  width: 100%;
+}
+
+/* Skill proposal moss border */
+.km-proposal { box-shadow: inset 2px 0 0 var(--moss); }
+
+/* Pinned indicator */
+.km-pin { color: var(--blaze); }
+
+/* Diff colors */
+.km-diff-add { background: rgba(92,122,62,.14); }
+.km-diff-del { background: rgba(138,58,20,.10); }
+.km-dark .km-diff-add { background: rgba(164,196,116,.10); }
+.km-dark .km-diff-del { background: rgba(217,98,44,.10); }
+
+/* Highlight matched terms in search */
+.km-hl { background: rgba(217,98,44,.20); border-radius: 1px; padding: 0 1px; }
+
+/* Code blocks (runbook commands, doc fences) */
+.km-code-block {
+  font-family: var(--ff-mono);
+  font-size: 12.5px;
+  padding: 10px 14px;
+  background: rgba(201,168,124,.18);
+  border-left: 2px solid var(--ember-deep);
+  margin: 10px 0;
+  white-space: pre;
+  line-height: 1.7;
+  overflow: auto;
+}
+.km-code-inline {
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* App-level reset so the canvas fills the viewport */
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+body { background: var(--surface-0); color: var(--fg); }
