@@ -193,8 +193,8 @@ export const RecentlySortedStrip = ({
       className="km-card"
       style={{
         padding: 0,
-        background: 'rgba(232,181,71,.05)',
-        borderColor: 'rgba(176,126,18,.22)',
+        background: 'color-mix(in srgb, var(--sacred) 5%, transparent)',
+        borderColor: 'color-mix(in srgb, var(--sacred-ink) 22%, transparent)',
       }}
     >
       <div
@@ -206,7 +206,7 @@ export const RecentlySortedStrip = ({
           borderBottom: '1px solid var(--line)',
         }}
       >
-        <Icons.bulb size={13} stroke="#B07E12" />
+        <Icons.bulb size={13} stroke="var(--sacred-ink)" />
         <Label>Recently sorted</Label>
         <Mono dim>
           last 7 days · {routings.length}

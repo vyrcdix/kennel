@@ -715,7 +715,7 @@ export const CrystalDetail = () => {
             overflow: 'auto',
             padding: '30px 34px',
             background:
-              'linear-gradient(180deg, rgba(232,181,71,.16), transparent)',
+              'linear-gradient(180deg, color-mix(in srgb, var(--sacred) 16%, transparent), transparent)',
           }}
         >
           <button
@@ -774,7 +774,7 @@ export const CrystalDetail = () => {
               alignItems: 'center',
               gap: 7,
               padding: '3px 10px',
-              background: 'rgba(232,181,71,.22)',
+              background: 'color-mix(in srgb, var(--sacred) 22%, transparent)',
               borderRadius: 4,
               marginBottom: 14,
             }}

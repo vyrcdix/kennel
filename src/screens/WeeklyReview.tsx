@@ -217,7 +217,7 @@ export const WeeklyReview = () => {
           {/* Crystallized */}
           <section
             className="km-card"
-            style={{ padding: 0, marginBottom: 18, borderColor: 'rgba(92,122,62,.35)' }}
+            style={{ padding: 0, marginBottom: 18, borderColor: 'color-mix(in srgb, var(--fam-guide) 35%, transparent)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px' }}>
               <span style={{ color: 'var(--moss)', marginRight: 8 }}>

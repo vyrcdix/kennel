@@ -33,6 +33,58 @@
   --ff-display: 'Oswald', 'Helvetica Neue', sans-serif;
   --ff-sans:    'Inter', 'Helvetica Neue', sans-serif;
   --ff-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  /* ─── Semantic skin layer ────────────────────────────────────────────
+   * Tidewater ("Life" skin) plumbing. The base values below are no-ops:
+   * they reproduce the Workshop skin exactly. `.km-skin-life` remaps these
+   * later (slice 2) so one class swap re-dresses the whole app. Components
+   * and km-* classes read these tokens instead of raw palette literals.
+   * Tints are taken with color-mix(in srgb, var(--tok) N%, transparent),
+   * which is byte-identical to rgba(<tok-rgb>, .NN). */
+
+  /* Sacred — crystals / kept things (Workshop: blaze) */
+  --sacred:          var(--blaze);     /* #E8B547 */
+  --sacred-ink:      #B07E12;
+  --sacred-ink-deep: #8A5F0E;
+
+  /* Action — primary verbs + the in-focus marker (Workshop: ember) */
+  --action:      var(--ember);         /* #D9622C */
+  --action-deep: var(--ember-deep);    /* #8A3A14 */
+  --action-dark: var(--ember-dark);    /* #A84919 */
+  --action-ink:  var(--ember-deep);
+
+  /* Family markers (Workshop: clay / moss / — ) */
+  --fam-field: #BC7A4E;                 /* field notes */
+  --fam-guide: var(--moss);            /* guidebook   */
+  --fam-run:   #3E6E8C;                 /* runbook (additive; unused in base) */
+
+  /* State dots */
+  --dot-focus:   var(--action);
+  --dot-reflect: var(--dust);
+  --dot-crystal: var(--moss);
+  --dot-filed:   var(--slate-light);
+
+  /* Thread-label hues — left tint on the project pill only */
+  --tint-stone: #8C8275;
+  --tint-sage:  #79876F;
+  --tint-dusk:  #6C7A8C;
+  --tint-plum:  #87697C;
+  --tint-slate: #5A6066;
+  --tint-teal:  #5E807A;
+
+  /* Modal scrim (constant across day/night in Workshop) */
+  --scrim: #2A2E33;
+
+  /* Shape */
+  --r-card: 4px;
+  --r-ctrl: 4px;
+
+  /* Density (additive; Workshop layouts don't consume these yet) */
+  --pad-panel: 22px;
+  --gap-panel: 18px;
+
+  /* Motion — 0 = motionless (Workshop); scaled durations land in slice 3 */
+  --motion-scale: 0;
 }
 
 /* Dark mode tokens — applied via .km-dark on any container */
@@ -154,25 +206,25 @@
 /* Per-thread label colour variants. Left-tint only — left border carries
  *  the colour; the surface stays the neutral km-proj background so the
  *  pill never competes with crystals (blaze) or actions (ember). */
-.km-proj-stone { border-left-color: #8C8275; color: var(--fg); }
-.km-proj-sage  { border-left-color: #79876F; color: var(--fg); }
-.km-proj-dusk  { border-left-color: #6C7A8C; color: var(--fg); }
-.km-proj-plum  { border-left-color: #87697C; color: var(--fg); }
-.km-proj-slate { border-left-color: #5A6066; color: var(--fg); }
-.km-proj-teal  { border-left-color: #5E807A; color: var(--fg); }
+.km-proj-stone { border-left-color: var(--tint-stone); color: var(--fg); }
+.km-proj-sage  { border-left-color: var(--tint-sage);  color: var(--fg); }
+.km-proj-dusk  { border-left-color: var(--tint-dusk);  color: var(--fg); }
+.km-proj-plum  { border-left-color: var(--tint-plum);  color: var(--fg); }
+.km-proj-slate { border-left-color: var(--tint-slate); color: var(--fg); }
+.km-proj-teal  { border-left-color: var(--tint-teal);  color: var(--fg); }
 
 /* Free-form tag */
 .km-tag {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 1px 6px;
-  background: rgba(201,168,124,.25);
+  background: color-mix(in srgb, var(--dust) 25%, transparent);
   color: var(--fg);
   font-family: var(--ff-mono);
   font-size: 11px;
   border-radius: 3px;
   line-height: 1.5;
 }
-.km-dark .km-tag { background: rgba(201,168,124,.18); color: var(--fg); }
+.km-dark .km-tag { background: color-mix(in srgb, var(--dust) 18%, transparent); color: var(--fg); }
 
 /* Buttons */
 .km-btn {
@@ -181,7 +233,7 @@
   font-weight: 500;
   font-size: 13px;
   padding: 6px 11px;
-  border-radius: 4px;
+  border-radius: var(--r-ctrl);
   border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--fg);
@@ -189,20 +241,20 @@
   line-height: 1;
 }
 .km-btn-primary {
-  background: var(--ember);
+  background: var(--action);
   color: #FFF6EC;
-  border-color: var(--ember);
+  border-color: var(--action);
 }
-.km-btn-primary:hover { background: var(--ember-dark); border-color: var(--ember-dark); }
+.km-btn-primary:hover { background: var(--action-dark); border-color: var(--action-dark); }
 .km-btn-ghost {
   background: transparent;
   border-color: transparent;
   color: var(--fg-muted);
 }
 .km-btn-moss {
-  background: var(--moss);
-  color: #F2EDE0;
-  border-color: var(--moss);
+  background: var(--fam-guide);
+  color: var(--bone);
+  border-color: var(--fam-guide);
 }
 
 /* Inputs */
@@ -212,31 +264,31 @@
   padding: 6px 10px;
   background: var(--surface-1);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--r-ctrl);
   color: var(--fg);
   width: 100%;
   outline: none;
 }
-.km-input:focus { border-color: var(--ember); }
+.km-input:focus { border-color: var(--action); }
 .km-input-mono { font-family: var(--ff-mono); font-size: 12.5px; }
 
 /* Dot indicators */
 .km-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
-.km-dot-ember  { background: var(--ember); }
-.km-dot-moss   { background: var(--moss); }
-.km-dot-dust   { background: var(--dust); }
-.km-dot-slate  { background: var(--slate-light); opacity: .5; }
-.km-dot-blaze  { background: var(--blaze); }
+.km-dot-ember  { background: var(--dot-focus); }
+.km-dot-moss   { background: var(--dot-crystal); }
+.km-dot-dust   { background: var(--dot-reflect); }
+.km-dot-slate  { background: var(--dot-filed); opacity: .5; }
+.km-dot-blaze  { background: var(--sacred); }
 
 /* Card */
 .km-card {
   background: var(--surface-1);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--r-card);
 }
 
-/* Active item ember left border */
-.km-active-row { box-shadow: inset 2px 0 0 var(--ember); }
+/* Active item action left border */
+.km-active-row { box-shadow: inset 2px 0 0 var(--action); }
 
 /* Row hover */
 .km-row { transition: background .15s ease; }
@@ -245,7 +297,7 @@
 
 /* Underline links */
 .km-link { color: var(--fg); border-bottom: 1px solid var(--line-strong); cursor: pointer; }
-.km-link-ember { color: var(--ember-deep); border-bottom-color: var(--ember-deep); }
+.km-link-ember { color: var(--action-deep); border-bottom-color: var(--action-deep); }
 
 /* Subtle keyboard key */
 .km-kbd {
@@ -271,11 +323,11 @@
   width: 100%;
 }
 
-/* Skill proposal moss border */
-.km-proposal { box-shadow: inset 2px 0 0 var(--moss); }
+/* Skill proposal guide-family border */
+.km-proposal { box-shadow: inset 2px 0 0 var(--fam-guide); }
 
 /* Pinned indicator */
-.km-pin { color: var(--blaze); }
+.km-pin { color: var(--sacred); }
 
 /* Diff colors */
 .km-diff-add { background: rgba(92,122,62,.14); }
@@ -284,15 +336,15 @@
 .km-dark .km-diff-del { background: rgba(217,98,44,.10); }
 
 /* Highlight matched terms in search */
-.km-hl { background: rgba(217,98,44,.20); border-radius: 1px; padding: 0 1px; }
+.km-hl { background: color-mix(in srgb, var(--action) 20%, transparent); border-radius: 1px; padding: 0 1px; }
 
 /* Code blocks (runbook commands, doc fences) */
 .km-code-block {
   font-family: var(--ff-mono);
   font-size: 12.5px;
   padding: 10px 14px;
-  background: rgba(201,168,124,.18);
-  border-left: 2px solid var(--ember-deep);
+  background: color-mix(in srgb, var(--dust) 18%, transparent);
+  border-left: 2px solid var(--action-deep);
   margin: 10px 0;
   white-space: pre;
   line-height: 1.7;

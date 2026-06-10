@@ -257,7 +257,7 @@ export const SettingsScreen = () => {
                       textAlign: 'left',
                       border: 0,
                       padding: '7px 18px',
-                      background: active ? 'rgba(217,98,44,.08)' : 'transparent',
+                      background: active ? 'color-mix(in srgb, var(--action) 8%, transparent)' : 'transparent',
                       boxShadow: active ? 'inset 2px 0 0 var(--ember)' : 'none',
                       color: active ? 'var(--ember-deep)' : 'var(--fg)',
                       fontSize: 13,

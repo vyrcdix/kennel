@@ -100,7 +100,7 @@ export const GlobalSearch = () => {
           alignItems: 'flex-start',
           justifyContent: 'center',
           paddingTop: 64,
-          background: 'rgba(42,46,51,.18)',
+          background: 'color-mix(in srgb, var(--scrim) 18%, transparent)',
         }}
       >
         <div

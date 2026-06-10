@@ -541,10 +541,10 @@ export const ProjectLanding = () => {
                     marginBottom: 12,
                   }}
                 >
-                  <Icons.gem size={15} stroke="#B07E12" />
+                  <Icons.gem size={15} stroke="var(--sacred-ink)" />
                   <span
                     className="km-display-sm"
-                    style={{ color: '#B07E12' }}
+                    style={{ color: 'var(--sacred-ink)' }}
                   >
                     THE SALIENT LAYER · what this thread has crystallized
                   </span>
@@ -979,7 +979,7 @@ export const ProjectLanding = () => {
             {agingItems.length > 0 && (
               <section
                 className="km-card"
-                style={{ padding: 0, background: 'rgba(201,168,124,.08)' }}
+                style={{ padding: 0, background: 'color-mix(in srgb, var(--dust) 8%, transparent)' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px' }}>
                   <Label>Aging</Label>

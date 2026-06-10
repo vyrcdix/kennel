@@ -210,7 +210,7 @@ export const CaptureModal = ({ open, onClose, defaultProjectSlug }: CaptureModal
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(42,46,51,.28)',
+        background: 'color-mix(in srgb, var(--scrim) 28%, transparent)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',

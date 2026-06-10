@@ -79,11 +79,11 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
         // ember "primary action" tint.
         const isCrystal = s.id === 'crystals';
         const activeBg = isCrystal
-          ? 'rgba(232,181,71,.16)'
-          : 'rgba(217,98,44,.10)';
-        const activeBorder = isCrystal ? '#B07E12' : 'var(--ember)';
-        const activeColor = isCrystal ? '#8A5F0E' : 'var(--ember-deep)';
-        const idleColor = isCrystal ? '#8A5F0E' : 'var(--fg)';
+          ? 'color-mix(in srgb, var(--sacred) 16%, transparent)'
+          : 'color-mix(in srgb, var(--action) 10%, transparent)';
+        const activeBorder = isCrystal ? 'var(--sacred-ink)' : 'var(--ember)';
+        const activeColor = isCrystal ? 'var(--sacred-ink-deep)' : 'var(--ember-deep)';
+        const idleColor = isCrystal ? 'var(--sacred-ink-deep)' : 'var(--fg)';
         return (
           <button
             key={s.id}
@@ -130,7 +130,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
               width: '100%',
               padding: '5px 16px',
               border: 0,
-              background: isActive ? 'rgba(92,122,62,.10)' : 'transparent',
+              background: isActive ? 'color-mix(in srgb, var(--fam-guide) 10%, transparent)' : 'transparent',
               boxShadow: isActive ? 'inset 2px 0 0 var(--moss)' : 'none',
               color: 'var(--fg)',
               cursor: 'pointer',

@@ -3,9 +3,9 @@ import type { Actor as ActorRole } from '../data/types';
 export type ActorWho = 'C' | 'Cl' | 'CLI' | 'sys';
 
 const map: Record<ActorWho, { label: string; bg: string; fg: string }> = {
-  C:   { label: 'C', bg: 'var(--slate)',      fg: '#F2EDE0' },
-  Cl:  { label: '⌬', bg: 'var(--ember-deep)', fg: '#F2EDE0' },
-  CLI: { label: '⎈', bg: 'var(--moss)',       fg: '#F2EDE0' },
+  C:   { label: 'C', bg: 'var(--slate)',      fg: 'var(--bone)' },
+  Cl:  { label: '⌬', bg: 'var(--ember-deep)', fg: 'var(--bone)' },
+  CLI: { label: '⎈', bg: 'var(--moss)',       fg: 'var(--bone)' },
   sys: { label: '•', bg: 'var(--surface-2)',  fg: 'var(--fg-muted)' },
 };
 

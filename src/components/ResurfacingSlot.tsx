@@ -69,7 +69,7 @@ const Row = ({ crystal }: { crystal: Item }) => {
         borderBottom: '1px solid var(--line)',
       }}
     >
-      <span style={{ color: '#B07E12' }}>
+      <span style={{ color: 'var(--sacred-ink)' }}>
         <Icons.gem size={12} />
       </span>
       {project ? <ProjectTag slug={project.slug} /> : <span />}
@@ -94,7 +94,7 @@ const Row = ({ crystal }: { crystal: Item }) => {
           onClick={() => void onAck()}
           disabled={busy != null}
           title="Reset the resurface timer and bump the count"
-          style={{ padding: '3px 9px', fontSize: 12, color: '#B07E12' }}
+          style={{ padding: '3px 9px', fontSize: 12, color: 'var(--sacred-ink)' }}
         >
           Still true
         </button>
@@ -138,8 +138,8 @@ export const ResurfacingSlot = ({
       className="km-card"
       style={{
         padding: 0,
-        background: 'rgba(232,181,71,.07)',
-        borderColor: 'rgba(176,126,18,.32)',
+        background: 'color-mix(in srgb, var(--sacred) 7%, transparent)',
+        borderColor: 'color-mix(in srgb, var(--sacred-ink) 32%, transparent)',
       }}
     >
       <div
@@ -150,8 +150,8 @@ export const ResurfacingSlot = ({
           padding: '10px 14px',
         }}
       >
-        <Icons.gem size={13} stroke="#B07E12" />
-        <span className="km-display-sm" style={{ color: '#B07E12' }}>
+        <Icons.gem size={13} stroke="var(--sacred-ink)" />
+        <span className="km-display-sm" style={{ color: 'var(--sacred-ink)' }}>
           {label.toUpperCase()}
         </span>
         <Mono dim style={{ marginLeft: 6 }}>
@@ -162,7 +162,7 @@ export const ResurfacingSlot = ({
           <button
             className="km-btn km-btn-ghost"
             onClick={() => setShowAll((v) => !v)}
-            style={{ padding: '3px 9px', fontSize: 11.5, color: '#B07E12' }}
+            style={{ padding: '3px 9px', fontSize: 11.5, color: 'var(--sacred-ink)' }}
           >
             {showAll ? 'Show fewer' : `${overflow} more due — show all`}
           </button>

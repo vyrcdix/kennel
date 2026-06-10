@@ -65,7 +65,7 @@ export const TagChips = ({
             alignItems: 'center',
             gap: 4,
             padding: '2px 8px',
-            background: 'rgba(201,168,124,.18)',
+            background: 'color-mix(in srgb, var(--dust) 18%, transparent)',
           }}
         >
           #{tag.name}

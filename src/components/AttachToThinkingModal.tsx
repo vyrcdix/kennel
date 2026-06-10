@@ -156,7 +156,7 @@ export const AttachToThinkingModal = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(42,46,51,.34)',
+        background: 'color-mix(in srgb, var(--scrim) 34%, transparent)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -215,7 +215,7 @@ export const AttachToThinkingModal = ({
           ) : (
             filtered.map((p, i) => {
               const selected = i === selectedIdx;
-              const bg = selected ? 'rgba(217,98,44,.10)' : 'transparent';
+              const bg = selected ? 'color-mix(in srgb, var(--action) 10%, transparent)' : 'transparent';
               if (p.kind === 'thread') {
                 return (
                   <div
@@ -257,7 +257,7 @@ export const AttachToThinkingModal = ({
                   }}
                 >
                   {isCrystal ? (
-                    <Icons.gem size={13} stroke="#B07E12" />
+                    <Icons.gem size={13} stroke="var(--sacred-ink)" />
                   ) : (
                     <KindIcon kind={it.kind} size={13} muted />
                   )}

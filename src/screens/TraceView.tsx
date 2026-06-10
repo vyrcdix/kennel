@@ -62,11 +62,11 @@ const Spine = ({
   last: boolean;
 }) => {
   const dotByType: Record<TraceEntry['type'], { bg: string; ring: string }> = {
-    spark: { bg: 'var(--v-clay)', ring: 'rgba(188,122,78,.22)' },
-    cluster: { bg: 'var(--v-faint)', ring: 'rgba(43,32,20,.10)' },
-    chat: { bg: 'var(--v-ember-dk)', ring: 'rgba(168,73,25,.18)' },
-    fork: { bg: 'var(--v-soft)', ring: 'rgba(43,32,20,.10)' },
-    crystal: { bg: 'var(--v-blaze)', ring: 'rgba(232,181,71,.30)' },
+    spark: { bg: 'var(--v-clay)', ring: 'color-mix(in srgb, var(--v-clay) 22%, transparent)' },
+    cluster: { bg: 'var(--v-faint)', ring: 'color-mix(in srgb, var(--v-ink) 10%, transparent)' },
+    chat: { bg: 'var(--v-ember-dk)', ring: 'color-mix(in srgb, var(--v-ember-dk) 18%, transparent)' },
+    fork: { bg: 'var(--v-soft)', ring: 'color-mix(in srgb, var(--v-ink) 10%, transparent)' },
+    crystal: { bg: 'var(--v-blaze)', ring: 'color-mix(in srgb, var(--v-blaze) 30%, transparent)' },
     discarded: { bg: 'var(--v-faint)', ring: 'transparent' },
   };
   const { bg, ring } = dotByType[type];
@@ -124,7 +124,7 @@ const EntryBody = ({ entry }: { entry: TraceEntry }) => {
           padding: 2,
           borderRadius: 8,
           background:
-            'linear-gradient(150deg, var(--v-blaze), rgba(232,181,71,.25))',
+            'linear-gradient(150deg, var(--v-blaze), color-mix(in srgb, var(--v-blaze) 25%, transparent))',
           display: 'inline-block',
           maxWidth: '100%',
           cursor: 'pointer',

@@ -41,7 +41,7 @@ export const AgingRow = ({
         alignItems: 'center',
         gap: 12,
         padding: '10px 14px',
-        background: selected ? 'rgba(217,98,44,.05)' : 'transparent',
+        background: selected ? 'color-mix(in srgb, var(--action) 5%, transparent)' : 'transparent',
         opacity: selected ? 1 : 0.82,
         borderBottom: '1px solid var(--line)',
       }}

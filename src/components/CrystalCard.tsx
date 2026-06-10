@@ -53,7 +53,7 @@ export const CrystalCard = ({
         padding: 2,
         borderRadius: 9,
         background:
-          'linear-gradient(150deg, var(--v-blaze), rgba(232,181,71,.28))',
+          'linear-gradient(150deg, var(--v-blaze), color-mix(in srgb, var(--v-blaze) 28%, transparent))',
         cursor: 'pointer',
       }}
     >

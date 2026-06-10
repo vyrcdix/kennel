@@ -9,10 +9,10 @@ type Meta = {
 };
 
 const TEMP_META: Record<Temp, Meta> = {
-  fresh:   { topEdge: 'var(--ember-deep)',  edgeWidth: 2, tint: 'rgba(217,98,44,.04)',   opacity: 1 },
+  fresh:   { topEdge: 'var(--ember-deep)',  edgeWidth: 2, tint: 'color-mix(in srgb, var(--action) 4%, transparent)',  opacity: 1 },
   active:  { topEdge: 'transparent',        edgeWidth: 0, tint: 'transparent',           opacity: 1 },
-  aging:   { topEdge: 'var(--dust)',        edgeWidth: 2, tint: 'rgba(201,168,124,.06)', opacity: 0.96 },
-  dormant: { topEdge: 'var(--slate-light)', edgeWidth: 2, tint: 'rgba(201,168,124,.04)', opacity: 0.82 },
+  aging:   { topEdge: 'var(--dust)',        edgeWidth: 2, tint: 'color-mix(in srgb, var(--dust) 6%, transparent)', opacity: 0.96 },
+  dormant: { topEdge: 'var(--slate-light)', edgeWidth: 2, tint: 'color-mix(in srgb, var(--dust) 4%, transparent)', opacity: 0.82 },
 };
 
 export type ThermalPanelProps = {

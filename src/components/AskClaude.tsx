@@ -72,7 +72,7 @@ export const AskClaude = ({ prompt, style }: AskClaudeProps) => {
               border: '1px solid var(--line-strong)',
               borderRadius: 6,
               padding: '12px 14px',
-              boxShadow: '0 6px 24px rgba(42,46,51,.18)',
+              boxShadow: '0 6px 24px color-mix(in srgb, var(--scrim) 18%, transparent)',
               display: 'flex',
               flexDirection: 'column',
               gap: 8,

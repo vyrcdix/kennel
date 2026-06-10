@@ -166,7 +166,7 @@ export const FieldNotesView = () => {
                   style={{
                     padding: '4px 12px',
                     border: 0,
-                    background: mode === m ? 'rgba(217,98,44,.12)' : 'transparent',
+                    background: mode === m ? 'color-mix(in srgb, var(--action) 12%, transparent)' : 'transparent',
                     color: mode === m ? 'var(--ember-deep)' : 'var(--fg-muted)',
                     fontFamily: 'var(--ff-sans)',
                     fontSize: 12.5,

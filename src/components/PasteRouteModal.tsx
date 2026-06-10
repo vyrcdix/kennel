@@ -205,7 +205,7 @@ export const PasteRouteModal = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(42,46,51,.30)',
+        background: 'color-mix(in srgb, var(--scrim) 30%, transparent)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',

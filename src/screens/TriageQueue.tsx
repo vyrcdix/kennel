@@ -38,7 +38,7 @@ const FilterChip = ({
     className="km-tag"
     onClick={onClick}
     style={{
-      background: active ? 'rgba(217,98,44,.16)' : 'rgba(201,168,124,.18)',
+      background: active ? 'color-mix(in srgb, var(--action) 16%, transparent)' : 'color-mix(in srgb, var(--dust) 18%, transparent)',
       color: active ? 'var(--ember-deep)' : 'var(--fg)',
       padding: '2px 8px',
       cursor: 'pointer',
@@ -89,7 +89,7 @@ const TriageRowItem = ({
       style={{
         padding: '10px 16px',
         borderBottom: '1px solid var(--line)',
-        background: selected ? 'rgba(217,98,44,.05)' : 'transparent',
+        background: selected ? 'color-mix(in srgb, var(--action) 5%, transparent)' : 'transparent',
         cursor: 'pointer',
       }}
     >
@@ -156,7 +156,7 @@ const TriageRowItem = ({
           <button
             className="km-btn"
             onClick={(e) => { stop(e); onCrystallize(); }}
-            style={{ color: '#B07E12' }}
+            style={{ color: 'var(--sacred-ink)' }}
             title="Promote this thought to a crystallization"
           >
             Crystallize <span className="km-kbd" style={{ marginLeft: 4 }}>C</span>
@@ -229,7 +229,7 @@ const TriageRowProposal = ({
     style={{
       padding: '10px 16px',
       borderBottom: '1px solid var(--line)',
-      background: 'rgba(92,122,62,.03)',
+      background: 'color-mix(in srgb, var(--fam-guide) 3%, transparent)',
     }}
   >
     <div

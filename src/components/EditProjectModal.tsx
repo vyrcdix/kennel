@@ -11,12 +11,12 @@ const CONTEXT_HARD = 8000;
 /** v0.5 §A thread label palette. Must match CreateProjectModal. */
 const COLORS: { name: 'none' | ProjectColor; hex: string }[] = [
   { name: 'none',  hex: 'transparent' },
-  { name: 'stone', hex: '#8C8275' },
-  { name: 'sage',  hex: '#79876F' },
-  { name: 'dusk',  hex: '#6C7A8C' },
-  { name: 'plum',  hex: '#87697C' },
-  { name: 'slate', hex: '#5A6066' },
-  { name: 'teal',  hex: '#5E807A' },
+  { name: 'stone', hex: 'var(--tint-stone)' },
+  { name: 'sage',  hex: 'var(--tint-sage)' },
+  { name: 'dusk',  hex: 'var(--tint-dusk)' },
+  { name: 'plum',  hex: 'var(--tint-plum)' },
+  { name: 'slate', hex: 'var(--tint-slate)' },
+  { name: 'teal',  hex: 'var(--tint-teal)' },
 ];
 
 export type EditProjectModalProps = {
@@ -105,7 +105,7 @@ export const EditProjectModal = ({ open, project, onClose }: EditProjectModalPro
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(42,46,51,.42)',
+        background: 'color-mix(in srgb, var(--scrim) 42%, transparent)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -239,7 +239,7 @@ export const EditProjectModal = ({ open, project, onClose }: EditProjectModalPro
                 gap: 8,
                 padding: '4px 10px',
                 border: '1px solid var(--line)',
-                background: pinned ? 'rgba(232,181,71,.12)' : 'transparent',
+                background: pinned ? 'color-mix(in srgb, var(--sacred) 12%, transparent)' : 'transparent',
                 color: pinned ? 'var(--blaze)' : 'var(--fg-muted)',
                 borderRadius: 3,
                 cursor: 'pointer',
@@ -269,7 +269,7 @@ export const EditProjectModal = ({ open, project, onClose }: EditProjectModalPro
                       border: active
                         ? '1px solid var(--ember-deep)'
                         : '1px solid var(--line)',
-                      background: active ? 'rgba(217,98,44,.10)' : 'transparent',
+                      background: active ? 'color-mix(in srgb, var(--action) 10%, transparent)' : 'transparent',
                       color: active ? 'var(--ember-deep)' : 'var(--fg-muted)',
                       borderRadius: 3,
                       cursor: 'pointer',

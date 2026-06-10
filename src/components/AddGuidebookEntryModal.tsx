@@ -313,7 +313,7 @@ export const AddGuidebookEntryModal = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(42,46,51,.42)',
+        background: 'color-mix(in srgb, var(--scrim) 42%, transparent)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -426,7 +426,7 @@ export const AddGuidebookEntryModal = ({
                           padding: '8px 12px',
                           cursor: 'pointer',
                           background: isSelected
-                            ? 'rgba(217,98,44,.10)'
+                            ? 'color-mix(in srgb, var(--action) 10%, transparent)'
                             : 'transparent',
                           borderBottom: '1px solid var(--line)',
                         }}
@@ -590,7 +590,7 @@ export const AddGuidebookEntryModal = ({
                       fontSize: 10.5,
                       padding: '1px 6px',
                       borderRadius: 3,
-                      background: 'rgba(217,98,44,.10)',
+                      background: 'color-mix(in srgb, var(--action) 10%, transparent)',
                       color: 'var(--ember-deep)',
                     }}
                   >

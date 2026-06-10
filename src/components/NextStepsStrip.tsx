@@ -82,8 +82,8 @@ export const NextStepsStrip = ({
     <div
       style={{
         padding: '12px 20px',
-        background: 'rgba(201,168,124,.25)',
-        borderBottom: '1px solid rgba(201,168,124,.45)',
+        background: 'color-mix(in srgb, var(--dust) 25%, transparent)',
+        borderBottom: '1px solid color-mix(in srgb, var(--dust) 45%, transparent)',
         display: 'flex',
         alignItems: 'center',
         gap: 14,

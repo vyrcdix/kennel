@@ -102,7 +102,7 @@ const TagChip = ({ label, active, onClick }: TagChipProps) => (
       fontSize: 10.5,
       padding: '1px 6px',
       borderRadius: 3,
-      background: active ? 'rgba(217,98,44,.20)' : 'rgba(217,98,44,.10)',
+      background: active ? 'color-mix(in srgb, var(--action) 20%, transparent)' : 'color-mix(in srgb, var(--action) 10%, transparent)',
       color: 'var(--ember-deep)',
       cursor: onClick ? 'pointer' : 'default',
       border: active ? '1px solid var(--ember)' : '1px solid transparent',
@@ -213,7 +213,7 @@ const EntryRow = ({
         gap: 10,
         padding: '10px 12px',
         borderBottom: '1px solid var(--line)',
-        background: isDragging ? 'rgba(217,98,44,.06)' : 'transparent',
+        background: isDragging ? 'color-mix(in srgb, var(--action) 6%, transparent)' : 'transparent',
         borderTop: isDragOver
           ? '2px solid var(--ember)'
           : '2px solid transparent',

@@ -69,7 +69,7 @@ export const renderBlocks = (body: string): ReactNode => {
             margin: '14px 0',
             padding: '8px 14px',
             borderLeft: '2px solid var(--moss)',
-            background: 'rgba(92,122,62,.06)',
+            background: 'color-mix(in srgb, var(--fam-guide) 6%, transparent)',
           }}
         >
           <p className="km-body" style={{ margin: 0, fontStyle: 'italic' }}>

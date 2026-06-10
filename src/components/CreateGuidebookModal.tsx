@@ -84,7 +84,7 @@ export const CreateGuidebookModal = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(42,46,51,.42)',
+        background: 'color-mix(in srgb, var(--scrim) 42%, transparent)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',

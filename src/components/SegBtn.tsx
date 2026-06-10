@@ -12,7 +12,7 @@ export const SegBtn = ({ label, active, onClick }: SegBtnProps) => (
       fontFamily: 'var(--ff-sans)',
       fontSize: 12,
       border: '1px solid var(--line-strong)',
-      background: active ? 'rgba(217,98,44,.12)' : 'transparent',
+      background: active ? 'color-mix(in srgb, var(--action) 12%, transparent)' : 'transparent',
       color: active ? 'var(--ember-deep)' : 'var(--fg)',
       cursor: 'pointer',
       marginLeft: -1,

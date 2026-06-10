@@ -70,8 +70,8 @@ const ProjectCard = ({ project, active, temp, counts }: ProjectCardProps) => {
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
-        background: active ? 'rgba(217,98,44,.06)' : 'var(--surface-1)',
-        borderColor: active ? 'rgba(217,98,44,.30)' : 'var(--line)',
+        background: active ? 'color-mix(in srgb, var(--action) 6%, transparent)' : 'var(--surface-1)',
+        borderColor: active ? 'color-mix(in srgb, var(--action) 30%, transparent)' : 'var(--line)',
         borderTop: `${edge.width}px solid ${edge.color}`,
         opacity: temp === 'dormant' ? 0.82 : 1,
         cursor: 'pointer',
@@ -556,14 +556,14 @@ export const Dashboard = () => {
                           }}
                         >
                           {isCrystal ? (
-                            <Icons.gem size={12} stroke="#B07E12" />
+                            <Icons.gem size={12} stroke="var(--sacred-ink)" />
                           ) : (
                             served && <KindIcon kind={served.kind} size={12} muted={false} />
                           )}
                           <span
                             className="km-mono-sm"
                             style={{
-                              color: isCrystal ? '#B07E12' : 'var(--ember-deep)',
+                              color: isCrystal ? 'var(--sacred-ink)' : 'var(--ember-deep)',
                               letterSpacing: '.04em',
                             }}
                           >
@@ -619,10 +619,10 @@ export const Dashboard = () => {
                       marginBottom: 12,
                     }}
                   >
-                    <Icons.gem size={15} stroke="#B07E12" />
+                    <Icons.gem size={15} stroke="var(--sacred-ink)" />
                     <span
                       className="km-display-sm"
-                      style={{ color: '#B07E12' }}
+                      style={{ color: 'var(--sacred-ink)' }}
                     >
                       CRYSTALLIZED THIS WEEK
                     </span>
@@ -633,7 +633,7 @@ export const Dashboard = () => {
                     <button
                       className="km-btn km-btn-ghost"
                       onClick={() => navigate('/crystals')}
-                      style={{ fontSize: 12, color: '#B07E12' }}
+                      style={{ fontSize: 12, color: 'var(--sacred-ink)' }}
                     >
                       All crystals <Icons.arrowR size={11} />
                     </button>
@@ -767,7 +767,7 @@ export const Dashboard = () => {
               {/* Aging — let go? (replaces Yesterday) */}
               <section
                 className="km-card"
-                style={{ padding: 0, background: 'rgba(201,168,124,.06)' }}
+                style={{ padding: 0, background: 'color-mix(in srgb, var(--dust) 6%, transparent)' }}
               >
                 <SectionHead
                   title="Aging — let go?"

@@ -362,7 +362,7 @@ const DocEditorBody = ({ doc }: { doc: NonNullable<ReturnType<typeof getDocById>
                         style={{
                           paddingLeft: 0,
                           borderLeft: '2px solid var(--ember-deep)',
-                          background: 'rgba(138,58,20,.06)',
+                          background: 'color-mix(in srgb, var(--action-deep) 6%, transparent)',
                           padding: '10px 12px',
                         }}
                       >

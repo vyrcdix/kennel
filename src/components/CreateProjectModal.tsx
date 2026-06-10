@@ -20,12 +20,12 @@ const CONTEXT_HARD = 8000;
  *  (blaze/ember/moss/clay) are deliberately not selectable here. */
 const COLORS: { name: 'none' | ProjectColor; hex: string }[] = [
   { name: 'none',  hex: 'transparent' },
-  { name: 'stone', hex: '#8C8275' },
-  { name: 'sage',  hex: '#79876F' },
-  { name: 'dusk',  hex: '#6C7A8C' },
-  { name: 'plum',  hex: '#87697C' },
-  { name: 'slate', hex: '#5A6066' },
-  { name: 'teal',  hex: '#5E807A' },
+  { name: 'stone', hex: 'var(--tint-stone)' },
+  { name: 'sage',  hex: 'var(--tint-sage)' },
+  { name: 'dusk',  hex: 'var(--tint-dusk)' },
+  { name: 'plum',  hex: 'var(--tint-plum)' },
+  { name: 'slate', hex: 'var(--tint-slate)' },
+  { name: 'teal',  hex: 'var(--tint-teal)' },
 ];
 
 type FocusField = 'name' | 'slug' | 'description' | 'context' | null;
@@ -101,7 +101,7 @@ const ColorSwatch = ({
             : isNone
             ? '1px dashed var(--line-strong)'
             : '1px solid var(--line)',
-          boxShadow: selected ? '0 0 0 3px rgba(217,98,44,.18)' : 'none',
+          boxShadow: selected ? '0 0 0 3px color-mix(in srgb, var(--action) 18%, transparent)' : 'none',
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
@@ -126,7 +126,7 @@ const ColorSwatch = ({
               height: 14,
               borderRadius: '50%',
               background: 'var(--ember)',
-              color: '#F2EDE0',
+              color: 'var(--bone)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -324,7 +324,7 @@ export const CreateProjectModal = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(42,46,51,.28)',
+        background: 'color-mix(in srgb, var(--scrim) 28%, transparent)',
         display: 'flex',
         alignItems: mobile ? 'stretch' : 'flex-start',
         justifyContent: 'center',
@@ -408,7 +408,7 @@ export const CreateProjectModal = ({
                   : '1px solid var(--line)',
                 boxShadow:
                   focusField === 'name' && !nameError
-                    ? '0 0 0 3px rgba(217,98,44,.18)'
+                    ? '0 0 0 3px color-mix(in srgb, var(--action) 18%, transparent)'
                     : 'none',
                 borderRadius: 4,
                 fontFamily: 'var(--ff-sans)',
@@ -483,7 +483,7 @@ export const CreateProjectModal = ({
                 style={{
                   marginTop: 8,
                   padding: '7px 10px',
-                  background: 'rgba(138,58,20,.08)',
+                  background: 'color-mix(in srgb, var(--action-deep) 8%, transparent)',
                   borderLeft: '2px solid var(--ember-deep)',
                   borderRadius: '0 3px 3px 0',
                   display: 'flex',
@@ -541,7 +541,7 @@ export const CreateProjectModal = ({
                     : '1px solid var(--line)',
                 boxShadow:
                   focusField === 'description'
-                    ? '0 0 0 3px rgba(217,98,44,.18)'
+                    ? '0 0 0 3px color-mix(in srgb, var(--action) 18%, transparent)'
                     : 'none',
                 borderRadius: 4,
                 fontFamily: 'var(--ff-sans)',
@@ -616,7 +616,7 @@ export const CreateProjectModal = ({
                   border: focusField === 'context' ? '1px solid var(--ember)' : '1px solid var(--line)',
                   boxShadow:
                     focusField === 'context'
-                      ? '0 0 0 3px rgba(217,98,44,.18)'
+                      ? '0 0 0 3px color-mix(in srgb, var(--action) 18%, transparent)'
                       : 'none',
                   borderRadius: 4,
                   fontFamily: 'var(--ff-mono)',

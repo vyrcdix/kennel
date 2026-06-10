@@ -25,7 +25,7 @@ export const ThermalStamp = ({ temp, since }: ThermalStampProps) => {
             height: 6,
             borderRadius: '50%',
             background: 'var(--ember)',
-            boxShadow: '0 0 0 3px rgba(217,98,44,.18)',
+            boxShadow: '0 0 0 3px color-mix(in srgb, var(--action) 18%, transparent)',
           }}
         />
         <Mono style={{ color: 'var(--ember-deep)' }}>FRESH · {since}</Mono>
