@@ -516,3 +516,40 @@ body { background: var(--surface-0); color: var(--fg); }
 .km-skin-life body { background: var(--surface-0); }
 /* Cards/panels gain the soft tide lift (Workshop cards stay flat). */
 .km-skin-life .km-card { box-shadow: var(--shadow-panel); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOTION LAYER (slice 3) — every duration is scaled by --motion-scale, which
+   is 0 in Workshop, so Workshop is motionless (removals are instant, no
+   cross-fade) and stays pixel-identical. The whole block is also gated on
+   prefers-reduced-motion: no-preference, so a reduced-motion user always sees
+   the resting end-state. Entrance keyframes animate transform only (never
+   from opacity:0) so a frozen/disabled animation never hides content.
+   Temperature is never animated.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: no-preference) {
+  /* day ⇄ night cross-fade — surfaces ease between palettes (260ms) */
+  .km, .km-card, .km-btn, .km-tag, .km-kbd, .km-proj, .km-toast {
+    transition:
+      background-color calc(260ms * var(--motion-scale)) ease,
+      border-color     calc(260ms * var(--motion-scale)) ease,
+      color            calc(260ms * var(--motion-scale)) ease,
+      box-shadow       calc(260ms * var(--motion-scale)) ease;
+  }
+  /* button press */
+  .km-btn:active { transform: translateY(calc(1px * var(--motion-scale))); }
+
+  /* a row leaving a list — direction set per gesture via a modifier.
+   * The helper in lib/permanence.ts adds .item-leave then waits the duration
+   * before mutating state, so the row animates out before it unmounts. */
+  .item-leave         { animation: kmPickUp  calc(360ms * var(--motion-scale)) ease-in-out both; overflow: hidden; }
+  .item-leave.release { animation: kmRelease calc(420ms * var(--motion-scale)) ease-in both; }
+  .item-leave.crystal { animation: kmCrystal calc(300ms * var(--motion-scale)) ease-out both; }
+
+  /* toast entrance (220ms) */
+  .km-toast { animation: kmToastIn calc(220ms * var(--motion-scale)) ease-out both; }
+}
+
+@keyframes kmPickUp  { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
+@keyframes kmRelease { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(14px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
+@keyframes kmCrystal { 0% { opacity: 1; } 40% { box-shadow: 0 0 0 3px var(--sacred-soft), 0 0 26px var(--sacred-soft); } 100% { opacity: 0; transform: scale(.98); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
+@keyframes kmToastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

@@ -6,18 +6,27 @@
 
 import { useEffect, useState } from 'react';
 
-export type ToastKind = 'info' | 'error';
+// `crystal` / `release` / `focus` are the permanence-toast kinds (slice 3):
+// every list removal fires one with an Undo, so nothing is ever silently
+// lost (object permanence). They carry a kind accent + icon in Toaster.
+export type ToastKind = 'info' | 'error' | 'crystal' | 'release' | 'focus';
 
 export type Toast = {
   id: number;
   kind: ToastKind;
   message: string;
   detail?: string;
+  /** When present, Toaster shows an Undo affordance that calls this. */
+  onUndo?: () => void;
 };
 
 const DEFAULT_MS: Record<ToastKind, number> = {
   info: 4000,
   error: 8000,
+  // 4.2s per the motion spec — long enough to read + reach for Undo.
+  crystal: 4200,
+  release: 4200,
+  focus: 4200,
 };
 
 let seq = 0;
@@ -30,11 +39,16 @@ const emit = () => {
 
 export const showToast = (
   message: string,
-  opts: { kind?: ToastKind; detail?: string; ttlMs?: number } = {},
+  opts: {
+    kind?: ToastKind;
+    detail?: string;
+    ttlMs?: number;
+    onUndo?: () => void;
+  } = {},
 ): number => {
   const kind = opts.kind ?? 'info';
   const id = ++seq;
-  toasts = [...toasts, { id, kind, message, detail: opts.detail }];
+  toasts = [...toasts, { id, kind, message, detail: opts.detail, onUndo: opts.onUndo }];
   emit();
   window.setTimeout(() => dismissToast(id), opts.ttlMs ?? DEFAULT_MS[kind]);
   return id;

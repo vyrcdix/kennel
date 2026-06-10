@@ -21,6 +21,7 @@ import {
   transitionItem,
   type ConvertTarget,
 } from '../data/actions';
+import { removeItem, type RemovalAction } from '../lib/permanence';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
 import type { Item, ItemState, Project } from '../data/types';
@@ -85,6 +86,7 @@ const TriageRowItem = ({
   return (
     <div
       onClick={onClick}
+      data-row-id={item.id}
       className={`km-row ${selected ? 'km-active-row' : ''}`}
       style={{
         padding: '10px 16px',
@@ -369,17 +371,15 @@ export const TriageQueue = () => {
           if (prev) setSelectedId(prev.item.id);
           break;
         }
-        case 'a': if (selected) transitionItem(selected.item.id, 'active'); break;
-        case 'p': if (selected) transitionItem(selected.item.id, 'reflecting'); break;
-        case 'd': if (selected) transitionItem(selected.item.id, 'crystallized'); break;
-        case 'x': if (selected) transitionItem(selected.item.id, 'dismissed'); break;
+        case 'a': if (selected) actTo(selected.item, 'active'); break;
+        case 'p': if (selected) actTo(selected.item, 'reflecting'); break;
+        case 'd': if (selected) actTo(selected.item, 'crystallized'); break;
+        case 'x': if (selected) actTo(selected.item, 'dismissed'); break;
         // v0.5 §C: C now also one-step-promotes to a crystallization
         // (was: open the convert popover). The convert flow is still
         // reachable via the V key.
         case 'c':
-          if (selected) {
-            void crystallizeItem(selected.item.id, { promoteKind: true });
-          }
+          if (selected) actCrystallize(selected.item);
           break;
         case 'v': if (selected) setConvertOpen((v) => !v); break;
         // v0.5 §C: S opens the attach-to-thinking typeahead.
@@ -403,6 +403,42 @@ export const TriageQueue = () => {
     if (!selected) return;
     setConvertOpen(false);
     void convertItem(selected.item.id, target);
+  };
+
+  // Every bench removal routes through removeItem: it animates the row out
+  // (Life), performs the transition, and fires an Undo toast (all skins).
+  const rowEl = (id: string) =>
+    typeof document !== 'undefined'
+      ? document.querySelector<HTMLElement>(`[data-row-id="${id}"]`)
+      : null;
+  const STATE_TO_ACTION: Partial<Record<ItemState, RemovalAction>> = {
+    active: 'activate',
+    reflecting: 'setAside',
+    crystallized: 'crystallize',
+    dismissed: 'letGo',
+  };
+  const actTo = (item: Item, to: ItemState) => {
+    const action = STATE_TO_ACTION[to];
+    if (!action) {
+      void transitionItem(item.id, to);
+      return;
+    }
+    const prev = item.state;
+    void removeItem({
+      action,
+      el: rowEl(item.id),
+      mutate: () => transitionItem(item.id, to),
+      undo: () => transitionItem(item.id, prev),
+    });
+  };
+  const actCrystallize = (item: Item) => {
+    const prev = item.state;
+    void removeItem({
+      action: 'crystallize',
+      el: rowEl(item.id),
+      mutate: () => crystallizeItem(item.id, { promoteKind: true }),
+      undo: () => transitionItem(item.id, prev),
+    });
   };
 
   return (
@@ -527,7 +563,7 @@ export const TriageQueue = () => {
                       selected={entry.item.id === selectedId}
                       convertOpen={convertOpen && entry.item.id === selectedId}
                       onClick={() => setSelectedId(entry.item.id)}
-                      onAction={(to) => transitionItem(entry.item.id, to)}
+                      onAction={(to) => actTo(entry.item, to)}
                       onToggleConvert={() => setConvertOpen((v) => !v)}
                       onConvert={(target) => {
                         setSelectedId(entry.item.id);
@@ -540,9 +576,7 @@ export const TriageQueue = () => {
                       }}
                       onCrystallize={() => {
                         setSelectedId(entry.item.id);
-                        void crystallizeItem(entry.item.id, {
-                          promoteKind: true,
-                        });
+                        actCrystallize(entry.item);
                       }}
                     />
                   );
