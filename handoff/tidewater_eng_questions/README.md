@@ -46,13 +46,13 @@ per-item routing suggestion** — Smart Routing exists only in the Paste &
 route flow. Building per-item suggestions is server-side feature work, out
 of skin scope per brief §4.
 
-**Proposed default:** ship the preview pane in Tidewater dress *without* the
-suggests panel for now — in its slot we show the item's current thread + kind
-as a quiet, editable block (same visual anatomy as your panel, minus the
-spark/"Claude suggests" header and accept semantics). When per-item routing
-ships later, the panel drops into the reserved slot.
-**Need from you:** confirm the degraded anatomy, or send a small spec for the
-slot's no-suggestion state.
+**Product ruling (2026-06-10): deferred.** We ship the preview pane in
+Tidewater dress *without* the suggests panel — in its slot we show the item's
+current thread + kind as a quiet, editable block (same visual anatomy as your
+panel, minus the spark/"Claude suggests" header and accept semantics). When
+per-item routing ships later, the panel drops into the reserved slot.
+**Need from you:** only a small spec if the no-suggestion slot anatomy above
+isn't what you'd want; otherwise nothing.
 
 ### A3. `te-fresh` uses the sacred hue
 `skin-tokens.css:214` paints the *fresh* temperature edge with a
@@ -68,17 +68,17 @@ site (and update the one-rule text so QA doesn't flag it forever).
 The *What it serves ⇄ By when* segmented toggle (plus the horizon grouping
 "This week / Soon / When it comes around") doesn't exist in the base
 Dashboard — it's new UI state + new grouping logic, which brief §4 bans and
-the handback didn't flag. Product will rule on whether it's in scope
-(it's cheap on our side; grouping is derivable from `dueAt`).
-**Need from you:** nothing unless product rejects it — then tell us which
-single lens the Life dashboard defaults to (we'd assume *What it serves*).
+the handback didn't flag.
+**Product ruling (2026-06-10): approved — we're building it** (grouping
+derived from `dueAt`, lens state persisted). **Need from you:** nothing.
 
 ### A5. Voice strings are baked in, but per-skin strings was a flagged extra
 Brief §3 said copy changes must be proposed as a clearly-marked appendix;
 the prototype bakes the full Tidewater voice in ("Let the tide take it",
 "Set aside on the shelf.", "The tide took it.", empty states, toast lines).
-Product will decide whether we build per-skin strings. If yes, we'll extract
-a complete string table from the prototype ourselves.
+**Product ruling (2026-06-10): approved — we're building per-skin strings**
+(a copy table keyed by skin) and will extract the full Tidewater table from
+the prototype ourselves.
 **Need from you:** a quick sanity pass on our extracted table once we post it
 (particularly: Aging-board strings, which the prototype never shows — see B2).
 
@@ -124,9 +124,10 @@ in the prototype. Pattern-level guidance is enough — one-liners, not canvases.
 ## C. Smaller confirmations
 
 1. **Night = dark mode.** `.km-skin-life.km-dark` carries the night sheet;
-   the existing Light/Dark/System theme setting drives it. The chrome
-   day/night toggle button is additive chrome (product decision pending);
-   the skin works without it.
+   the existing Light/Dark/System theme setting drives it.
+   **Product ruling (2026-06-10):** the chrome day/night toggle button is
+   dropped — theme control stays in Settings only, both skins. The chrome
+   keeps its current control set.
 2. **Skin class naming.** We implement the brief's `.km-skin-life` (not
    `.sk-tide`) and fold the night block accordingly. Tidewater's `.sk-tide`
    selectors in `skin-tokens.css` are translated 1:1.
@@ -146,8 +147,9 @@ in the prototype. Pattern-level guidance is enough — one-liners, not canvases.
 6. **Toast undo.** We're extending the toast system with kinds
    (`crystal`/`release`/`focus`) + Undo callback and the two-phase
    `.item-leave` removal, gated by `--motion-scale` (0 = instant in base).
-   Whether base skin also *gets* Undo toasts is a product call; the
-   mechanism is shared either way.
+   **Product ruling (2026-06-10):** Undo toasts ship in *all* skins —
+   Workshop gets Undo too (instant removal, no leave animation; toast copy
+   stays in the Workshop voice via the per-skin string table).
 
 ---
 
