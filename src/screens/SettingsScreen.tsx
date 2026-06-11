@@ -4,6 +4,7 @@ import { NavRail } from '../components/NavRail';
 import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SegBtn } from '../components/SegBtn';
+import { Icons } from '../components/Icon';
 import {
   fetchRoutingStatus,
   updateSettings,
@@ -14,6 +15,7 @@ import { getSettings } from '../data/selectors';
 import { useStoreVersion } from '../data/store';
 import { useTheme, type ThemeMode } from '../lib/theme';
 import { useSkin, type Skin } from '../lib/skin';
+import { useDensity, type Density } from '../lib/density';
 
 const SettingsRow = ({
   label,
@@ -106,9 +108,15 @@ export const SettingsScreen = () => {
   ];
 
   const [skin, setSkinMode] = useSkin();
-  const skins: { label: string; value: Skin }[] = [
-    { label: 'Workshop', value: 'workshop' },
-    { label: 'Life', value: 'life' },
+  const skinCards: { value: Skin; name: string; desc: string; swatch: string[] }[] = [
+    { value: 'life', name: 'Life', desc: 'Tidewater — the same app, dressed for running a life.', swatch: ['#14808A', '#DB8A4C', '#EBEEE3', '#4E8A6A'] },
+    { value: 'workshop', name: 'Workshop', desc: 'The original — blaze & dust, for deep project work.', swatch: ['#D9622C', '#E8B547', '#EEE2C9', '#5C7A3E'] },
+  ];
+  const [density, setDensityMode] = useDensity();
+  const densities: { label: string; value: Density }[] = [
+    { label: 'Roomy', value: 'roomy' },
+    { label: 'Cozy', value: 'cozy' },
+    { label: 'Compact', value: 'compact' },
   ];
 
   const settings = getSettings();
@@ -282,27 +290,51 @@ export const SettingsScreen = () => {
               {section === 'appearance' && (
                 <>
               <div className="km-display-lg" style={{ marginBottom: 4 }}>Appearance</div>
-              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
-                Mode and a few small typographic preferences. Density is not a setting — there is one density.
+              <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 18 }}>
+                The skin is the dress; mode is the temperature. {skin === 'life'
+                  ? 'Density tightens spacing without shrinking type.'
+                  : 'Workshop runs at one density.'}
+              </div>
+
+              {/* Skin picker cards */}
+              <div className="km-display-sm" style={{ marginBottom: 8 }}>Skin</div>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                {skinCards.map((c) => {
+                  const on = skin === c.value;
+                  return (
+                    <button
+                      key={c.value}
+                      onClick={() => setSkinMode(c.value)}
+                      style={{
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        flex: 1,
+                        padding: 16,
+                        borderRadius: 'var(--r-card, 8px)',
+                        border: `1.5px solid ${on ? 'var(--action)' : 'var(--line-strong)'}`,
+                        background: on ? 'color-mix(in srgb, var(--action) 8%, var(--surface-1))' : 'var(--surface-1)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                        {c.swatch.map((s, i) => (
+                          <span key={i} style={{ width: 26, height: 26, borderRadius: 8, background: s }} />
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 15, fontWeight: 700 }}>{c.name}</span>
+                        {on && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--ember-deep)', fontSize: 11, fontFamily: 'var(--ff-mono)' }}>
+                            <Icons.check size={12} /> active
+                          </span>
+                        )}
+                      </div>
+                      <div className="km-body-sm" style={{ color: 'var(--fg-muted)', marginTop: 4 }}>{c.desc}</div>
+                    </button>
+                  );
+                })}
               </div>
 
               <div style={{ borderBottom: '1px solid var(--line)' }}>
-                <SettingsRow
-                  label="Skin"
-                  hint="Workshop is the tool. Life (Tidewater) is the same app dressed for running a personal life."
-                  control={
-                    <div style={{ display: 'inline-flex' }}>
-                      {skins.map((s) => (
-                        <SegBtn
-                          key={s.value}
-                          label={s.label}
-                          active={skin === s.value}
-                          onClick={() => setSkinMode(s.value)}
-                        />
-                      ))}
-                    </div>
-                  }
-                />
                 <SettingsRow
                   label="Mode"
                   hint="Light is default. Dark is a peer."
@@ -319,6 +351,24 @@ export const SettingsScreen = () => {
                     </div>
                   }
                 />
+                {skin === 'life' && (
+                  <SettingsRow
+                    label="Density"
+                    hint="Tidewater runs roomy by default. Tighten if you like more on screen — only spacing changes, type never shrinks."
+                    control={
+                      <div style={{ display: 'inline-flex' }}>
+                        {densities.map((d) => (
+                          <SegBtn
+                            key={d.value}
+                            label={d.label}
+                            active={density === d.value}
+                            onClick={() => setDensityMode(d.value)}
+                          />
+                        ))}
+                      </div>
+                    }
+                  />
+                )}
                 <SettingsRow
                   label="Focus mode"
                   hint="Hides the pinned-thread rail and side panels on the dashboard so only the In focus list is visible."

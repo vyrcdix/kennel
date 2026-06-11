@@ -87,9 +87,17 @@
   /* Density (additive; Workshop layouts don't consume these yet) */
   --pad-panel: 22px;
   --gap-panel: 18px;
+  --density-row-pad: 12px;
 
   /* Motion — 0 = motionless (Workshop); scaled durations land in slice 3 */
   --motion-scale: 0;
+
+  /* Proposal diff (B3) — base = Workshop. Diffs ride family hues in Life
+   * (add = guide/sea-green, del = field/driftwood), never sacred/action. */
+  --diff-add-bg:  rgba(92,122,62,.14);
+  --diff-add-ink: #5C7A3E;
+  --diff-del-bg:  rgba(138,58,20,.10);
+  --diff-del-ink: #8A3A14;
 }
 
 /* Dark mode tokens — applied via .km-dark on any container */
@@ -103,6 +111,10 @@
   --fg:          #E8E2D2;
   --fg-muted:    rgba(232,226,210,.62);
   --fg-faint:    rgba(232,226,210,.40);
+
+  /* Diff backgrounds lighten on dark (Workshop) */
+  --diff-add-bg: rgba(164,196,116,.10);
+  --diff-del-bg: rgba(217,98,44,.10);
 }
 
 /* ─── v0.4/v0.5 "blaze + dust" token set ────────────────────────────────────
@@ -334,11 +346,9 @@
 /* Pinned indicator */
 .km-pin { color: var(--sacred); }
 
-/* Diff colors */
-.km-diff-add { background: rgba(92,122,62,.14); }
-.km-diff-del { background: rgba(138,58,20,.10); }
-.km-dark .km-diff-add { background: rgba(164,196,116,.10); }
-.km-dark .km-diff-del { background: rgba(217,98,44,.10); }
+/* Diff colors (token-driven; dark + Life remap via --diff-* tokens) */
+.km-diff-add { background: var(--diff-add-bg); }
+.km-diff-del { background: var(--diff-del-bg); }
 
 /* Highlight matched terms in search */
 .km-hl { background: color-mix(in srgb, var(--action) 20%, transparent); border-radius: 1px; padding: 0 1px; }
@@ -417,7 +427,16 @@ body { background: var(--surface-0); color: var(--fg); }
   --scrim:       #0E1B20;          /* deep harbour water behind modals */
   --r-card:      17px;
   --r-ctrl:      11px;
+  --pad-panel:   22px;
+  --gap-panel:   18px;
+  --density-row-pad: 12px;
   --motion-scale: 1;
+
+  /* Diff (B3) — family hues: add = sea-green, del = driftwood */
+  --diff-add-bg:  rgba(78,138,106,.14);
+  --diff-add-ink: #3F7458;
+  --diff-del-bg:  rgba(156,122,82,.12);
+  --diff-del-ink: #8A6A45;
 
   /* type */
   --ff-display: 'Bricolage Grotesque', system-ui, sans-serif;
@@ -469,6 +488,12 @@ body { background: var(--surface-0); color: var(--fg); }
   --tint-teal:   #6FB8AF;
   --scrim:       #060E12;
 
+  /* Diff (B3) — night family hues */
+  --diff-add-bg:  rgba(111,181,142,.16);
+  --diff-add-ink: #6FB58E;
+  --diff-del-bg:  rgba(193,154,110,.13);
+  --diff-del-ink: #C19A6E;
+
   --card-2:       #1B3038;
   --sacred-soft:  rgba(232,154,87,.17);
   --action-soft:  rgba(43,162,172,.15);
@@ -495,6 +520,22 @@ body { background: var(--surface-0); color: var(--fg); }
   --v-line: rgba(220,231,227,.10); --v-line2: rgba(220,231,227,.19);
   --v-blaze: #E89A57; --v-blaze-dk: #F0BA8A; --v-dust: #5F7570;
   --v-ember: #2BA2AC; --v-ember-dk: #1B7A83; --v-moss: #6FB58E; --v-clay: #C19A6E;
+}
+
+/* ── Density (B6) — Life only; spacing tightens, type never shrinks ────── */
+.km-skin-life.km-density-cozy {
+  --pad-panel: 18px;
+  --gap-panel: 14px;
+  --density-row-pad: 9px;
+  --r-card: 15px;
+  --r-ctrl: 10px;
+}
+.km-skin-life.km-density-compact {
+  --pad-panel: 14px;
+  --gap-panel: 11px;
+  --density-row-pad: 7px;
+  --r-card: 13px;
+  --r-ctrl: 9px;
 }
 
 /* ── Life dress for chrome / atoms ─────────────────────────────────────── */

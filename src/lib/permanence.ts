@@ -94,19 +94,19 @@ export type RemoveItemOpts = {
   el?: HTMLElement | null;
   /** Performs the removal. Awaited after the leave animation. */
   mutate: () => Promise<unknown>;
-  /** Reverses the removal when the user clicks Undo. */
-  undo: () => Promise<unknown>;
+  /** Reverses the removal when the user clicks Undo. Omit for removals with
+   *  no clean inverse (e.g. "bring back up" = touch) — no Undo is offered. */
+  undo?: () => Promise<unknown>;
 };
 
 export const removeItem = async (opts: RemoveItemOpts): Promise<void> => {
   const voice = VOICE[opts.action][getSkin() === 'life' ? 'life' : 'workshop'];
   await playLeave(opts.el ?? null, voice.gesture);
   await opts.mutate();
+  const { undo } = opts;
   showToast(voice.message, {
     kind: voice.gesture,
     detail: voice.detail,
-    onUndo: () => {
-      void opts.undo();
-    },
+    onUndo: undo ? () => void undo() : undefined,
   });
 };

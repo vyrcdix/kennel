@@ -21,8 +21,8 @@ import { formatRelative } from '../data/time';
 
 const LINE_STYLE = {
   eq:  { sign: ' ', bg: 'transparent',           signColor: 'var(--fg-faint)' },
-  add: { sign: '+', bg: 'color-mix(in srgb, var(--fam-guide) 10%, transparent)',   signColor: 'var(--moss)' },
-  del: { sign: '−', bg: 'color-mix(in srgb, var(--action-deep) 8%, transparent)',   signColor: 'var(--ember-deep)' },
+  add: { sign: '+', bg: 'var(--diff-add-bg)', signColor: 'var(--diff-add-ink)' },
+  del: { sign: '−', bg: 'var(--diff-del-bg)', signColor: 'var(--diff-del-ink)' },
 } as const;
 
 const DIFF_GRID = '38px 18px 1fr';
@@ -360,8 +360,8 @@ export const SkillProposal = () => {
               <div
                 style={{
                   padding: '12px 14px',
-                  borderLeft: '2px solid var(--ember-deep)',
-                  background: 'color-mix(in srgb, var(--action-deep) 5%, transparent)',
+                  borderLeft: '3px solid var(--fam-guide)',
+                  background: 'color-mix(in srgb, var(--fam-guide) 5%, transparent)',
                 }}
               >
                 <p

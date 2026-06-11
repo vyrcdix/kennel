@@ -5,6 +5,7 @@ import './styles/tokens.css';
 // root on module load, so a hard reload starts in the right theme + skin.
 import './lib/theme';
 import './lib/skin';
+import './lib/density';
 import App from './App';
 import LoginScreen from './screens/LoginScreen';
 import { ApiError, api, setUnauthorizedHandler } from './data/api';
