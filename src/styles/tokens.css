@@ -557,6 +557,14 @@ body { background: var(--surface-0); color: var(--fg); }
 .km-skin-life body { background: var(--surface-0); }
 /* Cards/panels gain the soft tide lift (Workshop cards stay flat). */
 .km-skin-life .km-card { box-shadow: var(--shadow-panel); }
+/* AA (slice 7): white button text needs the deeper teal to clear 4.5:1 on
+ * both temperatures — the brightened night --action (#2BA2AC) gives white only
+ * 2.87:1. --action-deep gives 7.3 (day) / 5.1 (night). Workshop button keeps
+ * its ember fill (this rule is Life-scoped). */
+.km-skin-life .km-btn-primary {
+  background: var(--action-deep);
+  border-color: var(--action-deep);
+}
 
 /* ════════════════════════════════════════════════════════════════════════
    MOTION LAYER (slice 3) — every duration is scaled by --motion-scale, which
