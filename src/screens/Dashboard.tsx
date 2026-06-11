@@ -45,6 +45,8 @@ import {
 } from '../data/time';
 import { useStoreVersion } from '../data/store';
 import { openCreateProject, openItem } from '../lib/modals';
+import { useSkin } from '../lib/skin';
+import { Wave } from '../components/Wave';
 import type { Item, Project } from '../data/types';
 
 const DAY = 86400_000;
@@ -262,7 +264,7 @@ const NoProjectsState = () => (
   </main>
 );
 
-export const Dashboard = () => {
+const DashboardWorkshop = () => {
   const navigate = useNavigate();
   const v = useStoreVersion();
   const [focusMode, setFocusMode] = useFocusMode();
@@ -809,6 +811,458 @@ export const Dashboard = () => {
       />
     </div>
   );
+};
+
+// ════════════════════════════ Life (Tidewater) ═════════════════════════
+// A calm re-orientation, not an audit: orientation strip → Worth-revisiting
+// hearth → two-col grid (In focus + This week | Where you were + Lately).
+// Same data as Workshop, reframed; every Workshop section stays reachable.
+
+const FOCUS_LENS_KEY = 'km.focusLens';
+type FocusLens = 'serves' | 'horizon';
+const loadLens = (): FocusLens => {
+  try {
+    const r = localStorage.getItem(FOCUS_LENS_KEY);
+    if (r === 'serves' || r === 'horizon') return r;
+  } catch {
+    /* no storage */
+  }
+  return 'serves';
+};
+
+const HORIZONS: { id: 'week' | 'soon' | 'whenever'; label: string; sub: string; tone: string }[] = [
+  { id: 'week', label: 'This week', sub: 'soon', tone: 'var(--action)' },
+  { id: 'soon', label: 'Soon', sub: 'this month', tone: 'var(--fam-guide)' },
+  { id: 'whenever', label: 'When it comes around', sub: 'no rush', tone: 'var(--ink-faint)' },
+];
+
+const horizonOf = (due?: Date): 'week' | 'soon' | 'whenever' => {
+  if (!due) return 'whenever';
+  const days = (due.getTime() - Date.now()) / DAY;
+  if (days <= 7) return 'week';
+  if (days <= 30) return 'soon';
+  return 'whenever';
+};
+
+type FocusGroup = { key: string; label: string; tone?: string; loose?: boolean; items: Item[] };
+
+// Depth bar — temperature read as a vertical "how deep has this settled" rail.
+const DEPTH: Record<Temp, { fill: number; label: string }> = {
+  fresh: { fill: 1, label: 'FRESH' },
+  active: { fill: 0.8, label: 'ACTIVE' },
+  aging: { fill: 0.5, label: 'DEEPENING' },
+  dormant: { fill: 0.28, label: 'STILL' },
+};
+
+const DepthBar = ({ temp }: { temp: Temp }) => {
+  const d = DEPTH[temp];
+  return (
+    <div
+      style={{
+        width: 4,
+        alignSelf: 'stretch',
+        borderRadius: 999,
+        background: 'var(--sunk)',
+        position: 'relative',
+        flex: '0 0 auto',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: `${(1 - d.fill) * 100}%`,
+          bottom: 0,
+          background:
+            temp === 'fresh' || temp === 'active'
+              ? 'linear-gradient(180deg, var(--action), color-mix(in srgb, var(--action) 40%, transparent))'
+              : 'color-mix(in srgb, var(--ink) 22%, transparent)',
+        }}
+      />
+    </div>
+  );
+};
+
+const DashboardLife = () => {
+  const v = useStoreVersion();
+  const navigate = useNavigate();
+  const settings = getSettings();
+  const [lens, setLens] = useState<FocusLens>(loadLens);
+  const setLensPersist = (l: FocusLens) => {
+    setLens(l);
+    try {
+      localStorage.setItem(FOCUS_LENS_KEY, l);
+    } catch {
+      /* no storage */
+    }
+  };
+
+  const inFocus = useMemo(() => getNextUp(undefined, 50), [v]);
+  const dueCrystals = useMemo(() => getDueCrystals().slice(0, 3), [v]);
+  const crystalsThisWeek = useMemo(() => getCrystallizedThisWeek(), [v]);
+  const pinned = useMemo(() => getPinnedProjects(), [v]);
+  const counts = useMemo(() => getAllProjectCounts(), [v]);
+  const lastTouched = useMemo(() => getAllProjectLastTouched(), [v]);
+  const aging = useMemo(
+    () => getAgingItems(settings.agingThresholdDays),
+    [v, settings.agingThresholdDays],
+  );
+  const recentChats = useMemo(() => getRecentChats(5), [v]);
+  const washedIn = useMemo(
+    () => getInboxRollup().reduce((n, r) => n + r.count, 0),
+    [v],
+  );
+
+  const groups = useMemo<FocusGroup[]>(() => {
+    if (lens === 'horizon') {
+      return HORIZONS.map((h) => ({
+        key: h.id,
+        label: h.label,
+        tone: h.tone,
+        loose: h.id === 'whenever',
+        items: inFocus.filter((it) => horizonOf(it.dueAt) === h.id),
+      })).filter((g) => g.items.length > 0);
+    }
+    // serves: group by the crystal/idea/thread each action serves.
+    const byServes = new Map<string, Item[]>();
+    const loose: Item[] = [];
+    for (const it of inFocus) {
+      const anchor = it.servesId ? getItemById(it.servesId) : undefined;
+      if (anchor) {
+        const arr = byServes.get(anchor.id) ?? [];
+        arr.push(it);
+        byServes.set(anchor.id, arr);
+      } else {
+        loose.push(it);
+      }
+    }
+    const out: FocusGroup[] = [...byServes.entries()].map(([id, items]) => ({
+      key: id,
+      label: getItemById(id)?.title ?? 'a thread',
+      items,
+    }));
+    if (loose.length) out.push({ key: '__loose', label: 'loose in the water — not attached yet', loose: true, items: loose });
+    return out;
+  }, [inFocus, lens]);
+
+  return (
+    <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
+      <ChromeBar />
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <NavRail active="dashboard" />
+        <main className="km-scroll" style={{ flex: 1, overflow: 'auto', padding: '26px 30px 44px' }}>
+          {/* Orientation strip */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 22 }}>
+            <div>
+              <Mono dim>{formatDashboardDate()}</Mono>
+              <div className="km-display-lg" style={{ fontSize: 28, margin: '4px 0 0' }}>
+                The tide's calm.
+              </div>
+              <div className="km-body" style={{ fontSize: 14.5, color: 'var(--fg-muted)', marginTop: 5 }}>
+                {aging.length === 0 ? "Nothing's gone cold." : `${aging.length} deepening on the shelf.`}{' '}
+                {washedIn > 0
+                  ? `${washedIn} ${washedIn === 1 ? 'thought' : 'thoughts'} washed in — sort them when you're ready.`
+                  : 'The bench is clear.'}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <Wave width={180} opacity={0.5} />
+              </div>
+            </div>
+            <span style={{ flex: 1 }} />
+            <button
+              className="km-btn km-btn-primary"
+              style={{ fontSize: 14.5, padding: '11px 18px' }}
+              onClick={() => navigate('/triage')}
+            >
+              Sort the bench <Icons.arrowR size={16} />
+            </button>
+          </div>
+
+          {/* Worth revisiting — hearth */}
+          {dueCrystals.length > 0 && (
+            <section
+              className="km-card"
+              style={{
+                padding: '20px 22px 22px',
+                marginBottom: 22,
+                background:
+                  'radial-gradient(90% 140% at 0% 0%, var(--sacred-soft), transparent 60%), var(--surface-1)',
+                border: '1px solid color-mix(in srgb, var(--sacred) 30%, var(--line))',
+                boxShadow: 'var(--shadow-lift)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
+                <Icons.gem size={17} stroke="var(--sacred-ink)" />
+                <div className="km-display-md" style={{ fontSize: 21 }}>Worth revisiting</div>
+                <span style={{ flex: 1 }} />
+                <Mono dim>what's settled, asking to be looked at</Mono>
+              </div>
+              <div className="km-body" style={{ margin: '0 0 16px 27px', color: 'var(--fg-muted)', fontSize: 13.5 }}>
+                Things you decided were true. Still?
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(3, dueCrystals.length)}, 1fr)`, gap: 13 }}>
+                {dueCrystals.map((c) => (
+                  <CrystalCard key={c.id} item={c} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Two-column grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 372px', gap: 22, alignItems: 'start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {/* In focus + lens */}
+              <section className="km-card" style={{ padding: 'var(--pad-panel, 22px)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, gap: 12 }}>
+                  <div className="km-display-md" style={{ fontSize: 19 }}>In focus</div>
+                  <span style={{ flex: 1 }} />
+                  <div style={{ display: 'inline-flex', padding: 3, gap: 2, background: 'var(--sunk)', borderRadius: 999 }}>
+                    <LensBtn on={lens === 'serves'} onClick={() => setLensPersist('serves')}>What it serves</LensBtn>
+                    <LensBtn on={lens === 'horizon'} onClick={() => setLensPersist('horizon')}>By when</LensBtn>
+                  </div>
+                </div>
+                {groups.length === 0 ? (
+                  <Mono dim>Nothing in focus. Pick something up from the bench.</Mono>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {groups.map((g) => (
+                      <FocusGroupView key={g.key} group={g} lens={lens} navigate={navigate} />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* This week */}
+              <section className="km-card" style={{ padding: 'var(--pad-panel, 22px)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 12 }}>
+                  <div className="km-display-md" style={{ fontSize: 19 }}>This week</div>
+                  <span style={{ flex: 1 }} />
+                  <Mono dim>{crystalsThisWeek.length} kept</Mono>
+                </div>
+                {crystalsThisWeek.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                    {crystalsThisWeek.slice(0, 3).map((c) => (
+                      <CrystalCard key={c.id} item={c} />
+                    ))}
+                  </div>
+                )}
+                <button
+                  className="km-btn km-btn-soft"
+                  style={{ width: '100%', justifyContent: 'space-between' }}
+                  onClick={() => navigate('/review/weekly')}
+                >
+                  <span>The shape of your week</span>
+                  <Icons.arrowR size={15} />
+                </button>
+              </section>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {/* Where you were */}
+              <section className="km-card" style={{ padding: 'var(--pad-panel, 22px)' }}>
+                <div className="km-display-md" style={{ fontSize: 19, marginBottom: 6 }}>Where you were</div>
+                <Mono dim>the bar shows depth — bright &amp; high is fresh, deep &amp; still is dormant</Mono>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 14 }}>
+                  {pinned.map((p) => {
+                    const c = counts.get(p.id) ?? { inbox: 0, active: 0, reflecting: 0, crystallized: 0 };
+                    const last = lastTouched.get(p.id);
+                    const temp: Temp = last ? temperatureForDate(last, settings) : 'dormant';
+                    return (
+                      <div
+                        key={p.id}
+                        className="km-row"
+                        onClick={() => navigate(`/project/${p.slug}`)}
+                        style={{
+                          display: 'flex',
+                          gap: 13,
+                          padding: '13px 14px',
+                          border: '1px solid var(--line)',
+                          borderRadius: 'var(--r-ctrl)',
+                          background: 'var(--card-2)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <DepthBar temp={temp} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+                            <span style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{p.name}</span>
+                            <Mono dim>{DEPTH[temp].label}</Mono>
+                          </div>
+                          <div className="km-body-sm" style={{ color: 'var(--fg-muted)', marginBottom: 8 }}>
+                            {last ? `last touched ${formatRelativeLoose(last)}` : 'quiet'}
+                          </div>
+                          <div style={{ display: 'flex', gap: 14 }}>
+                            {c.active > 0 && <Mono dim>{c.active} in focus</Mono>}
+                            {c.reflecting > 0 && (
+                              <Mono dim style={{ color: 'var(--dot-reflect)' }}>{c.reflecting} on the shelf</Mono>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* C5 — aging whisper. No card, no badge: one quiet line. */}
+                {aging.length > 0 && (
+                  <div
+                    onClick={() => navigate('/aging')}
+                    className="km-body-sm"
+                    style={{ marginTop: 14, color: 'var(--ink-muted)', cursor: 'pointer' }}
+                  >
+                    {aging.length} more deepening on the shelf →
+                  </div>
+                )}
+              </section>
+
+              {/* Lately */}
+              {recentChats.length > 0 && (
+                <section className="km-card" style={{ padding: 'var(--pad-panel, 22px)' }}>
+                  <div className="km-display-md" style={{ fontSize: 19, marginBottom: 14 }}>Lately</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {recentChats.map((chat) => {
+                      const p = getProjectById(chat.projectId);
+                      return (
+                        <div
+                          key={chat.id}
+                          onClick={() => p && navigate(`/project/${p.slug}`)}
+                          style={{ display: 'flex', gap: 11, alignItems: 'flex-start', cursor: p ? 'pointer' : 'default' }}
+                        >
+                          <span
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 999,
+                              flex: '0 0 auto',
+                              fontFamily: 'var(--ff-mono)',
+                              fontSize: 10,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: 'var(--action-soft)',
+                              color: 'var(--action-ink)',
+                            }}
+                          >
+                            AI
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="km-body-sm" style={{ lineHeight: 1.4 }}>{chat.tagline}</div>
+                            <Mono dim>{formatRelative(chat.lastSeenAt)}</Mono>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+const LensBtn = ({
+  on,
+  onClick,
+  children,
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    onClick={onClick}
+    className="km-body-sm"
+    style={{
+      fontWeight: 500,
+      padding: '5px 11px',
+      borderRadius: 999,
+      border: 'none',
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      background: on ? 'var(--card-2)' : 'transparent',
+      color: on ? 'var(--fg)' : 'var(--fg-muted)',
+      boxShadow: on ? 'var(--shadow-panel)' : 'none',
+    }}
+  >
+    {children}
+  </button>
+);
+
+const FocusGroupView = ({
+  group,
+  lens,
+  navigate,
+}: {
+  group: FocusGroup;
+  lens: FocusLens;
+  navigate: (to: string) => void;
+}) => {
+  const rail = group.loose
+    ? 'var(--line-strong)'
+    : lens === 'horizon'
+    ? group.tone
+    : 'linear-gradient(180deg, var(--sacred), var(--action))';
+  return (
+    <div style={{ display: 'flex', gap: 14 }}>
+      <div
+        style={{ width: 3, borderRadius: 999, alignSelf: 'stretch', flex: '0 0 auto', background: rail, opacity: group.loose ? 0.5 : 1 }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, opacity: group.loose ? 0.7 : 1 }}>
+          {group.loose ? (
+            <Mono dim>{group.label}</Mono>
+          ) : lens === 'serves' ? (
+            <>
+              <Icons.gem size={13} stroke="var(--sacred-ink)" />
+              <Mono dim>flowing toward</Mono>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{group.label}</span>
+            </>
+          ) : (
+            <>
+              <span style={{ width: 8, height: 8, borderRadius: 9, background: group.tone, flex: '0 0 auto' }} />
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{group.label}</span>
+            </>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {group.items.map((it) => {
+            const proj = getProjectById(it.projectId);
+            return (
+              <div
+                key={it.id}
+                className="km-row"
+                onClick={() => proj && navigate(`/project/${proj.slug}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', cursor: 'pointer', borderRadius: 'var(--r-ctrl)' }}
+              >
+                <span className="km-dot km-dot-ember" />
+                <span style={{ color: 'var(--fg-faint)', display: 'flex' }}>
+                  <KindIcon kind={it.kind} size={15} />
+                </span>
+                <span style={{ flex: 1, fontSize: 14.5 }}>{it.title}</span>
+                {lens === 'serves'
+                  ? it.dueAt && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--fg-faint)' }}>
+                        <Icons.bell size={13} />
+                        <Mono dim>{formatRelativeLoose(it.dueAt)}</Mono>
+                      </span>
+                    )
+                  : proj && <ProjectTag slug={proj.slug} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const Dashboard = () => {
+  const [skin] = useSkin();
+  return skin === 'life' ? <DashboardLife /> : <DashboardWorkshop />;
 };
 
 export default Dashboard;

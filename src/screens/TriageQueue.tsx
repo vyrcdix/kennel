@@ -22,6 +22,7 @@ import {
   type ConvertTarget,
 } from '../data/actions';
 import { removeItem, type RemovalAction } from '../lib/permanence';
+import { useSkin } from '../lib/skin';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
 import type { Item, ItemState, Project } from '../data/types';
@@ -58,6 +59,181 @@ const CONVERT_OPTIONS: { target: ConvertTarget; label: string }[] = [
   { target: 'doc', label: 'doc' },
   { target: 'reference', label: 'reference' },
 ];
+
+// A1 — Tidewater verbs. The legend footer surfaces only the three everyday
+// ones; the rest live behind "more · ?". All bindings stay live regardless.
+const TIDE_VERBS: { k: string; label: string }[] = [
+  { k: 'A', label: 'Pick up' },
+  { k: 'P', label: 'Set aside' },
+  { k: 'C', label: 'Crystallize' },
+  { k: 'D', label: 'Crystallize now' },
+  { k: 'V', label: 'Convert' },
+  { k: 'S', label: 'Attach to a thread' },
+  { k: 'X', label: 'Let the tide take it' },
+];
+
+const LegendItem = ({ k, label }: { k: string; label: string }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+    <span className="km-kbd">{k}</span>
+    <span className="km-body-sm">{label}</span>
+  </span>
+);
+
+// Tiered keyboard legend (Life). Sticks to the foot of the queue pane;
+// hover or `?` opens the full verb map.
+const TieredLegend = ({
+  open,
+  setOpen,
+}: {
+  open: boolean;
+  setOpen: (fn: (o: boolean) => boolean) => void;
+}) => (
+  <div
+    onMouseLeave={() => setOpen(() => false)}
+    style={{
+      position: 'sticky',
+      bottom: 0,
+      background: 'var(--surface-1)',
+      borderTop: '1px solid var(--line)',
+      padding: '9px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      flexWrap: 'wrap',
+    }}
+  >
+    <LegendItem k="A" label="Pick up" />
+    <span style={{ color: 'var(--fg-faint)' }}>·</span>
+    <LegendItem k="P" label="Set aside" />
+    <span style={{ color: 'var(--fg-faint)' }}>·</span>
+    <LegendItem k="X" label="Let go" />
+    <span style={{ flex: 1 }} />
+    <div style={{ position: 'relative' }} onMouseEnter={() => setOpen(() => true)}>
+      <button
+        className="km-btn km-btn-ghost"
+        onClick={() => setOpen((o) => !o)}
+        style={{ padding: '2px 8px', fontSize: 11.5, color: 'var(--fg-faint)' }}
+      >
+        more <span className="km-kbd" style={{ marginLeft: 4 }}>?</span>
+      </button>
+      {open && (
+        <div
+          className="km-card"
+          style={{
+            position: 'absolute',
+            right: 0,
+            bottom: 'calc(100% + 8px)',
+            padding: '10px 12px',
+            minWidth: 220,
+            boxShadow: 'var(--shadow-lift)',
+            zIndex: 30,
+          }}
+        >
+          {TIDE_VERBS.map((vb) => (
+            <div
+              key={vb.k}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}
+            >
+              <span className="km-kbd" style={{ minWidth: 18, textAlign: 'center' }}>{vb.k}</span>
+              <span className="km-body-sm">{vb.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// A2 — reserved suggests slot. Shows the item's current thread + kind as a
+// quiet block that reads as *state* (on --card, --ink-muted labels), not a
+// CTA. Kind is inline-editable (convert); the full "Claude suggests" routing
+// panel drops in here when per-item routing ships server-side.
+const SuggestsSlot = ({
+  item,
+  project,
+  onConvert,
+}: {
+  item: Item;
+  project: Project;
+  onConvert: (target: ConvertTarget) => void;
+}) => {
+  const [kindOpen, setKindOpen] = useState(false);
+  return (
+    <div className="km-card" style={{ padding: '12px 14px', marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto 1fr',
+          gap: '8px 12px',
+          alignItems: 'center',
+        }}
+      >
+        <span className="km-mono-sm" style={{ color: 'var(--fg-muted)' }}>In</span>
+        <span>
+          <ProjectTag slug={project.slug} />
+        </span>
+        <span className="km-mono-sm" style={{ color: 'var(--fg-muted)' }}>As a</span>
+        <span style={{ position: 'relative' }}>
+          <button
+            onClick={() => setKindOpen((o) => !o)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--fg)',
+              padding: 0,
+              fontFamily: 'var(--ff-sans)',
+              fontSize: 13.5,
+            }}
+            title="Change kind"
+          >
+            <KindIcon kind={item.kind} muted={false} /> {item.kind}{' '}
+            <Icons.caret size={11} />
+          </button>
+          {kindOpen && (
+            <div
+              className="km-card"
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 'calc(100% + 6px)',
+                padding: 6,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 6,
+                minWidth: 200,
+                boxShadow: 'var(--shadow-lift)',
+                zIndex: 30,
+              }}
+            >
+              {CONVERT_OPTIONS.filter((o) => o.target !== item.kind).map((o) => (
+                <button
+                  key={o.target}
+                  className="km-btn km-btn-ghost"
+                  style={{ padding: '3px 8px', fontSize: 11.5 }}
+                  onClick={() => {
+                    onConvert(o.target);
+                    setKindOpen(false);
+                  }}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </span>
+      </div>
+      <Mono dim>
+        <span style={{ display: 'block', marginTop: 8 }}>
+          Claude's routing lands here when per-item suggestions ship.
+        </span>
+      </Mono>
+    </div>
+  );
+};
 
 const TriageRowItem = ({
   item,
@@ -332,9 +508,11 @@ export const TriageQueue = () => {
   const inboxCount = queue.filter((q) => q.kind === 'item').length;
   const proposalCount = queue.filter((q) => q.kind === 'proposal').length;
 
+  const [skin] = useSkin();
   const [selectedId, setSelectedId] = useState<string>('');
   const [convertOpen, setConvertOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   // Selected item leaves the queue after an action; reselect the first remaining.
   useEffect(() => {
@@ -384,15 +562,18 @@ export const TriageQueue = () => {
         case 'v': if (selected) setConvertOpen((v) => !v); break;
         // v0.5 §C: S opens the attach-to-thinking typeahead.
         case 's': if (selected) setAttachOpen(true); break;
+        // A1 (Life): ? opens the tiered legend's full verb map.
+        case '?': setLegendOpen((o) => !o); break;
         case 'escape':
           if (attachOpen) setAttachOpen(false);
           else if (convertOpen) setConvertOpen(false);
+          else if (legendOpen) setLegendOpen(false);
           break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [queue, selectedId, selected, convertOpen, attachOpen]);
+  }, [queue, selectedId, selected, convertOpen, attachOpen, legendOpen]);
 
   // Close the popover whenever the selection changes.
   useEffect(() => {
@@ -590,6 +771,9 @@ export const TriageQueue = () => {
                   />
                 );
               })}
+              {skin === 'life' && queue.length > 0 && (
+                <TieredLegend open={legendOpen} setOpen={setLegendOpen} />
+              )}
             </div>
 
             {/* Preview pane */}
@@ -620,6 +804,14 @@ export const TriageQueue = () => {
                   <div style={{ marginBottom: 12 }}>
                     <TagChips entityType="item" entityId={selected.item.id} editable />
                   </div>
+                  {skin === 'life' && (
+                    <SuggestsSlot
+                      item={selected.item}
+                      project={selected.project}
+                      onConvert={doConvert}
+                    />
+                  )}
+
                   <div className="km-body" style={{ lineHeight: 1.6, color: 'var(--fg)' }}>
                     {selected.item.body
                       ? selected.item.body
@@ -634,35 +826,37 @@ export const TriageQueue = () => {
                       )}
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: 24,
-                      paddingTop: 18,
-                      borderTop: '1px solid var(--line)',
-                    }}
-                  >
-                    <Label style={{ marginBottom: 8 }}>Convert to</Label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {CONVERT_OPTIONS.filter((o) => o.target !== selected.item.kind).map((o) => (
-                        <button
-                          key={o.target}
-                          className="km-btn"
-                          onClick={() => doConvert(o.target)}
-                        >
-                          {o.target === 'reference' ? (
-                            <Icons.link size={12} />
-                          ) : (
-                            <KindIcon kind={o.target} />
-                          )}{' '}
-                          {o.label}
-                        </button>
-                      ))}
+                  {skin !== 'life' && (
+                    <div
+                      style={{
+                        marginTop: 24,
+                        paddingTop: 18,
+                        borderTop: '1px solid var(--line)',
+                      }}
+                    >
+                      <Label style={{ marginBottom: 8 }}>Convert to</Label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {CONVERT_OPTIONS.filter((o) => o.target !== selected.item.kind).map((o) => (
+                          <button
+                            key={o.target}
+                            className="km-btn"
+                            onClick={() => doConvert(o.target)}
+                          >
+                            {o.target === 'reference' ? (
+                              <Icons.link size={12} />
+                            ) : (
+                              <KindIcon kind={o.target} />
+                            )}{' '}
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                      <Mono dim>
+                        idea/note/action/ref/question swap kinds in place · doc & reference create
+                        a new entity and dismiss the source
+                      </Mono>
                     </div>
-                    <Mono dim>
-                      idea/note/action/ref/question swap kinds in place · doc & reference create
-                      a new entity and dismiss the source
-                    </Mono>
-                  </div>
+                  )}
                 </>
               ) : (
                 <Mono dim>select an item to preview</Mono>
