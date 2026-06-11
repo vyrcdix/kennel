@@ -32,6 +32,14 @@ type ItemRow = {
   serves_id: string | null;
   last_surfaced_at: string | null;
   surface_count: number;
+  // Cadence facets (0014)
+  cadence: string | null;
+  commitment: string | null;
+  window_opens_at: string | null;
+  last_done_at: string | null;
+  kept_count: number;
+  resource_ref_id: string | null;
+  note_default_section: string | null;
   created_at: string;
   updated_at: string;
   last_touched_at: string | null;
@@ -50,6 +58,17 @@ const parseSourcesFrom = (raw: string | null): string[] | undefined => {
 };
 
 const CRYSTAL_TYPES = new Set(['principle', 'quote', 'reminder', 'hint', 'memory']);
+// Cadence enums — policed here (no DB CHECK), so corrupt/legacy values read
+// as "not a cadence" rather than throwing.
+const CADENCES = new Set(['daily', 'weekly', 'monthly']);
+const COMMITMENTS = new Set(['trying', 'committed', 'core']);
+const FIELD_SECTIONS = new Set([
+  'premise',
+  'whatIKnow',
+  'openQuestions',
+  'sources',
+  'crystallizations',
+]);
 
 export const rowToItem = (r: ItemRow): Item => ({
   id: r.id,
@@ -76,6 +95,19 @@ export const rowToItem = (r: ItemRow): Item => ({
   servesId: r.serves_id ?? undefined,
   lastSurfacedAt: fromIso(r.last_surfaced_at),
   surfaceCount: r.surface_count ?? 0,
+  cadence: r.cadence && CADENCES.has(r.cadence)
+    ? (r.cadence as Item['cadence'])
+    : undefined,
+  commitment: r.commitment && COMMITMENTS.has(r.commitment)
+    ? (r.commitment as Item['commitment'])
+    : undefined,
+  windowOpensAt: fromIso(r.window_opens_at),
+  lastDoneAt: fromIso(r.last_done_at),
+  keptCount: r.kept_count ?? 0,
+  resourceRefId: r.resource_ref_id ?? undefined,
+  noteDefaultSection: r.note_default_section && FIELD_SECTIONS.has(r.note_default_section)
+    ? (r.note_default_section as Item['noteDefaultSection'])
+    : undefined,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });

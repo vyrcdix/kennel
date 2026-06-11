@@ -22,6 +22,13 @@ export type ItemState =
 
 export type ProjectStatus = 'active' | 'paused' | 'archived';
 
+/** Cadence (recurring actions) — see docs/cadence-build-plan.md. Both are
+ *  meaningful only on a `kind=action` item; a cadence is "present" when
+ *  `cadence` is set. Vitality (fresh/active/aging/dormant) is derived from
+ *  lastDoneAt vs the cadence interval, weighted by commitment — never stored. */
+export type Cadence = 'daily' | 'weekly' | 'monthly';
+export type Commitment = 'trying' | 'committed' | 'core';
+
 export type Actor = 'craig' | 'claude' | 'cli' | 'system';
 
 /** v0.5 thread label palette (handoff §A). Six low-chroma label colours
@@ -87,6 +94,20 @@ export type Item = {
   /** Resurfacing cadence — when the crystal was last shown / acked. */
   lastSurfacedAt?: Date;
   surfaceCount: number;
+  /** Cadence facets (recurring actions) — only meaningful on kind=action;
+   *  present when `cadence` is set. See docs/cadence-build-plan.md. */
+  cadence?: Cadence;
+  commitment?: Commitment;
+  /** When this re-enters the "do this week" surface. */
+  windowOpensAt?: Date;
+  /** Last logged contact ("Did it"). */
+  lastDoneAt?: Date;
+  /** Gentle streak readout — not a score. Bumped by "Did it", not by Skip. */
+  keptCount?: number;
+  /** Optional on-card resource (a reference of type 'link'). */
+  resourceRefId?: string;
+  /** UI default for where a memo files (a field-notes section). */
+  noteDefaultSection?: FieldNotesSectionKey;
   createdAt: Date;
   updatedAt: Date;
 };
