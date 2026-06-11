@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cadence — Do this week · card studies</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="skin-tokens.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #0E1B20; }
+  #root { min-height: 100vh; }
+  @media (prefers-reduced-motion: no-preference) { .cc-glow { animation: ccGlow 4.5s ease-in-out infinite; } }
+  @keyframes ccGlow { 0%,100% { box-shadow: 0 0 0 1px var(--sacred-soft), var(--shadow-panel); } 50% { box-shadow: 0 0 26px color-mix(in oklab, var(--sacred) 22%, transparent), var(--shadow-panel); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="helpers.jsx" data-presets="react"></script>
+<script type="text/babel" src="data.jsx" data-presets="react"></script>
+<script type="text/babel" src="tide-core.jsx" data-presets="react"></script>
+<script type="text/babel" src="tide-cadence.jsx" data-presets="react"></script>
+
+<script type="text/babel" data-presets="react">
+const { Ic: SIc, Mono: SMo, Pill: SPill, DEPTH: SDEPTH } = window;
+const SCommit = window.CommitMeter, STrace = window.RhythmTrace, svitColor = window.vitColor, svitLabel = window.vitLabel;
+
+// the worked example, shown three ways
+const SAMPLE = window.CADENCES.find((c) => c.id === 'c1');
+
+// shared card innards (everything except the vitality treatment)
+function CardBody({ c, children, footer }) {
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-muted)' }}>
+          <SIc.repeat size={13} /><SMo style={{ fontSize: 11, color: 'inherit' }}>{window.CADENCE_LABEL[c.cadence]}</SMo></span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 999, background: 'var(--action-soft)', color: 'var(--action-ink)' }}>
+          <SMo style={{ fontSize: 10.5, color: 'inherit' }}>{window.WINDOW_LABEL[c.window]}</SMo></span>
+        <span style={{ flex: 1 }} /><SCommit level={c.commitment} />
+      </div>
+      <p className="display" style={{ margin: '0 0 10px', fontSize: 17.5, fontWeight: 600, lineHeight: 1.32, letterSpacing: '-.01em' }}>{c.text}</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <SIc.gem size={12} style={{ color: 'var(--sacred-ink)' }} /><SMo dim style={{ fontSize: 11.5 }}>keeps warm</SMo>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{c.serves}</span></span>
+        <SPill t={c.tint}>{c.thread}</SPill>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '9px 12px', marginBottom: 13, borderRadius: 'var(--r-ctrl)', border: '1px solid var(--line)', background: 'var(--card-2)' }}>
+        <SIc.link size={14} style={{ color: 'var(--action-ink)' }} />
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{c.resource.label}</span>
+        <SIc.arrowR2 size={14} style={{ color: 'var(--ink-faint)' }} /></div>
+      {children}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+        <button className="btn btn-sm" style={{ background: 'var(--sacred)', borderColor: 'var(--sacred)', color: '#2A1B08', fontWeight: 600 }}><SIc.check size={14} /> Did it</button>
+        <button className="btn btn-soft btn-sm">Skip this week</button>
+        <button className="btn btn-ghost btn-sm"><SIc.clock size={13} /> Snooze</button>
+      </div>
+    </>
+  );
+}
+
+// A — water depth bar (reuses the existing thread-depth metaphor)
+function StudyA({ c }) {
+  return (
+    <div className="panel" style={{ padding: '16px 18px', display: 'flex', gap: 14 }}>
+      <window.Depth t={c.vitality} w={6} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <CardBody c={c}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <STrace trace={c.trace} vitality={c.vitality} kept={c.kept} unit={c.keptUnit} />
+            <span style={{ flex: 1 }} />
+            <SMo dim style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.08em' }}>{svitLabel(c.vitality)}</SMo>
+          </div>
+        </CardBody>
+      </div>
+    </div>
+  );
+}
+
+// B — warmth glow: the card itself glows when the practice is alive
+function StudyB({ c }) {
+  const col = svitColor(c.vitality);
+  return (
+    <div className="panel cc-glow" style={{ padding: '16px 18px', position: 'relative', overflow: 'hidden',
+      borderColor: 'color-mix(in oklab, var(--sacred) 26%, var(--line))',
+      background: 'radial-gradient(120% 130% at 100% 0%, color-mix(in oklab, var(--sacred) 11%, transparent), transparent 60%), var(--card)' }}>
+      <CardBody c={c}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 9, height: 9, borderRadius: 999, background: col, boxShadow: `0 0 9px ${col}` }} />
+            <SMo dim style={{ fontSize: 11.5 }}>kept up {c.kept} {c.keptUnit} running · {svitLabel(c.vitality)}</SMo></span>
+        </div>
+      </CardBody>
+    </div>
+  );
+}
+
+// C — rhythm trace as the hero (the chosen direction, paired with a soft tide line)
+function StudyC({ c }) {
+  const col = svitColor(c.vitality);
+  return (
+    <div className="panel" style={{ padding: '16px 18px', position: 'relative', overflow: 'hidden',
+      borderColor: 'color-mix(in oklab, var(--sacred) 26%, var(--line))',
+      background: 'radial-gradient(120% 130% at 100% 0%, color-mix(in oklab, var(--sacred) 9%, transparent), transparent 60%), var(--card)' }}>
+      <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, ${col}, color-mix(in oklab, ${col} 30%, transparent))` }} />
+      <CardBody c={c}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <STrace trace={c.trace} vitality={c.vitality} kept={c.kept} unit={c.keptUnit} />
+          <span style={{ flex: 1 }} />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: col }} />
+            <SMo dim style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.08em' }}>{svitLabel(c.vitality)}</SMo></span>
+        </div>
+      </CardBody>
+    </div>
+  );
+}
+
+function Study({ tag, name, note, chosen, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span className="mono" style={{ fontSize: 12, color: 'var(--action-ink)' }}>{tag}</span>
+        <span className="display" style={{ fontSize: 18, fontWeight: 700 }}>{name}</span>
+        {chosen && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 999, background: 'var(--sacred-soft)', color: 'var(--sacred-ink)', fontFamily: 'var(--ff-mono)', fontSize: 10.5 }}><SIc.check size={11} /> in the build</span>}
+      </div>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-muted)', minHeight: 38 }}>{note}</p>
+      {children}
+    </div>
+  );
+}
+
+function Studies() {
+  const c = SAMPLE;
+  return (
+    <div className="skin sk-tide night" style={{ minHeight: '100vh', padding: '46px 54px' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        <span className="eyebrow" style={{ color: 'var(--action-ink)' }}>Cadence · vitality visual</span>
+        <h1 className="display" style={{ margin: '6px 0 8px', fontSize: 34, fontWeight: 700, letterSpacing: '-.02em' }}>“Do this week” — card studies</h1>
+        <p style={{ margin: 0, fontSize: 16, color: 'var(--ink-muted)', maxWidth: '70ch' }}>
+          Three ways to show <em>vitality</em> — how alive a practice is — on the surfaced card. Same content, same words
+          (sunlit / active / deepening / still). The build pairs the rhythm trace with a soft warmth tint (C).</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 26, marginTop: 34, alignItems: 'start' }}>
+          <Study tag="A" name="Water depth" note="Reuses the thread-depth bar — bright & high is fresh, deep & still is dormant. Familiar, but reads as a level, not a practice.">
+            <StudyA c={c} /></Study>
+          <Study tag="B" name="Warmth glow" note="The card itself glows while the practice is alive and cools as it slips. Pure ambient feel; the streak is just a line of text.">
+            <StudyB c={c} /></Study>
+          <Study tag="C" name="Rhythm trace" chosen note="A quiet row of recent windows — kept marks warm, skips hollow — over a soft warmth tint. The streak is the picture: text + tiny visual.">
+            <StudyC c={c} /></Study>
+        </div>
+        <p style={{ margin: '34px 0 0', fontSize: 12.5, color: 'var(--ink-faint)', fontFamily: 'var(--ff-mono)' }}>
+          shown on the night palette · the live build adapts to day/night automatically</p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Studies />);
+</script>
+</body>
+</html>
