@@ -61,6 +61,7 @@ import {
   getProjectLastTouched,
   getProjectReferences,
   getProjectRoutings,
+  getReflectingItems,
   getRunbook,
   getSettings,
 } from '../data/selectors';
@@ -72,7 +73,8 @@ import {
 import { stripFence } from '../lib/markdown';
 import { openCapture, openItem } from '../lib/modals';
 import { useStoreVersion } from '../data/store';
-import type { Doc, Guidebook, Item } from '../data/types';
+import { useSkin } from '../lib/skin';
+import type { Doc, Guidebook, Item, Project } from '../data/types';
 
 const DAY = 86400_000;
 
@@ -294,6 +296,7 @@ const ProjectNotFound = ({ slug }: { slug: string }) => (
 export const ProjectLanding = () => {
   const navigate = useNavigate();
   useStoreVersion();
+  const [skin] = useSkin();
   const { slug = 'kennel' } = useParams<{ slug?: string }>();
   const [activeTab, setActiveTab] = useState<
     'items' | 'docs' | 'references'
@@ -359,6 +362,10 @@ export const ProjectLanding = () => {
   const newestChat = activeChats[0] ?? staleChats[0];
   const chatsTemp = temperatureForDate(newestChat?.lastSeenAt, settings);
   const chatsSince = formatRelative(newestChat?.lastSeenAt ?? new Date(0));
+
+  if (skin === 'life') {
+    return <ProjectLandingLife project={project} />;
+  }
 
   return (
     <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1270,5 +1277,289 @@ export const ProjectLanding = () => {
     </div>
   );
 };
+
+// ════════════════════════════ Life (Tidewater) ═════════════════════════
+// Thread landing reframed: a header with the stat row, then a two-column
+// grid (In focus / Crystals / Docs & guides | Recently sorted / On the shelf
+// / Conversations). Same data as Workshop, computed fresh from selectors.
+
+const VITALITY: Record<Temp, { label: string; color: string }> = {
+  fresh: { label: 'sunlit', color: 'var(--sacred)' },
+  active: { label: 'active', color: 'var(--action)' },
+  aging: { label: 'deepening', color: 'var(--fam-run)' },
+  dormant: { label: 'still', color: 'var(--ink-faint, var(--fg-faint))' },
+};
+
+const LifePanel = ({
+  title,
+  right,
+  children,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) => (
+  <section className="km-card" style={{ padding: 'var(--pad-panel, 22px)' }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 14, gap: 10 }}>
+      <div className="km-display-md" style={{ fontSize: 18 }}>{title}</div>
+      <span style={{ flex: 1 }} />
+      {right}
+    </div>
+    {children}
+  </section>
+);
+
+const ProjectLandingLife = ({ project }: { project: Project }) => {
+  const navigate = useNavigate();
+  const settings = getSettings();
+  const counts = getProjectCounts(project.id);
+  const nextUp = getNextUp(project.id, 6);
+  const crystals = getCrystallizations(project.id);
+  const docs = getProjectDocs(project.id);
+  const guidebooks = getProjectGuidebooks(project.id);
+  const runbook = getRunbook(project.id);
+  const reflecting = getReflectingItems(project.id);
+  const routings = getProjectRoutings(project.id);
+  const { active: chats } = getProjectChats(project.id);
+  const lastTouched = getProjectLastTouched(project.id);
+  const temp: Temp = temperatureForDate(lastTouched, settings);
+  const vit = VITALITY[temp];
+
+  const stats: [string, number][] = [
+    ['in focus', counts.active],
+    ['on the shelf', counts.reflecting],
+    ['crystals', counts.crystallized],
+    ['docs', docs.length],
+  ];
+
+  return (
+    <div className="km" style={{ display: 'flex', flexDirection: 'column' }}>
+      <ChromeBar
+        projectChip={<ProjectTag slug={project.slug} />}
+        captureProjectSlug={project.slug}
+      />
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <NavRail active="" activeProjectSlug={project.slug} />
+        <main className="km-scroll" style={{ flex: 1, overflow: 'auto', padding: '26px 30px 40px' }}>
+          {/* Header */}
+          <div
+            className="km-card"
+            style={{ padding: '22px 24px', marginBottom: 22, display: 'flex', gap: 18, alignItems: 'flex-start' }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                flex: '0 0 auto',
+                background: `linear-gradient(150deg, var(--tint-${project.color ?? 'teal'}), color-mix(in srgb, var(--tint-${project.color ?? 'teal'}) 55%, var(--sunk)))`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--bone)',
+                fontFamily: 'var(--ff-display)',
+                fontWeight: 700,
+                fontSize: 20,
+              }}
+            >
+              {project.name.slice(0, 1).toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div className="km-display-lg" style={{ fontSize: 27 }}>{project.name}</div>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: `color-mix(in srgb, ${vit.color} 16%, transparent)`,
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: 9, background: vit.color }} />
+                  <Mono style={{ color: 'var(--fg-muted)' }}>{vit.label}</Mono>
+                </span>
+              </div>
+              {project.description && (
+                <div className="km-body" style={{ fontSize: 15, color: 'var(--fg-muted)', marginTop: 6 }}>
+                  {project.description}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 18, marginTop: 12, flexWrap: 'wrap' }}>
+                {stats.map(([l, n]) => (
+                  <span key={l} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span className="km-display-md" style={{ fontSize: 18 }}>{n}</span>
+                    <Mono dim>{l}</Mono>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 240 }}>
+              <button className="km-btn km-btn-soft" onClick={() => navigate(`/project/${project.slug}/field-notes`)}>
+                <Icons.note size={14} /> Field notes
+              </button>
+              <button className="km-btn km-btn-soft" onClick={() => navigate(`/project/${project.slug}/trace`)}>
+                <Icons.side size={14} /> Trace
+              </button>
+              <button className="km-btn km-btn-primary" onClick={() => openCapture(project.slug)}>
+                <Icons.plus size={14} /> Capture here
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 22, alignItems: 'start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {/* In focus */}
+              <LifePanel title="In focus">
+                {nextUp.length === 0 ? (
+                  <Mono dim>nothing in focus right now</Mono>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {nextUp.map((it) => (
+                      <div
+                        key={it.id}
+                        className="km-row"
+                        onClick={() => openItem(it, navigate)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', cursor: 'pointer', borderRadius: 'var(--r-ctrl)' }}
+                      >
+                        <span className="km-dot km-dot-ember" />
+                        <span style={{ color: 'var(--fg-faint)', display: 'flex' }}>
+                          <KindIcon kind={it.kind} size={15} />
+                        </span>
+                        <span style={{ flex: 1, fontSize: 14.5 }}>{it.title}</span>
+                        {it.dueAt && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--fg-faint)' }}>
+                            <Icons.bell size={13} />
+                            <Mono dim>{formatRelativeLoose(it.dueAt)}</Mono>
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </LifePanel>
+
+              {/* Crystals */}
+              {crystals.length > 0 && (
+                <LifePanel
+                  title="Crystals"
+                  right={
+                    <button className="km-btn km-btn-ghost" onClick={() => navigate('/crystals')} style={{ padding: '3px 9px', fontSize: 12 }}>
+                      See all <Icons.arrowR size={13} />
+                    </button>
+                  }
+                >
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    {crystals.slice(0, 4).map((c) => (
+                      <CrystalCard key={c.id} item={c} />
+                    ))}
+                  </div>
+                </LifePanel>
+              )}
+
+              {/* Docs & guides */}
+              {(docs.length > 0 || runbook || guidebooks.length > 0) && (
+                <LifePanel title="Docs &amp; guides">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {docs.slice(0, 5).map((d) => (
+                      <DocRow key={d.id} icon={<Icons.doc size={16} stroke="var(--fam-guide)" />} name={d.title} meta={`rev ${d.revision}`} onClick={() => navigate(`/doc/${d.id}`)} />
+                    ))}
+                    {runbook && (
+                      <DocRow icon={<Icons.runbook size={16} stroke="var(--fam-run)" />} name="Runbook" meta="operational" onClick={() => navigate(`/runbook/${project.slug}`)} />
+                    )}
+                    {guidebooks.map((g) => (
+                      <DocRow key={g.id} icon={<Icons.bulb size={16} stroke="var(--fam-guide)" />} name={g.name} meta="guidebook" onClick={() => navigate(`/guidebook/${g.id}`)} />
+                    ))}
+                  </div>
+                </LifePanel>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {/* Recently sorted (carries its own Undo) */}
+              {routings.length > 0 && (
+                <LifePanel title="Recently sorted">
+                  <RecentlySortedStrip routings={routings} />
+                </LifePanel>
+              )}
+
+              {/* On the shelf */}
+              <LifePanel
+                title="On the shelf"
+                right={
+                  <button className="km-btn km-btn-ghost" onClick={() => navigate(`/reflecting?project=${project.slug}`)} style={{ padding: '3px 9px', fontSize: 12 }}>
+                    Walk it <Icons.arrowR size={13} />
+                  </button>
+                }
+              >
+                {reflecting.length === 0 ? (
+                  <Mono dim>nothing set aside</Mono>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {reflecting.slice(0, 5).map((r) => {
+                      const last = r.lastTouchedAt ?? r.updatedAt;
+                      return (
+                        <div key={r.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <span className="km-dot km-dot-dust" style={{ marginTop: 6 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="km-body-sm" style={{ lineHeight: 1.4 }}>{r.title}</div>
+                            <Mono dim>shelved {formatRelativeLoose(last)}</Mono>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </LifePanel>
+
+              {/* Conversations */}
+              {chats.length > 0 && (
+                <LifePanel title="Conversations">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {chats.slice(0, 5).map((c) => (
+                      <ChatRow key={c.id} tagline={c.tagline} since={formatRelative(c.lastSeenAt)} />
+                    ))}
+                  </div>
+                </LifePanel>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+const DocRow = ({
+  icon,
+  name,
+  meta,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  meta: string;
+  onClick: () => void;
+}) => (
+  <div
+    className="km-row"
+    onClick={onClick}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: '12px 13px',
+      border: '1px solid var(--line)',
+      borderRadius: 'var(--r-ctrl)',
+      background: 'var(--card-2)',
+      cursor: 'pointer',
+    }}
+  >
+    <span style={{ display: 'flex' }}>{icon}</span>
+    <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500 }}>{name}</span>
+    <Mono dim>{meta}</Mono>
+  </div>
+);
 
 export default ProjectLanding;

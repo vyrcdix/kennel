@@ -43,6 +43,8 @@ import {
 } from '../data/actions';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
+import { useSkin } from '../lib/skin';
+import { showToast } from '../lib/toast';
 import type { CrystalType, FieldNotesSectionKey, Item } from '../data/types';
 
 const CTYPES: { value: CrystalType; label: string }[] = [
@@ -676,8 +678,15 @@ const resolveSources = (item: Item): ResolvedSource[] => {
 export const CrystalDetail = () => {
   useStoreVersion();
   const navigate = useNavigate();
+  const [skin] = useSkin();
   const { id = '' } = useParams<{ id?: string }>();
   const crystal = getItemById(id);
+
+  // Explicit "Still true" — the deliberate ack (vs the silent touch-on-open).
+  const confirmStillTrue = (cid: string) => {
+    void resurfaceCrystal(cid, { ack: true }).catch(() => {});
+    showToast('Still true — kept fresh.', { kind: 'crystal' });
+  };
 
   // v0.5 §B "touch on open": opening a crystal resets the resurface
   // timer (no ack — that's the explicit "Still true" button). Fire
@@ -826,14 +835,57 @@ export const CrystalDetail = () => {
             <CtypePicker item={crystal} />
           </div>
 
-          {crystal.lastSurfacedAt && (
-            <Mono style={{ color: 'var(--v-blaze-dk)' }}>
-              crystallized {formatRelative(crystal.doneAt ?? crystal.createdAt)}
-              {crystal.surfaceCount > 0
-                ? ` · re-surfaced ${crystal.surfaceCount}×`
-                : ''}{' '}
-              · kept fresh
-            </Mono>
+          {skin === 'life' ? (
+            // A2-style hero footer: "a kept thing" + re-surfaced count on the
+            // left, the explicit "Still true" ack on the right.
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                paddingTop: 16,
+                borderTop: '1px solid color-mix(in srgb, var(--v-blaze) 22%, var(--v-line))',
+              }}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icons.gem size={13} stroke="var(--v-blaze-dk)" />
+                <Mono style={{ color: 'var(--v-blaze-dk)' }}>a kept thing</Mono>
+              </span>
+              <Mono dim>
+                crystallized {formatRelative(crystal.doneAt ?? crystal.createdAt)}
+                {crystal.surfaceCount > 0 ? ` · re-surfaced ${crystal.surfaceCount}×` : ''}
+              </Mono>
+              <span style={{ flex: 1 }} />
+              <button
+                onClick={() => confirmStillTrue(crystal.id)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 13px',
+                  borderRadius: 'var(--r-ctrl)',
+                  border: '1px solid var(--v-blaze)',
+                  background: 'var(--v-blaze)',
+                  color: '#2A1B08',
+                  fontWeight: 600,
+                  fontSize: 12.5,
+                  fontFamily: 'var(--ff-sans)',
+                  cursor: 'pointer',
+                }}
+              >
+                <Icons.check size={13} stroke="#2A1B08" /> Still true
+              </button>
+            </div>
+          ) : (
+            crystal.lastSurfacedAt && (
+              <Mono style={{ color: 'var(--v-blaze-dk)' }}>
+                crystallized {formatRelative(crystal.doneAt ?? crystal.createdAt)}
+                {crystal.surfaceCount > 0
+                  ? ` · re-surfaced ${crystal.surfaceCount}×`
+                  : ''}{' '}
+                · kept fresh
+              </Mono>
+            )
           )}
 
           {/* Inbound edges — what serves this crystal, and what it fed.
@@ -890,6 +942,11 @@ export const CrystalDetail = () => {
         {/* Right: Built on — three doorways + item lineage (v0.5 §D) */}
         <BuiltOnPanel crystal={crystal} lineage={sources} />
 
+        {/* ── Cadence seam (handoff/design_handoff_cadence) ─────────────────
+            When Cadence ships, the "Kept warm by" panel (cadences attached to
+            this crystal/its goals) + the "+ Recurring action" entry point
+            mount here, after Built-on, gated on the Life skin. Left as a code
+            seam per the eng handback (A1/A2 pending) — no UI until then. */}
       </div>
     </div>
   );
