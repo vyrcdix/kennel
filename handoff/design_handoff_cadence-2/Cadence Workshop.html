@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cadence — Workshop treatment</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="skin-tokens.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #E0DACB; }
+  #root { min-height: 100vh; }
+
+  /* ── Workshop skin — the base "blaze & dust" skin, expressed in the same
+     component-layer var contract the Life skin uses. Same components, remapped
+     tokens (this is the parity proof: nothing in tide-cadence.jsx changes). ── */
+  .sk-workshop {
+    --bg: #F2EDE0; --bg-tint: #F2EDE0;
+    --card: #ECE6D5; --card-2: #F5F0E4; --sunk: #E4DCC7;
+    --ink: #3A3F45; --ink-muted: rgba(58,63,69,.64); --ink-faint: rgba(58,63,69,.44);
+    --line: rgba(58,63,69,.14); --line-strong: rgba(58,63,69,.28);
+
+    /* kept / warm things = blaze gold (Workshop's keepsake hue) */
+    --sacred: #E8B547; --sacred-ink: #8A6A12; --sacred-soft: rgba(232,181,71,.18);
+    /* primary action + in-focus = ember */
+    --action: #D9622C; --action-deep: #A84919; --action-ink: #A84919; --action-soft: rgba(217,98,44,.10);
+
+    --fam-field: #C9A87C; --fam-guide: #5C7A3E; --fam-run: #7A8088;
+    --dot-focus: var(--action); --dot-reflect: #C9A87C; --dot-crystal: #5C7A3E; --dot-filed: #7A8088;
+
+    --tint-stone: #8C8275; --tint-sage: #6E7C4E; --tint-dusk: #6C7A8C;
+    --tint-plum: #87697C; --tint-slate: #5A6066; --tint-teal: #4E7A72;
+
+    --r-card: 6px; --r-ctrl: 4px; --pad-panel: 20px; --gap-panel: 16px;
+    --ff-display: 'Oswald', system-ui, sans-serif;
+    --ff-sans: 'Inter', system-ui, sans-serif;
+    --ff-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --shadow-panel: 0 1px 2px rgba(58,63,69,.05), 0 4px 12px rgba(58,63,69,.06);
+    --shadow-lift: 0 2px 6px rgba(58,63,69,.08), 0 12px 30px rgba(58,63,69,.12);
+    --motion-scale: 1;
+  }
+  .sk-workshop.skin { background: var(--bg); }
+  /* Workshop display type wants its uppercase, tracked label treatment */
+  .sk-workshop .display { letter-spacing: .005em; }
+  .sk-workshop .eyebrow { color: var(--action-ink); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="helpers.jsx" data-presets="react"></script>
+<script type="text/babel" src="data.jsx" data-presets="react"></script>
+<script type="text/babel" src="tide-core.jsx" data-presets="react"></script>
+<script type="text/babel" src="tide-cadence.jsx" data-presets="react"></script>
+
+<script type="text/babel" data-presets="react">
+// unique aliases (the globals Ic/Mono/Pill/CommitMeter… already exist)
+const WIc = window.Ic, WMo = window.Mono, WPill = window.Pill;
+const WCommit = window.CommitMeter, WTrace = window.RhythmTrace, wvitColor = window.vitColor;
+
+// Workshop temperature words — the canonical neutral schema bands (guidance §6.3).
+// (Life localises these to sunlit / active / deepening / still.)
+const WVIT = { fresh: 'fresh', active: 'active', aging: 'aging', dormant: 'dormant' };
+const wvitLabel = (t) => WVIT[t] || 'active';
+const wWarm = (t) => t === 'fresh' || t === 'active';
+const cad = (c) => window.CADENCE_LABEL[c];
+const win = (w) => window.WINDOW_LABEL[w];
+const tname = (s) => (window.THREADS.find((t) => t.slug === s) || {}).name || s;
+
+function WSCard({ c, memo }) {
+  const warm = wWarm(c.vitality);
+  const col = wvitColor(c.vitality);
+  const soft = !!c.daily;
+  const res = c.resource;
+  return (
+    <div className="panel" style={{ position: 'relative', overflow: 'hidden', padding: soft ? '14px 16px' : '16px 18px',
+      borderColor: warm ? 'color-mix(in oklab, var(--sacred) 30%, var(--line))' : 'var(--line)',
+      background: warm ? 'radial-gradient(120% 130% at 100% 0%, color-mix(in oklab, var(--sacred) 12%, transparent), transparent 60%), var(--card)' : 'var(--card)' }}>
+      <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, ${col}, color-mix(in oklab, ${col} 30%, transparent))`, opacity: warm ? .9 : .4 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-muted)' }}>
+          <WIc.repeat size={13} /><WMo style={{ fontSize: 11, color: 'inherit' }}>{cad(c.cadence)}</WMo></span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 999, background: 'var(--action-soft)', color: 'var(--action-ink)' }}>
+          <WMo style={{ fontSize: 10.5, color: 'inherit' }}>{win(c.window)}</WMo></span>
+        {soft && <WMo dim style={{ fontSize: 10.5 }}>· quietly</WMo>}
+        <span style={{ flex: 1 }} /><WCommit level={c.commitment} />
+      </div>
+      <p className="display" style={{ margin: '0 0 10px', fontSize: soft ? 16 : 18, fontWeight: 500, lineHeight: 1.3 }}>{c.text}</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: res ? 11 : 13, flexWrap: 'wrap' }}>
+        {c.serves
+          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <WIc.gem size={12} style={{ color: 'var(--sacred-ink)' }} /><WMo dim style={{ fontSize: 11.5 }}>feeds</WMo>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{c.serves}</span></span>
+          : <WMo dim style={{ fontSize: 11.5 }}>a practice of its own</WMo>}
+        <WPill t={c.tint}>{c.thread}</WPill>
+      </div>
+      {res && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '9px 12px', marginBottom: 13, borderRadius: 'var(--r-ctrl)', border: '1px solid var(--line)', background: 'var(--card-2)' }}>
+          <WIc.link size={14} style={{ color: 'var(--action-ink)' }} />
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{res.label}</span>
+          <WIc.arrowR2 size={14} style={{ color: 'var(--ink-faint)' }} /></div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: c.diverged ? 12 : 14 }}>
+        <WTrace trace={c.trace} vitality={c.vitality} kept={c.kept} unit={c.keptUnit} />
+        <span style={{ flex: 1 }} />
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: col }} />
+          <WMo dim style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.08em' }}>{wvitLabel(c.vitality)}</WMo></span>
+      </div>
+      {c.diverged && (
+        <div style={{ display: 'flex', gap: 11, padding: '12px 14px', marginBottom: 14, borderRadius: 'var(--r-ctrl)', background: 'var(--sunk)', border: '1px solid var(--line)' }}>
+          <WIc.layers size={15} style={{ color: 'var(--ink-faint)', flex: '0 0 auto', marginTop: 1 }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--ink-muted)' }}>
+              Marked a <strong style={{ color: 'var(--ink)' }}>core practice</strong>, but it’s gone cold. No harm — still true?</p>
+            <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
+              <button className="btn btn-sm" style={{ background: 'var(--sacred)', borderColor: 'var(--sacred)', color: '#3A2A06', fontWeight: 600 }}>Re-commit</button>
+              <button className="btn btn-ghost btn-sm">Ease off to “trying it”</button>
+              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--sacred-ink)' }}><WIc.gem size={13} /> Crystallize the lesson</button>
+              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-faint)' }}>Let it go</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {memo && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', marginBottom: 12, borderRadius: 'var(--r-ctrl)', background: 'var(--card-2)', border: '1px solid var(--line)' }}>
+          <WIc.note size={13} style={{ color: 'var(--action-ink)' }} />
+          <span style={{ flex: 1, fontSize: 12.5 }}>{memo.text}</span>
+          <WMo dim style={{ fontSize: 10.5 }}>→ {tname(c.thread)} field notes · {memo.section}</WMo>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn btn-sm" style={{ background: 'var(--sacred)', borderColor: 'var(--sacred)', color: '#3A2A06', fontWeight: 600 }}><WIc.check size={14} /> Did it</button>
+        <button className="btn btn-soft btn-sm">Skip this {c.cadence === 'daily' ? 'day' : c.cadence === 'monthly' ? 'month' : 'week'}</button>
+        <button className="btn btn-ghost btn-sm"><WIc.clock size={13} /> Snooze</button>
+        <span style={{ flex: 1 }} />
+        <button className="btn btn-ghost btn-sm"><WIc.note size={13} /> Note</button>
+      </div>
+    </div>
+  );
+}
+
+const VOCAB = [
+  ['Vitality — warm', 'sunlit', 'fresh'],
+  ['Vitality — cooling', 'deepening', 'aging'],
+  ['Vitality — cold', 'still', 'dormant'],
+  ['Warm accent', 'sea-glass amber glow', 'blaze-gold / ember'],
+  ['The loop', 'Did it · Skip · Snooze', 'Did it · Skip · Snooze (shared)'],
+];
+
+function App() {
+  const cards = window.CADENCES.filter((c) => ['c1', 'c2', 'c5'].includes(c.id));
+  const memoFor = { c2: { text: 'Dad’s knee is better — he wants to try the 5k in fall.', section: 'People' } };
+  return (
+    <div className="skin sk-workshop" style={{ minHeight: '100vh', padding: '40px 48px' }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+        <span className="eyebrow">Cadence · Workshop skin · parity treatment</span>
+        <h1 className="display" style={{ margin: '8px 0 8px', fontSize: 34, fontWeight: 600, letterSpacing: '.01em' }}>Do this week — in Workshop</h1>
+        <p style={{ margin: 0, fontSize: 15.5, color: 'var(--ink-muted)', maxWidth: '74ch', lineHeight: 1.6 }}>
+          The exact same components as the Life build, with the token sheet remapped to Workshop’s blaze &amp; dust. No
+          sea-glass and no “sunlit/deepening” — vitality uses Workshop’s temperature words (<strong>fresh / active /
+          aging / dormant</strong>) and warmth reads as ember/blaze. The loop, the commitment dial, the rhythm trace, the
+          divergence question, and field-notes memo routing are identical in structure and behaviour.</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14, marginTop: 30 }}>
+          {cards.map((c) => <WSCard key={c.id} c={c} memo={memoFor[c.id]} />)}
+        </div>
+
+        {/* vocabulary key */}
+        <div className="panel" style={{ marginTop: 30, padding: '4px 4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr', padding: '12px 18px', borderBottom: '1px solid var(--line)' }}>
+            <span className="eyebrow" style={{ color: 'var(--ink-faint)' }}>Concept</span>
+            <span className="eyebrow" style={{ color: 'var(--ink-faint)' }}>Life (Tidewater)</span>
+            <span className="eyebrow" style={{ color: 'var(--ink-faint)' }}>Workshop</span>
+          </div>
+          {VOCAB.map((r, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr', padding: '11px 18px', borderTop: i ? '1px solid var(--line)' : 'none', fontSize: 13.5 }}>
+              <span style={{ color: 'var(--ink-muted)' }}>{r[0]}</span>
+              <span style={{ fontWeight: 500 }}>{r[1]}</span>
+              <span style={{ fontWeight: 500, color: 'var(--action-ink)' }}>{r[2]}</span>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: '22px 0 0', fontSize: 12.5, color: 'var(--ink-faint)', fontFamily: 'var(--ff-mono)' }}>
+          parity proof — this page imports the unmodified tide-cadence.jsx and only swaps the token values on a .sk-workshop root</p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

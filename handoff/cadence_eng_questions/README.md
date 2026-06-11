@@ -4,11 +4,19 @@
 **From:** Engineering (via Craig)
 **Date:** 2026-06-11
 **Re:** `handoff/design_handoff_cadence/` (Cadence — recurring actions, Tidewater)
-**Status:** Reviewed against the codebase at `a290769` (Tidewater skin slices
-0–4 landed; 5–7 in progress). **Recommendation: finish the Tidewater skin
-first; build Cadence as its own track once the blockers below are answered.**
-We will leave plug-in seams in the screens Cadence touches so it drops in
-without re-opening them.
+**Status:** **RESOLVED — answered in `design_handoff_cadence-2/ENG-RESPONSE.md`
+(2026-06-11).** All four blockers (A1–A4) and all clarifications (B1–B4) are
+answered; every proposed default was confirmed. Sequencing accepted: finish the
+Tidewater skin, then build Cadence. **Key ruling: Cadence ships in BOTH skins**
+(parity holds) as one component set + two token maps — Workshop proof delivered
+in `Cadence Workshop.html`. So leave plug-in seams in **both** skins' surfaces.
+Original review + questions retained below for history.
+
+Reviewed against the codebase at `a290769` (Tidewater skin slices 0–4 landed;
+5–7 in progress). **Recommendation: finish the Tidewater skin first; build
+Cadence as its own track once the blockers below are answered.** We will leave
+plug-in seams in the screens Cadence touches so it drops in without re-opening
+them.
 
 We read the full bundle (`README.md` build spec, `cadence-product-brief.md`,
 `Cadence Studies.html` — Treatment C noted as shipping). The concept, voice,
