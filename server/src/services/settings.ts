@@ -12,6 +12,9 @@ type SettingsRow = {
   resurface_interval_days: number;
   routing_daily_cap: number;
   routing_confidence_threshold: number;
+  cadence_tolerance_trying: number;
+  cadence_tolerance_committed: number;
+  cadence_tolerance_core: number;
   created_at: string;
   updated_at: string;
 };
@@ -24,6 +27,9 @@ const rowToSettings = (r: SettingsRow): Settings => ({
   resurfaceIntervalDays: r.resurface_interval_days ?? 30,
   routingDailyCap: r.routing_daily_cap ?? 200,
   routingConfidenceThreshold: r.routing_confidence_threshold ?? 0.55,
+  cadenceToleranceTrying: r.cadence_tolerance_trying ?? 3,
+  cadenceToleranceCommitted: r.cadence_tolerance_committed ?? 6,
+  cadenceToleranceCore: r.cadence_tolerance_core ?? 10,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });
@@ -43,6 +49,9 @@ export type SettingsPatch = {
   resurfaceIntervalDays?: number;
   routingDailyCap?: number;
   routingConfidenceThreshold?: number;
+  cadenceToleranceTrying?: number;
+  cadenceToleranceCommitted?: number;
+  cadenceToleranceCore?: number;
 };
 
 export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
@@ -75,6 +84,15 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
       fields.routingConfidenceThreshold = 'out_of_range';
     }
   }
+  const tol = (key: keyof SettingsPatch) => {
+    const n = patch[key];
+    if (n !== undefined && (!Number.isInteger(n) || (n as number) < 1 || (n as number) > 60)) {
+      fields[key] = 'out_of_range';
+    }
+  };
+  tol('cadenceToleranceTrying');
+  tol('cadenceToleranceCommitted');
+  tol('cadenceToleranceCore');
   if (Object.keys(fields).length) throw validationError(fields);
 
   const now = nowIso();
@@ -89,6 +107,12 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
     routingDailyCap: patch.routingDailyCap ?? current.routingDailyCap,
     routingConfidenceThreshold:
       patch.routingConfidenceThreshold ?? current.routingConfidenceThreshold,
+    cadenceToleranceTrying:
+      patch.cadenceToleranceTrying ?? current.cadenceToleranceTrying,
+    cadenceToleranceCommitted:
+      patch.cadenceToleranceCommitted ?? current.cadenceToleranceCommitted,
+    cadenceToleranceCore:
+      patch.cadenceToleranceCore ?? current.cadenceToleranceCore,
     createdAt: current.createdAt,
     updatedAt: new Date(now),
   };
@@ -101,6 +125,9 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
          resurface_interval_days = ?,
          routing_daily_cap = ?,
          routing_confidence_threshold = ?,
+         cadence_tolerance_trying = ?,
+         cadence_tolerance_committed = ?,
+         cadence_tolerance_core = ?,
          updated_at = ?
      WHERE id = 1`,
   ).run(
@@ -111,6 +138,9 @@ export const updateSettings = (db: DB, patch: SettingsPatch): Settings => {
     next.resurfaceIntervalDays,
     next.routingDailyCap,
     next.routingConfidenceThreshold,
+    next.cadenceToleranceTrying,
+    next.cadenceToleranceCommitted,
+    next.cadenceToleranceCore,
     now,
   );
   return next;

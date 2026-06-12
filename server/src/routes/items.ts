@@ -18,6 +18,14 @@ import {
   transitionItem,
   updateItem,
 } from '../services/item.js';
+import {
+  didCadence,
+  recommitCadence,
+  recurItem,
+  setCommitment,
+  skipCadence,
+  snoozeCadence,
+} from '../services/cadence.js';
 
 export const itemsRouter = (db: DB): Router => {
   const r = Router();
@@ -158,6 +166,58 @@ export const itemsRouter = (db: DB): Router => {
         return;
       }
       res.json(convertItem(db, itemId, target as never));
+    }),
+  );
+
+  // ── Cadence (recurring actions) ──────────────────────────────────────
+  r.post(
+    '/:id/recur',
+    asyncHandler(async (req, res) => {
+      const b = req.body ?? {};
+      if (typeof b.cadence !== 'string') throw validationError({ cadence: 'required' });
+      if (typeof b.commitment !== 'string') throw validationError({ commitment: 'required' });
+      res.json(
+        recurItem(db, req.params.id, {
+          cadence: b.cadence,
+          commitment: b.commitment,
+          resourceRefId: typeof b.resourceRefId === 'string' ? b.resourceRefId : null,
+          servesId: typeof b.servesId === 'string' ? b.servesId : null,
+          noteDefaultSection:
+            typeof b.noteDefaultSection === 'string' ? b.noteDefaultSection : null,
+        }),
+      );
+    }),
+  );
+  r.post(
+    '/:id/did',
+    asyncHandler(async (req, res) => {
+      res.json(didCadence(db, req.params.id));
+    }),
+  );
+  r.post(
+    '/:id/skip',
+    asyncHandler(async (req, res) => {
+      res.json(skipCadence(db, req.params.id));
+    }),
+  );
+  r.post(
+    '/:id/snooze',
+    asyncHandler(async (req, res) => {
+      res.json(snoozeCadence(db, req.params.id));
+    }),
+  );
+  r.post(
+    '/:id/recommit',
+    asyncHandler(async (req, res) => {
+      res.json(recommitCadence(db, req.params.id));
+    }),
+  );
+  r.patch(
+    '/:id/commitment',
+    asyncHandler(async (req, res) => {
+      const commitment = (req.body ?? {}).commitment;
+      if (typeof commitment !== 'string') throw validationError({ commitment: 'required' });
+      res.json(setCommitment(db, req.params.id, commitment));
     }),
   );
 

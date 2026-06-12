@@ -124,6 +124,12 @@ export type Settings = {
   /** Smart Routing — confidence floor; classifier picks under this
    *  threshold get rewritten to 'bench'. Range 0.3–0.85; default 0.55. */
   routingConfidenceThreshold: number;
+  /** Cadence cooling tolerance — consecutive skipped windows before a cadence
+   *  drifts onto the Aging board, per commitment (A4). Range 1–60; defaults
+   *  3 / 6 / 10. */
+  cadenceToleranceTrying: number;
+  cadenceToleranceCommitted: number;
+  cadenceToleranceCore: number;
   createdAt: Date;
   updatedAt: Date;
 };

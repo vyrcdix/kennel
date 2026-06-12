@@ -10,6 +10,9 @@ const SETTINGS: Settings = {
   resurfaceIntervalDays: 30,
   routingDailyCap: 200,
   routingConfidenceThreshold: 0.55,
+  cadenceToleranceTrying: 3,
+  cadenceToleranceCommitted: 6,
+  cadenceToleranceCore: 10,
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };
