@@ -26,6 +26,13 @@ import {
   skipCadence,
   snoozeCadence,
 } from '../services/cadence.js';
+import {
+  letGoBearing,
+  promiseCadence,
+  rewordBearing,
+  setBearing,
+  setBearingHorizon,
+} from '../services/compass.js';
 
 export const itemsRouter = (db: DB): Router => {
   const r = Router();
@@ -218,6 +225,69 @@ export const itemsRouter = (db: DB): Router => {
       const commitment = (req.body ?? {}).commitment;
       if (typeof commitment !== 'string') throw validationError({ commitment: 'required' });
       res.json(setCommitment(db, req.params.id, commitment));
+    }),
+  );
+
+  // ── Compass (orientation layer / bearings) ───────────────────────────
+  // Promote an item into a bearing (forward-pointed crystal).
+  r.post(
+    '/:id/bearing',
+    asyncHandler(async (req, res) => {
+      const b = req.body ?? {};
+      res.json(
+        setBearing(db, req.params.id, {
+          horizonStartAt: typeof b.horizonStartAt === 'string' ? b.horizonStartAt : null,
+          horizonTargetAt: typeof b.horizonTargetAt === 'string' ? b.horizonTargetAt : null,
+          persona: typeof b.persona === 'string' ? b.persona : null,
+          attach: Array.isArray(b.attach)
+            ? b.attach.filter((x: unknown): x is string => typeof x === 'string')
+            : undefined,
+        }),
+      );
+    }),
+  );
+  // Set / clear a bearing's horizon (null dates clear).
+  r.patch(
+    '/:id/bearing/horizon',
+    asyncHandler(async (req, res) => {
+      const b = req.body ?? {};
+      const start = typeof b.horizonStartAt === 'string' ? b.horizonStartAt : null;
+      const target = typeof b.horizonTargetAt === 'string' ? b.horizonTargetAt : null;
+      res.json(setBearingHorizon(db, req.params.id, start, target));
+    }),
+  );
+  // Reword a bearing's statement (+ optional note).
+  r.patch(
+    '/:id/bearing/reword',
+    asyncHandler(async (req, res) => {
+      const b = req.body ?? {};
+      res.json(
+        rewordBearing(db, req.params.id, {
+          title: typeof b.title === 'string' ? b.title : undefined,
+          description:
+            b.description === null
+              ? null
+              : typeof b.description === 'string'
+                ? b.description
+                : undefined,
+        }),
+      );
+    }),
+  );
+  // Let a bearing set (promises revert to practice; the bearing is filed).
+  r.post(
+    '/:id/bearing/letgo',
+    asyncHandler(async (req, res) => {
+      res.json(letGoBearing(db, req.params.id));
+    }),
+  );
+  // Turn a cadence into a small promise of a bearing.
+  r.post(
+    '/:id/promise',
+    asyncHandler(async (req, res) => {
+      const bearingId = (req.body ?? {}).bearingId;
+      if (typeof bearingId !== 'string') throw validationError({ bearingId: 'required' });
+      res.json(promiseCadence(db, req.params.id, bearingId));
     }),
   );
 
