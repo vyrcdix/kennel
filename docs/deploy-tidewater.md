@@ -1,9 +1,11 @@
 # Deploying the Tidewater test instance
 
-A **parallel** instance of Steep running the `skin-life-tidewater` branch,
-alongside prod on the same Hetzner box, behind its own subdomain, with its own
-server port, its own SQLite file, and **fresh test data from scratch** (the
-demo seed) — so the Life skin can be dogfooded without touching prod.
+A **parallel** instance of Steep running `main` (the Tidewater skin + Cadence,
+merged), alongside prod on the same Hetzner box, behind its own subdomain, with
+its own server port, its own SQLite file, and **fresh test data from scratch**
+(the demo seed) — so the Life skin can be dogfooded without touching prod data.
+(Both this instance and prod now run the same `main`; only the port, DB,
+hostname and data differ.)
 
 This mirrors prod's public model (`docs/deploy.md` Path B): **Caddy serves the
 built SPA from `dist/` and reverse-proxies `/api` + `/mcp` to the Node
@@ -18,7 +20,7 @@ server.** Only the ports, paths, hostname, and DB differ.
 
 | | prod | tidewater test |
 |---|---|---|
-| checkout | `/opt/kennel` (main) | `/opt/kennel-tide` (`skin-life-tidewater`) |
+| checkout | `/opt/kennel` (`main`) | `/opt/kennel-tide` (`main`) |
 | server port | 8421 | **8422** |
 | SQLite | `/opt/kennel/server/kennel.db` | `/opt/kennel-tide/server/tide.db` |
 | hostname | `steep.work` | `tide.steep.work` |
@@ -32,7 +34,7 @@ server.** Only the ports, paths, hostname, and DB differ.
 # as the kennel service user
 git clone <repo> /opt/kennel-tide
 cd /opt/kennel-tide
-git checkout skin-life-tidewater
+git checkout main          # the skin + Cadence are merged into main
 npm ci
 npm --prefix server ci
 npm run build            # → /opt/kennel-tide/dist  (the built SPA)
@@ -145,5 +147,6 @@ KENNEL_API_PORT=8422 KENNEL_PREVIEW_PORT=4180 npx vite preview
 ```
 
 `vite preview` is the local stand-in for Caddy: it serves `dist/` and proxies
-`/api` + `/mcp` to `127.0.0.1:8422`. This is the dry-run run before merge — see
-`docs/tidewater-qa.md` for the QA gate.
+`/api` + `/mcp` to `127.0.0.1:8422`. This is the dry-run for the prod model —
+see `docs/tidewater-qa.md` (skin) and `docs/cadence-qa.md` (cadence) for the QA
+gates.
