@@ -41,6 +41,9 @@ type IconFn = (props?: IconProps) => JSX.Element;
 const make = (d: string | string[], swDefault?: number): IconFn =>
   (p: IconProps = {}) => <Icon {...p} d={d} sw={p.sw ?? swDefault ?? 1.5} />;
 
+// Compass (orientation layer) — a 4-point star reused stroked + filled.
+const STAR4 = 'M12 3l1.7 6.3L20 11l-6.3 1.7L12 19l-1.7-6.3L4 11l6.3-1.7z';
+
 export const Icons: Record<string, IconFn> = {
   search:    make(['M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z', 'm20 20-3.5-3.5']),
   plus:      make(['M12 5v14', 'M5 12h14']),
@@ -77,6 +80,15 @@ export const Icons: Record<string, IconFn> = {
   repeat:    make(['m17 2 4 4-4 4','M3 11v-1a4 4 0 0 1 4-4h14','m7 22-4-4 4-4','M21 13v1a4 4 0 0 1-4 4H3']),
   mic:       make(['M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z','M19 10v1a7 7 0 0 1-14 0v-1','M12 18v4']),
   globe:     make(['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z','M2 12h20','M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z']),
+  // Compass (orientation layer): compass face, the 4-point star (stroked +
+  // filled lodestar), a rising-sun horizon, a tick, a heart, an anchor.
+  compass:   make(['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z','m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z']),
+  star4:     make(STAR4),
+  star4f:    (p: IconProps = {}) => <Icon {...p} d={STAR4} fill="currentColor" sw={0} />,
+  horizon:   make(['M2 17h20','M6 17a6 6 0 0 1 12 0']),
+  tick:      make('m5 13 4 4 10-10', 1.8),
+  heart:     make('M12 20s-7-4.4-9.4-8.8A4.7 4.7 0 0 1 12 6a4.7 4.7 0 0 1 9.4 5.2C19 15.6 12 20 12 20z'),
+  anchor:    make(['M12 8a2.2 2.2 0 1 0 0-4.4A2.2 2.2 0 0 0 12 8z','M12 8v12','M5 12a7 7 0 0 0 14 0','M4 12H3','M21 12h-2']),
 };
 
 export default Icon;

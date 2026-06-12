@@ -641,3 +641,71 @@ body { background: var(--surface-0); color: var(--fg); }
 @keyframes kmRelease { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(14px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
 @keyframes kmCrystal { 0% { opacity: 1; } 40% { box-shadow: 0 0 0 3px var(--sacred-soft), 0 0 26px var(--sacred-soft); } 100% { opacity: 0; transform: scale(.98); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
 @keyframes kmToastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Compass (orientation layer) — the .cmp-* block (layout only; no new hues).
+ * Bearings dress in the sacred (sea-glass amber) family already remapped per
+ * skin. Only the sky/star register is skin-conditional: a token remap, not new
+ * components (A1). See docs/compass-build-plan.md P3.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* The sky register — the one place the layer shows its altitude. Workshop = a
+ * banked-ember worklight header; Life = first-light (day) / deep-sky (night). */
+:root {
+  --cmp-sky: linear-gradient(180deg, color-mix(in oklab, var(--sacred) 9%, var(--card)) 0%, var(--card) 100%);
+  --cmp-star: color-mix(in oklab, var(--ink) 30%, transparent);
+  --cmp-sky-ink: var(--sacred-ink);
+}
+.km-dark {
+  --cmp-sky: linear-gradient(180deg, color-mix(in oklab, var(--sacred) 16%, var(--card)) 0%, var(--card) 100%);
+  --cmp-star: rgba(220, 231, 227, .7);
+  --cmp-sky-ink: #C9A98C;
+}
+.km-skin-life {
+  --cmp-sky: linear-gradient(180deg, #E7EEE9 0%, var(--card) 100%);
+  --cmp-star: color-mix(in oklab, var(--ink) 30%, transparent);
+  --cmp-sky-ink: var(--sacred-ink);
+}
+.km-skin-life.km-dark {
+  --cmp-sky: linear-gradient(180deg, #0A141B 0%, #0F2128 100%);
+  --cmp-star: rgba(220, 231, 227, .8);
+  --cmp-sky-ink: #C9A98C;
+}
+
+.cmp-sky { position: relative; border-radius: var(--r-card); overflow: hidden; background: var(--cmp-sky); }
+.cmp-stars { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.cmp-star { position: absolute; border-radius: 999px; transform: translate(-50%, -50%); background: var(--cmp-star); }
+.cmp-star.lode { background: var(--sacred) !important; box-shadow: 0 0 9px 1px color-mix(in oklab, var(--sacred) 55%, transparent); }
+
+.cmp-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-family: var(--ff-display); font-weight: 600; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--sacred-ink); }
+.cmp-sky .cmp-eyebrow { color: var(--cmp-sky-ink); }
+
+.cmp-anchor { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--sacred-soft); color: var(--sacred-ink); font-family: var(--ff-sans); font-weight: 600; font-size: 12.5px; border: 1px solid color-mix(in oklab, var(--sacred) 30%, var(--line)); cursor: pointer; }
+.cmp-warm { display: inline-flex; align-items: center; gap: 5px; font-family: var(--ff-sans); font-weight: 500; font-size: 11.5px; color: var(--ink-muted); background: var(--sunk); padding: 3px 9px; border-radius: 999px; }
+.cmp-horizonchip { font-family: var(--ff-mono); font-size: 10.5px; color: var(--sacred-ink); background: var(--sacred-soft); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+
+.cmp-rot { width: 6px; height: 6px; border-radius: 999px; background: color-mix(in oklab, var(--ink) 18%, transparent); transition: width .2s ease; flex: 0 0 auto; }
+.cmp-rot.on { width: 18px; background: var(--sacred); }
+.cmp-sky .cmp-rot { background: rgba(220, 231, 227, .22); }
+.cmp-sky .cmp-rot.on { background: var(--sacred); }
+
+.cmp-horizon { position: relative; height: 9px; border-radius: 999px; background: color-mix(in oklab, var(--ink) 8%, transparent); }
+.cmp-horizon-done { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(90deg, color-mix(in oklab, var(--sacred) 28%, transparent), var(--sacred)); }
+.cmp-horizon-now { position: absolute; top: 50%; transform: translate(-50%, -50%); display: inline-flex; }
+
+.cmp-built { display: flex; align-items: center; gap: 11px; padding: 10px 13px; border: 1px solid var(--line); border-radius: var(--r-ctrl); background: var(--card-2); }
+.cmp-still { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border-radius: var(--r-ctrl); background: var(--sacred-soft); border: 1px solid color-mix(in oklab, var(--sacred) 22%, var(--line)); }
+
+.cmp-promise { display: flex; align-items: center; gap: 13px; padding: 14px 15px; border-radius: var(--r-ctrl); border: 1px solid var(--line); background: var(--card-2); }
+.cmp-promise.kept { background: var(--sacred-soft); border-color: color-mix(in oklab, var(--sacred) 22%, var(--line)); }
+.cmp-keep { width: 34px; height: 34px; border-radius: 999px; border: 1.6px solid var(--line-strong); background: transparent; color: var(--ink-faint); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 auto; }
+.cmp-keep:hover { border-color: var(--sacred); color: var(--sacred-ink); }
+.cmp-keep.on { background: var(--sacred); border-color: var(--sacred); color: #2A1B08; }
+
+.cmp-wake { position: relative; height: 72px; border-radius: var(--r-ctrl); background: linear-gradient(180deg, color-mix(in oklab, var(--action) 6%, var(--card-2)), var(--card-2)); border: 1px solid var(--line); overflow: hidden; }
+.cmp-wakemark { position: absolute; top: 50%; width: 5px; height: 5px; border-radius: 999px; background: var(--sacred); }
+.cmp-wakestar { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); }
+
+.cmp-bearingcard { cursor: pointer; transition: box-shadow .14s ease; }
+.cmp-bearingcard:hover { box-shadow: var(--shadow-lift); }
+.cmp-resori { box-shadow: inset 3px 0 0 color-mix(in oklab, var(--sacred) 45%, transparent), var(--shadow-panel); }
