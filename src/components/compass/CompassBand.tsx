@@ -2,7 +2,7 @@
 // Surfaces ONE bearing at a time, rotating so it can't calcify. Ambient
 // context, never a KPI. Reads the bearings + today's promise from selectors;
 // the dashboard (P5) mounts it. See docs/compass-build-plan.md P3.
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from '../Icon';
 import { Mono } from '../Mono';
@@ -11,7 +11,7 @@ import { copy } from '../../lib/copy';
 import { getBearings, getHorizon } from '../../lib/compass';
 import { CompassStars, BearingGlyph, CompassEyebrow } from './atoms';
 
-export const CompassBand = () => {
+export const CompassBand = ({ style }: { style?: CSSProperties }) => {
   useSkin(); // re-render copy on skin toggle
   const navigate = useNavigate();
   const bearings = getBearings();
@@ -25,7 +25,7 @@ export const CompassBand = () => {
   return (
     <section
       className="cmp-sky"
-      style={{ border: '1px solid var(--line)', boxShadow: 'var(--shadow-panel)' }}
+      style={{ border: '1px solid var(--line)', boxShadow: 'var(--shadow-panel)', ...style }}
     >
       <CompassStars />
       <div

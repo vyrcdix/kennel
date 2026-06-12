@@ -48,6 +48,8 @@ import { openCreateProject, openItem } from '../lib/modals';
 import { useSkin } from '../lib/skin';
 import { Wave } from '../components/Wave';
 import { DoThisWeek } from '../components/DoThisWeek';
+import { CompassBand } from '../components/compass/CompassBand';
+import { groupFocusUnderBearings } from '../lib/compass';
 import type { Item, Project } from '../data/types';
 
 const DAY = 86400_000;
@@ -352,6 +354,9 @@ const DashboardWorkshop = () => {
               </button>
             </div>
           </div>
+
+          {/* Compass — the orientation band, above everything (both skins) */}
+          <CompassBand style={{ marginBottom: 18 }} />
 
           {/* Do this week — recurring actions (both skins, B1) */}
           <DoThisWeek />
@@ -823,11 +828,11 @@ const DashboardWorkshop = () => {
 // Same data as Workshop, reframed; every Workshop section stays reachable.
 
 const FOCUS_LENS_KEY = 'km.focusLens';
-type FocusLens = 'serves' | 'horizon';
+type FocusLens = 'serves' | 'horizon' | 'orient';
 const loadLens = (): FocusLens => {
   try {
     const r = localStorage.getItem(FOCUS_LENS_KEY);
-    if (r === 'serves' || r === 'horizon') return r;
+    if (r === 'serves' || r === 'horizon' || r === 'orient') return r;
   } catch {
     /* no storage */
   }
@@ -929,6 +934,25 @@ const DashboardLife = () => {
         items: inFocus.filter((it) => horizonOf(it.dueAt) === h.id),
       })).filter((g) => g.items.length > 0);
     }
+    if (lens === 'orient') {
+      // Under a bearing: nest focus items under the bearing each serves;
+      // the rest fall "loose in the water — not under a bearing yet".
+      const { groups: bgroups, loose } = groupFocusUnderBearings(inFocus);
+      const out: FocusGroup[] = bgroups.map((g) => ({
+        key: g.bearing.id,
+        label: g.bearing.title,
+        items: g.items,
+      }));
+      if (loose.length) {
+        out.push({
+          key: '__loose',
+          label: 'loose in the water — not under a bearing yet',
+          loose: true,
+          items: loose,
+        });
+      }
+      return out;
+    }
     // serves: group by the crystal/idea/thread each action serves.
     const byServes = new Map<string, Item[]>();
     const loose: Item[] = [];
@@ -984,6 +1008,9 @@ const DashboardLife = () => {
             </button>
           </div>
 
+          {/* Compass — the dawn band, above the hearth */}
+          <CompassBand style={{ marginBottom: 22 }} />
+
           {/* Worth revisiting — hearth */}
           {dueCrystals.length > 0 && (
             <section
@@ -1027,6 +1054,7 @@ const DashboardLife = () => {
                   <span style={{ flex: 1 }} />
                   <div style={{ display: 'inline-flex', padding: 3, gap: 2, background: 'var(--sunk)', borderRadius: 999 }}>
                     <LensBtn on={lens === 'serves'} onClick={() => setLensPersist('serves')}>What it serves</LensBtn>
+                    <LensBtn on={lens === 'orient'} onClick={() => setLensPersist('orient')}>Under a bearing</LensBtn>
                     <LensBtn on={lens === 'horizon'} onClick={() => setLensPersist('horizon')}>By when</LensBtn>
                   </div>
                 </div>
@@ -1222,6 +1250,12 @@ const FocusGroupView = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, opacity: group.loose ? 0.7 : 1 }}>
           {group.loose ? (
             <Mono dim>{group.label}</Mono>
+          ) : lens === 'orient' ? (
+            <>
+              <Icons.star4 size={13} stroke="var(--sacred-ink)" />
+              <Mono dim>under the bearing</Mono>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{group.label}</span>
+            </>
           ) : lens === 'serves' ? (
             <>
               <Icons.gem size={13} stroke="var(--sacred-ink)" />
