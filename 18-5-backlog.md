@@ -97,3 +97,26 @@ unlocks daily use.
   — Claude reads docs without explicit tool calls, which makes
   "remind me what's in the Q3 outreach plan" feel native instead of a
   tool round-trip.
+
+## Added 2026-06-12
+
+- **Compass nav placement (when Compass ships).** The **Compass** mood
+  should be the **top** nav item — **above Harbour**, not below it. (Note:
+  the design handoff `README` placed it "directly below Harbour"; this is a
+  Craig override — Compass sits at the top.) See `docs/compass-build-plan.md`
+  P5 (nav).
+
+- **Bug · Crystals gallery thread filter doesn't work.** On the Crystals
+  page (`/crystals`), the **thread** selector has no effect — only "any"
+  shows results — and the slugs listed in the filter don't match the slugs
+  on the crystals (some present projects are missing, some listed projects
+  have no crystals). **Root cause:** the chips are built from
+  `getProjects().slice(0, 6)` (the first 6 projects by rank, across *all*
+  projects) rather than from the distinct projects actually present in the
+  displayed crystals — so it lists projects with no crystals, omits projects
+  that do have them, and filtering (`c.projectId === chip.id`) yields nothing
+  whenever the seeded crystals live in projects outside that first-6 slice.
+  **Fix:** derive the chips from the distinct `crystal.projectId`s
+  (dedupe → `getProjectById`) and drop the arbitrary `.slice(0, 6)` (cap
+  after dedupe if needed) — the same pattern as `ReflectingBoard`/
+  `AgingBoard`. `src/screens/CrystalsGallery.tsx:39, 150-156`.
