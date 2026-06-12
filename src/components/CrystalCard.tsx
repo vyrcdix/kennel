@@ -15,6 +15,7 @@ const CTYPE_LABEL: Record<CrystalType, string> = {
   reminder: 'REMINDER',
   hint: 'HINT',
   memory: 'MEMORY',
+  orientation: 'ORIENTATION',
 };
 
 export type CrystalCardProps = {

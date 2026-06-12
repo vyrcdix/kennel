@@ -25,6 +25,7 @@ import { api, ApiError, materializeDates } from './api';
 import type {
   Chat,
   Doc,
+  CrystalType,
   EntityComment,
   EntityType,
   FieldNotes,
@@ -235,7 +236,7 @@ export const deleteItem = async (id: string): Promise<void> => {
 /** v0.5: assign or clear the crystal sub-type. Null clears. */
 export const setItemCtype = async (
   id: string,
-  ctype: 'principle' | 'quote' | 'reminder' | 'hint' | 'memory' | null,
+  ctype: CrystalType | null,
 ): Promise<Item> => {
   const updated = await wrap(() =>
     api.patch<Item>(`/api/items/${id}/ctype`, { ctype }),

@@ -40,6 +40,11 @@ type ItemRow = {
   kept_count: number;
   resource_ref_id: string | null;
   note_default_section: string | null;
+  // Compass facets (0016)
+  horizon_start_at: string | null;
+  horizon_target_at: string | null;
+  role: string | null;
+  persona: string | null;
   created_at: string;
   updated_at: string;
   last_touched_at: string | null;
@@ -57,11 +62,14 @@ const parseSourcesFrom = (raw: string | null): string[] | undefined => {
   }
 };
 
-const CRYSTAL_TYPES = new Set(['principle', 'quote', 'reminder', 'hint', 'memory']);
+const CRYSTAL_TYPES = new Set(['principle', 'quote', 'reminder', 'hint', 'memory', 'orientation']);
 // Cadence enums — policed here (no DB CHECK), so corrupt/legacy values read
 // as "not a cadence" rather than throwing.
 const CADENCES = new Set(['daily', 'weekly', 'monthly']);
 const COMMITMENTS = new Set(['trying', 'committed', 'core']);
+// Compass cadence role (0016). Anything else (incl. legacy null) reads as
+// 'practice' — the migration default — so existing cadences keep their rhythm.
+const ROLES = new Set(['promise', 'practice']);
 const FIELD_SECTIONS = new Set([
   'premise',
   'whatIKnow',
@@ -108,6 +116,12 @@ export const rowToItem = (r: ItemRow): Item => ({
   noteDefaultSection: r.note_default_section && FIELD_SECTIONS.has(r.note_default_section)
     ? (r.note_default_section as Item['noteDefaultSection'])
     : undefined,
+  horizonStartAt: fromIso(r.horizon_start_at),
+  horizonTargetAt: fromIso(r.horizon_target_at),
+  role: r.role && ROLES.has(r.role)
+    ? (r.role as Item['role'])
+    : undefined,
+  persona: r.persona ?? undefined,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });

@@ -62,8 +62,21 @@ export type Project = {
 /** Crystallization sub-type (v0.5). Nullable; only meaningful when
  *  `kind === 'crystallization'`. Drives the typed card treatment on the
  *  salient layer; `principle` gets the hero-sized card, others (and
- *  null) get the default card. */
-export type CrystalType = 'principle' | 'quote' | 'reminder' | 'hint' | 'memory';
+ *  null) get the default card.
+ *  `orientation` (Compass) is the forward-pointed 6th type — a bearing: what
+ *  you're moving toward. See docs/compass-build-plan.md. */
+export type CrystalType =
+  | 'principle'
+  | 'quote'
+  | 'reminder'
+  | 'hint'
+  | 'memory'
+  | 'orientation';
+
+/** Cadence role (Compass). A `promise` is a daily cadence attached to a
+ *  bearing (requires `servesId`, suppressed from "Do this week"); a `practice`
+ *  is an ordinary free-standing cadence. Default 'practice'. */
+export type CadenceRole = 'promise' | 'practice';
 
 export type Item = {
   id: string;
@@ -108,6 +121,16 @@ export type Item = {
   resourceRefId?: string;
   /** UI default for where a memo files (a field-notes section). */
   noteDefaultSection?: FieldNotesSectionKey;
+  /** Compass facets — see docs/compass-build-plan.md.
+   *  Horizon: optional finish line on a bearing (ctype='orientation');
+   *  "day N / total" + "days ahead" are derived, never stored. */
+  horizonStartAt?: Date;
+  horizonTargetAt?: Date;
+  /** Cadence role: 'promise' (belongs to a bearing) vs 'practice'. Default
+   *  'practice'; only meaningful on a cadence. */
+  role?: CadenceRole;
+  /** Bearing persona/workspace key. null = the single set rendered now. */
+  persona?: string;
   createdAt: Date;
   updatedAt: Date;
 };
