@@ -5,6 +5,7 @@ import { Label } from '../components/Label';
 import { Mono } from '../components/Mono';
 import { SegBtn } from '../components/SegBtn';
 import { Icons } from '../components/Icon';
+import { CommitMeter } from '../components/CommitMeter';
 import {
   fetchRoutingStatus,
   updateSettings,
@@ -524,6 +525,41 @@ export const SettingsScreen = () => {
                     </div>
                   }
                 />
+                {/* Cadence aging tolerance (A4) — per commitment, configurable */}
+                <div style={{ padding: '15px 16px' }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600 }}>Let quiet cadences age out</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--fg-muted)', margin: '2px 0 12px' }}>
+                    How long a skipped rhythm waits before it drifts onto the Aging board. More
+                    grace for deeper commitments — never a red mark, just a gentle question.
+                  </div>
+                  {(
+                    [
+                      ['trying', 'cadenceToleranceTrying'],
+                      ['committed', 'cadenceToleranceCommitted'],
+                      ['core', 'cadenceToleranceCore'],
+                    ] as const
+                  ).map(([lvl, key]) => {
+                    const current = settings[key];
+                    return (
+                      <div key={lvl} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
+                        <span style={{ width: 130, display: 'inline-flex' }}>
+                          <CommitMeter level={lvl} />
+                        </span>
+                        <div style={{ display: 'inline-flex' }}>
+                          {([['Fast', 3], ['Patient', 6], ['Most grace', 10]] as const).map(([label, n]) => (
+                            <SegBtn
+                              key={label}
+                              label={label}
+                              active={current === n}
+                              onClick={() => void updateSettings({ [key]: n })}
+                            />
+                          ))}
+                        </div>
+                        <Mono dim>{current} windows</Mono>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
                 </>
               )}

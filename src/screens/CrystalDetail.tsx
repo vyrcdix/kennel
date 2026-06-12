@@ -17,6 +17,7 @@ import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
 import { SegBtn } from '../components/SegBtn';
 import {
+  getCadencesServing,
   getCrystalsBuiltFrom,
   getDocById,
   getDocsForCrystal,
@@ -43,6 +44,8 @@ import {
 } from '../data/actions';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
+import { CADENCE_LABEL, VITALITY_COLOR, cadenceVitality } from '../lib/cadence';
+import { openRecur } from '../lib/modals';
 import { useSkin } from '../lib/skin';
 import { showToast } from '../lib/toast';
 import type { CrystalType, FieldNotesSectionKey, Item } from '../data/types';
@@ -675,6 +678,56 @@ const resolveSources = (item: Item): ResolvedSource[] => {
   return out;
 };
 
+// "Kept warm by" (C5) — cadences attached to this crystal, + the "born from a
+// crystal" entry point. v4-dressed to match the crystal page.
+const KeptWarmBy = ({ crystal }: { crystal: Item }) => {
+  const cadences = getCadencesServing(crystal.id);
+  return (
+    <section style={{ marginTop: 22 }}>
+      <Label style={{ marginBottom: 10 }}>Kept warm by</Label>
+      {cadences.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+          {cadences.map((c) => {
+            const vit = cadenceVitality(c);
+            return (
+              <div
+                key={c.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '9px 11px',
+                  borderRadius: 7,
+                  background: 'var(--v-card)',
+                  border: '1px solid var(--v-line)',
+                }}
+              >
+                <span style={{ width: 7, height: 7, borderRadius: 999, flex: '0 0 auto', background: VITALITY_COLOR[vit] }} />
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--v-ink)' }}>{c.title}</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--v-faint)' }}>
+                  {c.cadence ? CADENCE_LABEL[c.cadence] : ''} · kept {c.keptCount ?? 0}
+                </span>
+                <Icons.repeat size={13} stroke="var(--v-soft)" />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Mono dim style={{ display: 'block', marginBottom: 10 }}>
+          nothing recurring yet — a practice would keep this warm
+        </Mono>
+      )}
+      <button
+        className="km-btn km-btn-ghost"
+        onClick={() => openRecur({ projectId: crystal.projectId, servesId: crystal.id })}
+        style={{ color: 'var(--v-ember-dk)' }}
+      >
+        <Icons.repeat size={13} /> + Recurring action
+      </button>
+    </section>
+  );
+};
+
 export const CrystalDetail = () => {
   useStoreVersion();
   const navigate = useNavigate();
@@ -937,16 +990,13 @@ export const CrystalDetail = () => {
               ]}
             />
           </div>
+
+          {/* Kept warm by — cadences serving this crystal + "+ Recurring action" */}
+          <KeptWarmBy crystal={crystal} />
         </div>
 
         {/* Right: Built on — three doorways + item lineage (v0.5 §D) */}
         <BuiltOnPanel crystal={crystal} lineage={sources} />
-
-        {/* ── Cadence seam (handoff/design_handoff_cadence) ─────────────────
-            When Cadence ships, the "Kept warm by" panel (cadences attached to
-            this crystal/its goals) + the "+ Recurring action" entry point
-            mount here, after Built-on, gated on the Life skin. Left as a code
-            seam per the eng handback (A1/A2 pending) — no UI until then. */}
       </div>
     </div>
   );

@@ -25,10 +25,22 @@ const captureBus = createBus<{ projectSlug?: string }>();
 const editItemBus = createBus<{ itemId: string }>();
 const pasteRouteBus = createBus<{ projectSlug?: string }>();
 
+/** Seed for "Make it recur". Either recur an existing bench item (itemId), or
+ *  create a new recurring action (text + projectId) — e.g. from a crystal,
+ *  pre-attached via servesId. */
+export type RecurSeed = {
+  itemId?: string;
+  text?: string;
+  projectId?: string;
+  servesId?: string;
+};
+const recurBus = createBus<RecurSeed>();
+
 export const openCreateProject = () => createProjectBus.emit();
 export const openCapture = (projectSlug?: string) =>
   captureBus.emit({ projectSlug });
 export const openEditItem = (itemId: string) => editItemBus.emit({ itemId });
+export const openRecur = (seed: RecurSeed = {}) => recurBus.emit(seed);
 
 /** The one "where does clicking an item take you" policy, shared by every
  *  row surface (NextUp, aging strips, Weekly Review, connections). Doc-backed
@@ -89,4 +101,15 @@ export const usePasteRouteModal = (): [PasteRouteModalState, () => void] => {
     [],
   );
   return [state, () => setState({ open: false })];
+};
+
+export type RecurModalState = { open: boolean; seed: RecurSeed };
+
+export const useRecurModal = (): [RecurModalState, () => void] => {
+  const [state, setState] = useState<RecurModalState>({ open: false, seed: {} });
+  useEffect(
+    () => recurBus.subscribe((seed) => setState({ open: true, seed })),
+    [],
+  );
+  return [state, () => setState({ open: false, seed: {} })];
 };

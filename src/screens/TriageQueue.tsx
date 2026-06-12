@@ -22,6 +22,7 @@ import {
   type ConvertTarget,
 } from '../data/actions';
 import { removeItem, type RemovalAction } from '../lib/permanence';
+import { openRecur } from '../lib/modals';
 import { useSkin } from '../lib/skin';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
@@ -65,6 +66,7 @@ const CONVERT_OPTIONS: { target: ConvertTarget; label: string }[] = [
 const TIDE_VERBS: { k: string; label: string }[] = [
   { k: 'A', label: 'Pick up' },
   { k: 'P', label: 'Set aside' },
+  { k: 'R', label: 'Make it recur' },
   { k: 'C', label: 'Crystallize' },
   { k: 'D', label: 'Crystallize now' },
   { k: 'V', label: 'Convert' },
@@ -326,6 +328,16 @@ const TriageRowItem = ({
           </button>
           <button
             className="km-btn"
+            onClick={(e) => {
+              stop(e);
+              openRecur({ itemId: item.id, text: item.title, projectId: item.projectId });
+            }}
+            title="Make this a recurring action on a rhythm — an invitation, never a deadline"
+          >
+            <Icons.repeat size={13} /> Recur <span className="km-kbd" style={{ marginLeft: 4 }}>R</span>
+          </button>
+          <button
+            className="km-btn"
             onClick={(e) => { stop(e); onAttach(); }}
             title="Attach this action to the crystal / idea / thread it serves"
           >
@@ -562,6 +574,16 @@ export const TriageQueue = () => {
         case 'v': if (selected) setConvertOpen((v) => !v); break;
         // v0.5 §C: S opens the attach-to-thinking typeahead.
         case 's': if (selected) setAttachOpen(true); break;
+        // Cadence: R opens "Make it recur" seeded with the bench item.
+        case 'r':
+          if (selected) {
+            openRecur({
+              itemId: selected.item.id,
+              text: selected.item.title,
+              projectId: selected.item.projectId,
+            });
+          }
+          break;
         // A1 (Life): ? opens the tiered legend's full verb map.
         case '?': setLegendOpen((o) => !o); break;
         case 'escape':

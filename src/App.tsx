@@ -22,6 +22,7 @@ import { CreateProjectModal } from './components/CreateProjectModal';
 import { EditItemModal } from './components/EditItemModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PasteRouteModal } from './components/PasteRouteModal';
+import { RecurModal } from './components/RecurModal';
 import { Toaster } from './components/Toaster';
 import { getItemById } from './data/selectors';
 import { useStoreVersion } from './data/store';
@@ -32,6 +33,7 @@ import {
   useCreateProjectModal,
   useEditItemModal,
   usePasteRouteModal,
+  useRecurModal,
 } from './lib/modals';
 import { toggleFocusMode } from './lib/focusMode';
 
@@ -75,6 +77,7 @@ const ModalHost = () => {
   const [capture, closeCapture] = useCaptureModal();
   const [editItem, closeEditItem] = useEditItemModal();
   const [pasteRoute, closePasteRoute] = usePasteRouteModal();
+  const [recur, closeRecur] = useRecurModal();
   const item = editItem.itemId ? getItemById(editItem.itemId) ?? null : null;
   return (
     <>
@@ -94,6 +97,7 @@ const ModalHost = () => {
         onClose={closePasteRoute}
         defaultProjectSlug={pasteRoute.projectSlug}
       />
+      <RecurModal open={recur.open} seed={recur.seed} onClose={closeRecur} />
     </>
   );
 };
