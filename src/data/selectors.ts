@@ -19,6 +19,7 @@ import {
   tags,
 } from './fixtures';
 import { NOW, daysAgo, isStale } from './time';
+import { cadenceSortCmp, isCadence, isCooled, windowOpen } from '../lib/cadence';
 import type {
   ActivityEntry,
   Chat,
@@ -90,11 +91,50 @@ const touchCmp = (a: Item, b: Item) => {
 };
 
 export const getNextUp = (projectId?: string, limit = 20) => {
+  // Cadences are suppressed from In-focus — they surface only in the
+  // dashboard "Do this week" slot (B1 dedup rule).
   const candidates = items.filter(
-    (it) => it.state === 'active' && (!projectId || it.projectId === projectId),
+    (it) =>
+      it.state === 'active' &&
+      !it.cadence &&
+      (!projectId || it.projectId === projectId),
   );
   return candidates.sort(touchCmp).slice(0, limit);
 };
+
+// ── Cadence (recurring actions) ──────────────────────────────────────────
+/** Active cadences whose window is open and which haven't cooled — the
+ *  dashboard "Do this week" slot. Ordered by commitment then vitality. */
+export const getCadencesDueThisWeek = (projectId?: string): Item[] => {
+  const settings = getSettings();
+  const now = new Date();
+  return items
+    .filter(
+      (it) =>
+        isCadence(it) &&
+        it.state === 'active' &&
+        (!projectId || it.projectId === projectId) &&
+        windowOpen(it, now) &&
+        !isCooled(it, settings, now),
+    )
+    .sort((a, b) => cadenceSortCmp(a, b, now));
+};
+
+/** Cadences past their cooling tolerance — the Aging "Cooled cadences" panel. */
+export const getCooledCadences = (projectId?: string): Item[] => {
+  const settings = getSettings();
+  const now = new Date();
+  return items.filter(
+    (it) =>
+      isCadence(it) &&
+      (!projectId || it.projectId === projectId) &&
+      isCooled(it, settings, now),
+  );
+};
+
+/** Cadences attached to (serving) a crystal/idea — its "Kept warm by" panel. */
+export const getCadencesServing = (itemId: string): Item[] =>
+  items.filter((it) => isCadence(it) && it.servesId === itemId);
 
 /** Items past the aging threshold (state not in {filed, dismissed, inbox}). */
 export const getAgingItems = (thresholdDays: number, projectId?: string) => {

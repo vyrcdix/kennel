@@ -44,6 +44,23 @@ const COPY: Record<string, Entry> = {
   // ── Dashboard ─────────────────────────────────────────────────────────
   'dashboard.calm': { workshop: 'Dashboard', life: "The tide's calm." },
   'bench.empty': { workshop: 'nothing to sort', life: 'The bench is clear.' },
+
+  // ── Cadence vitality — one shared state, two labelings (B2) ───────────
+  'vitality.fresh': { workshop: 'fresh', life: 'sunlit' },
+  'vitality.active': { workshop: 'active', life: 'active' },
+  'vitality.aging': { workshop: 'aging', life: 'deepening' },
+  'vitality.dormant': { workshop: 'dormant', life: 'still' },
+  // ── Cadence "Do this week" slot ───────────────────────────────────────
+  'cadence.doThisWeek': { workshop: 'Do this week', life: 'Do this week' },
+  'cadence.doThisWeek.sub': {
+    workshop: 'recurring actions whose window is open — invitations, never due',
+    life: "what's asking for a touch this window — an invitation, never a deadline",
+  },
+  'cadence.cooled': { workshop: 'Cooled cadences', life: 'Cooled cadences' },
+  'cadence.cooled.sub': {
+    workshop: 'rhythms you stopped feeding — keep, crystallize the lesson, or let go',
+    life: 'sweeping the workshop — not confronting failures',
+  },
 };
 
 /** Resolve a copy key for the active skin, with optional {var} interpolation. */
