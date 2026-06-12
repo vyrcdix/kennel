@@ -61,6 +61,45 @@ const COPY: Record<string, Entry> = {
     workshop: 'rhythms you stopped feeding — keep, crystallize the lesson, or let go',
     life: 'sweeping the workshop — not confronting failures',
   },
+
+  // ── Compass (orientation layer) ───────────────────────────────────────
+  // Both columns filled now (A2): the navigation words stay in both skins;
+  // only the water metaphor + Harbour/Driftwood/Currents are Life-only. The
+  // visible Life naming sweep wires these in staged (P6); keys are dormant
+  // until each surface consumes them.
+  'compass.lens': { workshop: 'Compass', life: 'Compass' },
+  'compass.bearing': { workshop: 'bearing', life: 'bearing' },
+  'compass.bearings': { workshop: 'bearings', life: 'bearings' },
+  'compass.setBearing': { workshop: 'Set a new bearing', life: 'Set a new bearing' },
+  'compass.lodestar': { workshop: 'lodestar', life: 'lodestar' },
+  // The accumulation visual.
+  'compass.wake': { workshop: 'the trail', life: 'the wake' },
+  'compass.wake.caption': {
+    workshop: '{kept} kept across {days} days',
+    life: '{kept} kept across {days} days',
+  },
+  // Room-remaining — never a countdown. {n} = days ahead.
+  'compass.ahead': {
+    workshop: '{n} days of road ahead',
+    life: '{n} days of water still ahead',
+  },
+  'compass.horizon.none': { workshop: 'no clock', life: 'no clock' },
+  // The orphan group in the "Under a bearing" lens.
+  'compass.loose': { workshop: 'loose on the bench', life: 'loose in the water' },
+  'compass.loose.sub': {
+    workshop: 'not under a bearing yet',
+    life: 'not under a bearing yet',
+  },
+  // "still about?" block.
+  'compass.still': { workshop: 'still what you’re about?', life: 'still what you’re about?' },
+  'compass.still.true': { workshop: 'Still true', life: 'Still true' },
+  'compass.still.reword': { workshop: 'Reword', life: 'Reword' },
+  'compass.still.letgo': { workshop: 'Let it set', life: 'Let it set' },
+  // Nav renames — Life-only words over the same routes (P6 wires NavRail).
+  'nav.dashboard': { workshop: 'Dashboard', life: 'Harbour' },
+  'nav.aging': { workshop: 'Aging', life: 'Driftwood' },
+  'nav.pinnedThreads': { workshop: 'Pinned threads', life: 'Currents' },
+  'nav.newThread': { workshop: 'New thread', life: 'New current' },
 };
 
 /** Resolve a copy key for the active skin, with optional {var} interpolation. */
