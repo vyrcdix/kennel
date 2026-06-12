@@ -1,10 +1,14 @@
-// "Do this week" (C4) — the dashboard cadence slot, below the hearth, in both
-// skins. Recurring actions whose window is open, surfaced as invitations. The
-// loop (Did it / Skip / Snooze / divergence) wires to the C1 engine; nothing
-// is ever due or overdue. Renders nothing when there are no open cadences.
+// "Do this week" (C4/C6) — the dashboard cadence slot, below the hearth, in
+// both skins. Recurring actions whose window is open, surfaced as invitations.
+// The loop (Did it / Skip / Snooze / divergence) wires to the C1 engine; the
+// optional memo (C6) routes into the served thread's field notes. Nothing is
+// ever due or overdue. Renders nothing when there are no open cadences.
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CadenceCard } from './CadenceCard';
 import { Icons } from './Icon';
+import { MemoChip } from './MemoChip';
+import { MemoComposer, type Memo } from './MemoComposer';
 import { Mono } from './Mono';
 import {
   crystallizeItem,
@@ -22,6 +26,7 @@ import {
   getReferenceById,
 } from '../data/selectors';
 import { deriveTrace } from '../lib/cadence';
+import { routeCadenceMemo, sectionLabel } from '../lib/cadenceMemo';
 import { copy } from '../lib/copy';
 import { removeItem } from '../lib/permanence';
 import { showToast } from '../lib/toast';
@@ -32,16 +37,91 @@ const rowEl = (id: string) =>
     ? document.querySelector<HTMLElement>(`[data-cadence-id="${id}"]`)
     : null;
 
-export const DoThisWeek = ({ projectId }: { projectId?: string }) => {
+const resolveResource = (item: Item) => {
+  if (!item.resourceRefId) return undefined;
+  const ref = getReferenceById(item.resourceRefId);
+  return ref ? { label: ref.label, url: ref.url } : undefined;
+};
+
+const CadenceItem = ({ item }: { item: Item }) => {
   const navigate = useNavigate();
+  const [memoOpen, setMemoOpen] = useState(false);
+  const [memo, setMemo] = useState<Memo | undefined>(undefined);
+  const project = getProjectById(item.projectId);
+  const serves = item.servesId ? getItemById(item.servesId) : undefined;
+
+  const memoSlot = memoOpen ? (
+    <MemoComposer
+      item={item}
+      project={project}
+      initial={memo}
+      onCancel={() => setMemoOpen(false)}
+      onSave={(m) => {
+        if (project) void routeCadenceMemo(project, m.section, m.text);
+        setMemo(m);
+        setMemoOpen(false);
+        showToast(
+          `Noted — filed into ${project?.slug ?? 'the thread'} field notes · ${sectionLabel(m.section)}.`,
+          { kind: 'focus' },
+        );
+      }}
+    />
+  ) : memo ? (
+    <MemoChip project={project} memo={memo} onEdit={() => setMemoOpen(true)} />
+  ) : undefined;
+
+  return (
+    <div data-cadence-id={item.id}>
+      <CadenceCard
+        item={item}
+        project={project}
+        servesLabel={serves?.title}
+        resource={resolveResource(item)}
+        trace={deriveTrace(item.keptCount ?? 0)}
+        onDid={() => {
+          void didCadence(item.id);
+          showToast("Kept up — it'll wash back in next window.", { kind: 'crystal' });
+        }}
+        onSkip={() => {
+          void skipCadence(item.id);
+          showToast('Skipped, no harm. Rolls to the next window.', { kind: 'release' });
+        }}
+        onSnooze={() => {
+          void snoozeCadence(item.id);
+          showToast('Snoozed a few days — still inside this window.', { kind: 'focus' });
+        }}
+        onRecommit={() => {
+          void recommitCadence(item.id);
+          showToast('Re-committed — warm again.', { kind: 'crystal' });
+        }}
+        onEaseOff={() => {
+          void setCadenceCommitment(item.id, 'trying');
+          showToast('Eased off to "trying it".', { kind: 'focus' });
+        }}
+        onLetGo={() =>
+          void removeItem({
+            action: 'letGo',
+            el: rowEl(item.id),
+            mutate: () => transitionItem(item.id, 'dismissed'),
+            undo: () => transitionItem(item.id, 'active'),
+          })
+        }
+        onCrystallize={() => {
+          void crystallizeItem(item.id, { promoteKind: true });
+          showToast('Crystallized — a kept thing.', { kind: 'crystal' });
+        }}
+        onOpenThread={() => project && navigate(`/project/${project.slug}`)}
+        onNote={() => setMemoOpen((o) => !o)}
+        noteActive={memoOpen}
+        memoSlot={memoSlot}
+      />
+    </div>
+  );
+};
+
+export const DoThisWeek = ({ projectId }: { projectId?: string }) => {
   const cadences = getCadencesDueThisWeek(projectId);
   if (cadences.length === 0) return null;
-
-  const resolveResource = (item: Item) => {
-    if (!item.resourceRefId) return undefined;
-    const ref = getReferenceById(item.resourceRefId);
-    return ref ? { label: ref.label, url: ref.url } : undefined;
-  };
 
   return (
     <section style={{ marginBottom: 22 }}>
@@ -57,54 +137,9 @@ export const DoThisWeek = ({ projectId }: { projectId?: string }) => {
         {copy('cadence.doThisWeek.sub')}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 13 }}>
-        {cadences.map((item) => {
-          const project = getProjectById(item.projectId);
-          const serves = item.servesId ? getItemById(item.servesId) : undefined;
-          return (
-            <div key={item.id} data-cadence-id={item.id}>
-              <CadenceCard
-                item={item}
-                project={project}
-                servesLabel={serves?.title}
-                resource={resolveResource(item)}
-                trace={deriveTrace(item.keptCount ?? 0)}
-                onDid={() => {
-                  void didCadence(item.id);
-                  showToast("Kept up — it'll wash back in next window.", { kind: 'crystal' });
-                }}
-                onSkip={() => {
-                  void skipCadence(item.id);
-                  showToast('Skipped, no harm. Rolls to the next window.', { kind: 'release' });
-                }}
-                onSnooze={() => {
-                  void snoozeCadence(item.id);
-                  showToast('Snoozed a few days — still inside this window.', { kind: 'focus' });
-                }}
-                onRecommit={() => {
-                  void recommitCadence(item.id);
-                  showToast('Re-committed — warm again.', { kind: 'crystal' });
-                }}
-                onEaseOff={() => {
-                  void setCadenceCommitment(item.id, 'trying');
-                  showToast('Eased off to "trying it".', { kind: 'focus' });
-                }}
-                onLetGo={() =>
-                  void removeItem({
-                    action: 'letGo',
-                    el: rowEl(item.id),
-                    mutate: () => transitionItem(item.id, 'dismissed'),
-                    undo: () => transitionItem(item.id, 'active'),
-                  })
-                }
-                onCrystallize={() => {
-                  void crystallizeItem(item.id, { promoteKind: true });
-                  showToast('Crystallized — a kept thing.', { kind: 'crystal' });
-                }}
-                onOpenThread={() => project && navigate(`/project/${project.slug}`)}
-              />
-            </div>
-          );
-        })}
+        {cadences.map((item) => (
+          <CadenceItem key={item.id} item={item} />
+        ))}
       </div>
     </section>
   );
