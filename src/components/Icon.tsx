@@ -73,6 +73,10 @@ export const Icons: Record<string, IconFn> = {
   bell:      make(['M6 16V11a6 6 0 1 1 12 0v5l2 2H4z','M10 20a2 2 0 0 0 4 0']),
   caret:     make('m9 6 6 6-6 6'),
   info:      make(['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z','M12 11v5','M12 8h.01']),
+  // Cadence (C3): two looping arrows (recur), a mic (note), a globe (interest thread).
+  repeat:    make(['m17 2 4 4-4 4','M3 11v-1a4 4 0 0 1 4-4h14','m7 22-4-4 4-4','M21 13v1a4 4 0 0 1-4 4H3']),
+  mic:       make(['M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z','M19 10v1a7 7 0 0 1-14 0v-1','M12 18v4']),
+  globe:     make(['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z','M2 12h20','M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z']),
 };
 
 export default Icon;

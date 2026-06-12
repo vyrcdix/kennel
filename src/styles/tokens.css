@@ -98,6 +98,22 @@
   --diff-add-ink: #5C7A3E;
   --diff-del-bg:  rgba(138,58,20,.10);
   --diff-del-ink: #8A3A14;
+
+  /* Tidewater-vocab ground/ink (Workshop values; .km-skin-life remaps). Added
+   * in C3 so both-skin components (Cadence first) read one token vocabulary in
+   * either skin — "one component set, two token maps." Additive: existing
+   * Workshop components read the surface/fg tokens, so this changes nothing. */
+  --bg:          var(--surface-0);
+  --card:        var(--surface-1);
+  --card-2:      #FFFFFF;
+  --sunk:        var(--surface-2);
+  --ink:         var(--fg);
+  --ink-muted:   var(--fg-muted);
+  --ink-faint:   var(--fg-faint);
+  --action-soft: rgba(217,98,44,.10);
+  --sacred-soft: rgba(232,181,71,.16);
+  --shadow-panel: 0 1px 2px rgba(58,63,69,.05), 0 4px 14px rgba(58,63,69,.05);
+  --shadow-lift:  0 2px 6px rgba(58,63,69,.06), 0 14px 34px rgba(58,63,69,.10);
 }
 
 /* Dark mode tokens — applied via .km-dark on any container */
@@ -115,6 +131,13 @@
   /* Diff backgrounds lighten on dark (Workshop) */
   --diff-add-bg: rgba(164,196,116,.10);
   --diff-del-bg: rgba(217,98,44,.10);
+
+  /* Tidewater-vocab literals on dark Workshop (aliases follow --surface/--fg) */
+  --card-2:      #3A3F45;
+  --action-soft: rgba(217,98,44,.12);
+  --sacred-soft: rgba(232,181,71,.12);
+  --shadow-panel: 0 1px 2px rgba(0,0,0,.30), 0 8px 22px rgba(0,0,0,.34);
+  --shadow-lift:  0 2px 8px rgba(0,0,0,.34), 0 18px 40px rgba(0,0,0,.44);
 }
 
 /* ─── v0.4/v0.5 "blaze + dust" token set ────────────────────────────────────
@@ -273,6 +296,10 @@
   color: var(--bone);
   border-color: var(--fam-guide);
 }
+/* Soft (recessed) + small button variants. --surface-2 is the recessed tone
+ * in both skins (remapped to --sunk under .km-skin-life). */
+.km-btn-soft { background: var(--surface-2); border-color: transparent; color: var(--fg); }
+.km-btn-sm { font-size: 12.5px; padding: 5px 10px; }
 
 /* Inputs */
 .km-input {
@@ -596,7 +623,19 @@ body { background: var(--surface-0); color: var(--fg); }
 
   /* toast entrance (220ms) */
   .km-toast { animation: kmToastIn calc(220ms * var(--motion-scale)) ease-out both; }
+
+  /* Cadence (C3): "Did it" warm pulse + voice-record dot. Motionless in
+   * Workshop (--motion-scale 0); reduced-motion-gated by this @media. */
+  .cad-kept { animation: cadKept calc(720ms * var(--motion-scale)) ease-out; }
+  .cad-rec-dot { animation: cadRec calc(1100ms * var(--motion-scale)) ease-in-out infinite; }
 }
+
+@keyframes cadKept {
+  0%   { box-shadow: var(--shadow-panel); }
+  35%  { box-shadow: 0 0 0 2px var(--sacred-soft), 0 0 30px color-mix(in srgb, var(--sacred) 26%, transparent); }
+  100% { box-shadow: var(--shadow-panel); }
+}
+@keyframes cadRec { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
 @keyframes kmPickUp  { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
 @keyframes kmRelease { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(14px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
