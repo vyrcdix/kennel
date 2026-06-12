@@ -191,8 +191,11 @@ export const getCrystallizedThisWeek = () => {
 };
 
 /** Crystals across all themes — newest first. v0.5 §5 dashboard +
- *  /crystals gallery. */
-export const getAllCrystals = () => getCrystallizations();
+ *  /crystals gallery. Bearings (ctype='orientation') are forward-pointed and
+ *  live only in Compass this round — filtered out so they never render with
+ *  backward-crystal chrome (compass-build-plan P4 guard; P5 inherits it). */
+export const getAllCrystals = () =>
+  getCrystallizations().filter((c) => c.ctype !== 'orientation');
 
 // ─── v0.5 §D · Three doorways · attached doorways for a crystal ────
 

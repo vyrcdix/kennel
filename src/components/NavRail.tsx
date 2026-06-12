@@ -9,10 +9,12 @@ import {
   getTotalReflectingCount,
   getTriageBadgeCount,
 } from '../data/selectors';
+import { getBearings } from '../lib/compass';
 import { useStoreVersion } from '../data/store';
 import { openCreateProject } from '../lib/modals';
 
 export type NavRailActive =
+  | 'compass'
   | 'dashboard'
   | 'crystals'
   | 'triage'
@@ -43,7 +45,11 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
   const triageCount = getTriageBadgeCount();
   const crystalCount = getAllCrystals().length;
   const reflectingCount = getTotalReflectingCount();
+  const bearingCount = getBearings().length;
+  // Compass sits at the very top, above Harbour (the dashboard) — per the
+  // backlog ruling. Sacred-family accent, like Crystals.
   const sys: SysItem[] = [
+    { id: 'compass',   icon: Icons.compass, label: 'Compass',      to: '/compass', n: bearingCount },
     { id: 'dashboard', icon: Icons.menu,   label: 'Dashboard',     to: '/' },
     { id: 'crystals',  icon: Icons.gem,    label: 'All crystals',  to: '/crystals', n: crystalCount },
     { id: 'triage',    icon: Icons.filter, label: 'The bench',     to: '/triage', n: triageCount },
@@ -77,13 +83,13 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
         // Crystals row uses the blaze family colour (per v0.5 reserved-
         // colour rule: blaze = crystallization). All other rows keep the
         // ember "primary action" tint.
-        const isCrystal = s.id === 'crystals';
-        const activeBg = isCrystal
+        const isSacred = s.id === 'crystals' || s.id === 'compass';
+        const activeBg = isSacred
           ? 'color-mix(in srgb, var(--sacred) 16%, transparent)'
           : 'color-mix(in srgb, var(--action) 10%, transparent)';
-        const activeBorder = isCrystal ? 'var(--sacred-ink)' : 'var(--ember)';
-        const activeColor = isCrystal ? 'var(--sacred-ink-deep)' : 'var(--ember-deep)';
-        const idleColor = isCrystal ? 'var(--sacred-ink-deep)' : 'var(--fg)';
+        const activeBorder = isSacred ? 'var(--sacred-ink)' : 'var(--ember)';
+        const activeColor = isSacred ? 'var(--sacred-ink-deep)' : 'var(--ember-deep)';
+        const idleColor = isSacred ? 'var(--sacred-ink-deep)' : 'var(--fg)';
         return (
           <button
             key={s.id}

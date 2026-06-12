@@ -140,6 +140,46 @@ export const setCadenceCommitment = async (
 ): Promise<Item> =>
   replaceItem(await wrap(() => api.patch<Item>(`/api/items/${id}/commitment`, { commitment })));
 
+// ── Compass (bearings / orientation layer) ───────────────────────────────
+export type SetBearingInput = {
+  horizonStartAt?: string | null;
+  horizonTargetAt?: string | null;
+  persona?: string | null;
+  /** Existing item ids to point at this bearing (seed the roll-up). */
+  attach?: string[];
+};
+
+/** Promote an item into a bearing (forward-pointed crystal). Side-effects on
+ *  attached items sync via the activity SSE refresh. */
+export const setBearing = async (id: string, input: SetBearingInput = {}): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/bearing`, input)));
+
+export const setBearingHorizon = async (
+  id: string,
+  horizonStartAt: string | null,
+  horizonTargetAt: string | null,
+): Promise<Item> =>
+  replaceItem(
+    await wrap(() =>
+      api.patch<Item>(`/api/items/${id}/bearing/horizon`, { horizonStartAt, horizonTargetAt }),
+    ),
+  );
+
+export const rewordBearing = async (
+  id: string,
+  input: { title?: string; description?: string | null },
+): Promise<Item> =>
+  replaceItem(await wrap(() => api.patch<Item>(`/api/items/${id}/bearing/reword`, input)));
+
+/** Let a bearing set — promises revert to practice (synced via SSE); the
+ *  bearing is filed. */
+export const letGoBearing = async (id: string): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/bearing/letgo`)));
+
+/** Turn a cadence into a small promise of a bearing. */
+export const promiseCadence = async (id: string, bearingId: string): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/promise`, { bearingId })));
+
 export const touchItem = async (id: string): Promise<void> => {
   await wrap(() => api.post(`/api/items/${id}/touch`));
   const item = items.find((i) => i.id === id);

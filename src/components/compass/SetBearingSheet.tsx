@@ -1,21 +1,23 @@
 // SetBearingSheet — the deliberate, high-friction creation flow (the inverse of
-// one-tap capture). Two beats: COMPOSE (statement as a direction + optional
-// finish line + "what flows toward this?") and SIT WITH IT (a confirm beat that
-// restates the bearing and offers draft vs set). Both entry points land here —
-// "Set a new bearing" and crystallize-as-orientation (pre-filled via seedTitle).
-// Presentational: onSubmit is wired to the bearing actions by the surface (P4).
-// See docs/compass-build-plan.md P3 + the rev-2 prototype's SetBearingSheet.
+// one-tap capture). Two beats: COMPOSE (statement as a direction + owning thread
+// + optional finish line + "what flows toward this?") and SIT WITH IT (a confirm
+// beat that restates the bearing and offers draft vs set). Both entry points
+// land here — "Set a new bearing" and crystallize-as-orientation (pre-filled via
+// seedTitle). With `editBearing` it becomes the Reword flow. Presentational:
+// onSubmit is wired to the bearing actions by the surface (P4).
+// See docs/compass-build-plan.md P3/P4 + the rev-2 prototype's SetBearingSheet.
 import { useEffect, useState } from 'react';
 import { Icons } from '../Icon';
 import { Label } from '../Label';
 import { Mono } from '../Mono';
 import { useSkin } from '../../lib/skin';
 import { OrientationType } from './atoms';
-import type { Item } from '../../data/types';
+import type { Item, Project } from '../../data/types';
 
 const STARTERS = ['Run', 'See', 'Stay close to', 'Grow at', 'Build', 'Keep'];
 
 export type SetBearingDraft = {
+  projectId: string;
   title: string;
   description?: string;
   horizonStartAt?: string;
@@ -28,8 +30,12 @@ export type SetBearingSheetProps = {
   open: boolean;
   onClose: () => void;
   onSubmit: (draft: SetBearingDraft) => void | Promise<void>;
+  /** Owning-thread options (a bearing is one crystal in one thread). */
+  projects?: Project[];
   /** Pre-fill the statement (crystallize-as-orientation entry point). */
   seedTitle?: string;
+  /** Reword mode — seeds every field from the bearing; no draft / counter. */
+  editBearing?: Item;
   /** Existing bearing count — drives the "N of ~6 · few by design" counter. */
   bearingCount?: number;
   /** Optional items to attach ("what already flows toward this?"). */
@@ -37,17 +43,22 @@ export type SetBearingSheetProps = {
 };
 
 const todayISODate = () => new Date().toISOString().slice(0, 10);
+const toISODate = (d?: Date) => (d ? d.toISOString().slice(0, 10) : '');
 
 export const SetBearingSheet = ({
   open,
   onClose,
   onSubmit,
+  projects = [],
   seedTitle,
+  editBearing,
   bearingCount = 0,
   attachCandidates = [],
 }: SetBearingSheetProps) => {
   useSkin();
+  const editing = !!editBearing;
   const [beat, setBeat] = useState<'compose' | 'sit'>('compose');
+  const [projectId, setProjectId] = useState('');
   const [starter, setStarter] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [note, setNote] = useState('');
@@ -61,25 +72,28 @@ export const SetBearingSheet = ({
     if (!open) return;
     setBeat('compose');
     setStarter(null);
-    setText(seedTitle ?? '');
-    setNote('');
-    setHasHorizon(false);
-    setStartAt(todayISODate());
-    setTargetAt('');
+    setText(editBearing?.title ?? seedTitle ?? '');
+    setNote(editBearing?.description ?? '');
+    setProjectId(editBearing?.projectId ?? projects[0]?.id ?? '');
+    const hasH = !!(editBearing?.horizonStartAt && editBearing?.horizonTargetAt);
+    setHasHorizon(hasH);
+    setStartAt(hasH ? toISODate(editBearing?.horizonStartAt) : todayISODate());
+    setTargetAt(hasH ? toISODate(editBearing?.horizonTargetAt) : '');
     setAttach([]);
     setSaving(false);
-  }, [open, seedTitle]);
+  }, [open, seedTitle, editBearing, projects]);
 
   if (!open) return null;
 
   const statement = `${starter ? starter + ' ' : ''}${text}`.trim();
-  const canCompose = statement.length > 0 && (!hasHorizon || !!targetAt);
+  const canCompose = statement.length > 0 && !!projectId && (!hasHorizon || !!targetAt);
 
   const submit = async (asDraft: boolean) => {
-    if (saving || !statement) return;
+    if (saving || !statement || !projectId) return;
     setSaving(true);
     try {
       await onSubmit({
+        projectId,
         title: statement,
         description: note.trim() || undefined,
         horizonStartAt: hasHorizon ? `${startAt}T00:00:00Z` : undefined,
@@ -126,12 +140,18 @@ export const SetBearingSheet = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <OrientationType>{beat === 'compose' ? 'new bearing' : 'sit with it'}</OrientationType>
+          <OrientationType>
+            {editing ? 'reword' : beat === 'compose' ? 'new bearing' : 'sit with it'}
+          </OrientationType>
           <Label style={{ textTransform: 'none', letterSpacing: 0 }}>
-            {beat === 'compose' ? 'What are you about?' : 'Set this bearing?'}
+            {editing
+              ? 'Reword this bearing'
+              : beat === 'compose'
+                ? 'What are you about?'
+                : 'Set this bearing?'}
           </Label>
           <span style={{ flex: 1 }} />
-          <Mono dim>{bearingCount + 1} of ~6 · few by design</Mono>
+          {!editing && <Mono dim>{bearingCount + 1} of ~6 · few by design</Mono>}
         </div>
 
         {beat === 'compose' ? (
@@ -179,6 +199,26 @@ export const SetBearingSheet = ({
               style={{ resize: 'vertical', fontSize: 13 }}
             />
 
+            {/* owning thread */}
+            {projects.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Mono dim>thread</Mono>
+                <select
+                  className="km-input"
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  disabled={editing}
+                  style={{ fontSize: 13, flex: 1, maxWidth: 260 }}
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* optional finish line — default off (intangible, no clock) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
@@ -189,9 +229,7 @@ export const SetBearingSheet = ({
               >
                 <Icons.horizon size={14} />
               </button>
-              <Mono dim>
-                {hasHorizon ? 'a finish line' : 'no clock — an intangible bearing'}
-              </Mono>
+              <Mono dim>{hasHorizon ? 'a finish line' : 'no clock — an intangible bearing'}</Mono>
               {hasHorizon && (
                 <>
                   <input
@@ -214,7 +252,7 @@ export const SetBearingSheet = ({
             </div>
 
             {/* what already flows toward this? — seeds the roll-up */}
-            {attachCandidates.length > 0 && (
+            {!editing && attachCandidates.length > 0 && (
               <div>
                 <Mono dim style={{ display: 'block', marginBottom: 6 }}>
                   What already flows toward this?
@@ -246,14 +284,25 @@ export const SetBearingSheet = ({
               <button className="km-btn km-btn-ghost" onClick={onClose}>
                 Cancel
               </button>
-              <button
-                className="km-btn km-btn-primary"
-                disabled={!canCompose}
-                onClick={() => setBeat('sit')}
-                style={{ opacity: canCompose ? 1 : 0.5 }}
-              >
-                Next <Icons.arrowR size={13} />
-              </button>
+              {editing ? (
+                <button
+                  className="km-btn km-btn-primary"
+                  disabled={!canCompose || saving}
+                  onClick={() => void submit(false)}
+                  style={{ opacity: canCompose ? 1 : 0.5 }}
+                >
+                  Save changes
+                </button>
+              ) : (
+                <button
+                  className="km-btn km-btn-primary"
+                  disabled={!canCompose}
+                  onClick={() => setBeat('sit')}
+                  style={{ opacity: canCompose ? 1 : 0.5 }}
+                >
+                  Next <Icons.arrowR size={13} />
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -297,11 +346,7 @@ export const SetBearingSheet = ({
               >
                 Save as draft
               </button>
-              <button
-                className="km-btn km-btn-primary"
-                disabled={saving}
-                onClick={() => void submit(false)}
-              >
+              <button className="km-btn km-btn-primary" disabled={saving} onClick={() => void submit(false)}>
                 Set this bearing
               </button>
             </div>
