@@ -8,6 +8,7 @@ import { NavRail } from '../components/NavRail';
 import { ProjectTag } from '../components/ProjectTag';
 import { ThermalPanel } from '../components/ThermalPanel';
 import { Wave } from '../components/Wave';
+import { CooledCadences } from '../components/CooledCadences';
 import {
   crystallizeItem,
   fileItem,
@@ -104,8 +105,8 @@ const AgingWorkshop = ({
             Each decision is one keystroke.
           </div>
 
-          {/* Cadence seam: the "Cooled cadences" panel mounts above the shelf
-              in both skins when Cadence ships (handoff/design_handoff_cadence-2). */}
+          {/* Cooled cadences — above the shelf (both skins) */}
+          <CooledCadences />
 
           {aging.length === 0 ? (
             <div
@@ -269,8 +270,8 @@ const AgingLife = ({
               </span>
             </div>
 
-            {/* Cadence seam: "Cooled cadences" panel mounts here, above the
-                shelf, in both skins when Cadence ships. */}
+            {/* Cooled cadences — above the shelf (both skins) */}
+            <CooledCadences />
 
             {aging.length === 0 ? (
               <div className="km-card" style={{ padding: 32 }}>

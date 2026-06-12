@@ -47,6 +47,7 @@ import { useStoreVersion } from '../data/store';
 import { openCreateProject, openItem } from '../lib/modals';
 import { useSkin } from '../lib/skin';
 import { Wave } from '../components/Wave';
+import { DoThisWeek } from '../components/DoThisWeek';
 import type { Item, Project } from '../data/types';
 
 const DAY = 86400_000;
@@ -351,6 +352,9 @@ const DashboardWorkshop = () => {
               </button>
             </div>
           </div>
+
+          {/* Do this week — recurring actions (both skins, B1) */}
+          <DoThisWeek />
 
           {/* Project rail — falls back to all active threads when none
               are pinned, so brand-new prod installs aren't a dead end. */}
@@ -1009,6 +1013,9 @@ const DashboardLife = () => {
               </div>
             </section>
           )}
+
+          {/* Do this week — recurring actions, directly below the hearth */}
+          <DoThisWeek />
 
           {/* Two-column grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 372px', gap: 22, alignItems: 'start' }}>

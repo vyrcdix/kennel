@@ -28,6 +28,8 @@ import type {
   EntityComment,
   EntityType,
   FieldNotes,
+  Cadence,
+  Commitment,
   FieldNotesMode,
   Guidebook,
   GuidebookEntry,
@@ -99,6 +101,43 @@ export const transitionItem = async (id: string, to: ItemState): Promise<Item> =
   notify();
   return updated;
 };
+
+// ── Cadence (recurring actions) ──────────────────────────────────────────
+const replaceItem = (updated: Item): Item => {
+  const idx = items.findIndex((i) => i.id === updated.id);
+  if (idx >= 0) items[idx] = updated;
+  notify();
+  return updated;
+};
+
+export type RecurInput = {
+  cadence: Cadence;
+  commitment: Commitment;
+  resourceRefId?: string | null;
+  servesId?: string | null;
+  noteDefaultSection?: string | null;
+};
+
+export const recurItem = async (id: string, input: RecurInput): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/recur`, input)));
+
+export const didCadence = async (id: string): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/did`)));
+
+export const skipCadence = async (id: string): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/skip`)));
+
+export const snoozeCadence = async (id: string): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/snooze`)));
+
+export const recommitCadence = async (id: string): Promise<Item> =>
+  replaceItem(await wrap(() => api.post<Item>(`/api/items/${id}/recommit`)));
+
+export const setCadenceCommitment = async (
+  id: string,
+  commitment: Commitment,
+): Promise<Item> =>
+  replaceItem(await wrap(() => api.patch<Item>(`/api/items/${id}/commitment`, { commitment })));
 
 export const touchItem = async (id: string): Promise<void> => {
   await wrap(() => api.post(`/api/items/${id}/touch`));

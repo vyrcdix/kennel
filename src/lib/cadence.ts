@@ -100,6 +100,14 @@ export const COMMIT: Record<Commitment, { bars: 1 | 2 | 3; label: string; blurb:
   core: { bars: 3, label: 'core practice', blurb: 'part of how I live right now — given the most grace' },
 };
 
+/** Approximate the recent-windows trace from the streak (newest last). We
+ *  don't store per-window history, so the last min(keptCount, n) marks read as
+ *  kept and the rest as skipped — honest about the streak we do know. */
+export const deriveTrace = (keptCount: number, n = 6): number[] => {
+  const kept = Math.min(Math.max(0, keptCount), n);
+  return Array.from({ length: n }, (_, i) => (i >= n - kept ? 1 : 0));
+};
+
 /** Gentle streak text — warmth, never a metric to defend. No deficit shown. */
 export const streakText = (keptCount: number, cadence: Cadence): string => {
   const unit = cadence === 'daily' ? 'days' : cadence === 'weekly' ? 'weeks' : 'months';
