@@ -651,25 +651,33 @@ body { background: var(--surface-0); color: var(--fg); }
 
 /* The sky register — the one place the layer shows its altitude. Workshop = a
  * banked-ember worklight header; Life = first-light (day) / deep-sky (night). */
+/* --cmp-ink: the amber text ink for eyebrows / anchor / horizon chip. Context-
+ * correct for AA in all four skin×mode combos — the deepest ink on light
+ * surfaces, a light gold on dark ones (the deep ink would vanish on a dark
+ * card). --cmp-sky-ink is the eyebrow tone specifically over the sky band. */
 :root {
   --cmp-sky: linear-gradient(180deg, color-mix(in oklab, var(--sacred) 9%, var(--card)) 0%, var(--card) 100%);
   --cmp-star: color-mix(in oklab, var(--ink) 30%, transparent);
-  --cmp-sky-ink: var(--sacred-ink);
+  --cmp-sky-ink: var(--sacred-ink-deep);
+  --cmp-ink: var(--sacred-ink-deep);
 }
 .km-dark {
   --cmp-sky: linear-gradient(180deg, color-mix(in oklab, var(--sacred) 16%, var(--card)) 0%, var(--card) 100%);
   --cmp-star: rgba(220, 231, 227, .7);
   --cmp-sky-ink: #C9A98C;
+  --cmp-ink: var(--blaze); /* deep ink is too dark on the dark card — use light gold */
 }
 .km-skin-life {
   --cmp-sky: linear-gradient(180deg, #E7EEE9 0%, var(--card) 100%);
   --cmp-star: color-mix(in oklab, var(--ink) 30%, transparent);
-  --cmp-sky-ink: var(--sacred-ink);
+  --cmp-sky-ink: var(--sacred-ink-deep);
+  --cmp-ink: var(--sacred-ink-deep);
 }
 .km-skin-life.km-dark {
   --cmp-sky: linear-gradient(180deg, #0A141B 0%, #0F2128 100%);
   --cmp-star: rgba(220, 231, 227, .8);
   --cmp-sky-ink: #C9A98C;
+  --cmp-ink: var(--sacred-ink-deep); /* life-dark deep = light peach, AA on dark */
 }
 
 .cmp-sky { position: relative; border-radius: var(--r-card); overflow: hidden; background: var(--cmp-sky); }
@@ -677,12 +685,12 @@ body { background: var(--surface-0); color: var(--fg); }
 .cmp-star { position: absolute; border-radius: 999px; transform: translate(-50%, -50%); background: var(--cmp-star); }
 .cmp-star.lode { background: var(--sacred) !important; box-shadow: 0 0 9px 1px color-mix(in oklab, var(--sacred) 55%, transparent); }
 
-.cmp-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-family: var(--ff-display); font-weight: 600; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--sacred-ink); }
+.cmp-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-family: var(--ff-display); font-weight: 600; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--cmp-ink); }
 .cmp-sky .cmp-eyebrow { color: var(--cmp-sky-ink); }
 
-.cmp-anchor { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--sacred-soft); color: var(--sacred-ink); font-family: var(--ff-sans); font-weight: 600; font-size: 12.5px; border: 1px solid color-mix(in oklab, var(--sacred) 30%, var(--line)); cursor: pointer; }
+.cmp-anchor { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--sacred-soft); color: var(--cmp-ink); font-family: var(--ff-sans); font-weight: 600; font-size: 12.5px; border: 1px solid color-mix(in oklab, var(--sacred) 30%, var(--line)); cursor: pointer; }
 .cmp-warm { display: inline-flex; align-items: center; gap: 5px; font-family: var(--ff-sans); font-weight: 500; font-size: 11.5px; color: var(--ink-muted); background: var(--sunk); padding: 3px 9px; border-radius: 999px; }
-.cmp-horizonchip { font-family: var(--ff-mono); font-size: 10.5px; color: var(--sacred-ink); background: var(--sacred-soft); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.cmp-horizonchip { font-family: var(--ff-mono); font-size: 10.5px; color: var(--cmp-ink); background: var(--sacred-soft); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 
 .cmp-rot { width: 6px; height: 6px; border-radius: 999px; background: color-mix(in oklab, var(--ink) 18%, transparent); transition: width .2s ease; flex: 0 0 auto; }
 .cmp-rot.on { width: 18px; background: var(--sacred); }

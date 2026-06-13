@@ -14,7 +14,7 @@ type Entry = { workshop: string; life: string };
 
 const COPY: Record<string, Entry> = {
   // ── Aging board (B2) ──────────────────────────────────────────────────
-  'aging.title': { workshop: 'Aging', life: 'Aging' },
+  'aging.title': { workshop: 'Aging', life: 'Driftwood' },
   'aging.subtitle': {
     workshop:
       "Items that haven't been touched in a while. Most should be let go; some are worth picking back up. Each decision is one keystroke.",
@@ -95,9 +95,9 @@ const COPY: Record<string, Entry> = {
   'compass.still.true': { workshop: 'Still true', life: 'Still true' },
   'compass.still.reword': { workshop: 'Reword', life: 'Reword' },
   'compass.still.letgo': { workshop: 'Let it set', life: 'Let it set' },
-  // Nav renames — Life-only words over the same routes (P6 wires NavRail).
+  // Nav renames — Life-only words over the same routes (P6). Aging→Driftwood
+  // rides the existing 'aging.title' key (life value flipped above).
   'nav.dashboard': { workshop: 'Dashboard', life: 'Harbour' },
-  'nav.aging': { workshop: 'Aging', life: 'Driftwood' },
   'nav.pinnedThreads': { workshop: 'Pinned threads', life: 'Currents' },
   'nav.newThread': { workshop: 'New thread', life: 'New current' },
 };

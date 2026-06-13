@@ -11,6 +11,8 @@ import {
 } from '../data/selectors';
 import { getBearings } from '../lib/compass';
 import { useStoreVersion } from '../data/store';
+import { useSkin } from '../lib/skin';
+import { copy } from '../lib/copy';
 import { openCreateProject } from '../lib/modals';
 
 export type NavRailActive =
@@ -41,6 +43,7 @@ type SysItem = {
 export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProps) => {
   const navigate = useNavigate();
   useStoreVersion();
+  useSkin(); // re-render the renamed labels (Harbour / Currents) on skin toggle
 
   const triageCount = getTriageBadgeCount();
   const crystalCount = getAllCrystals().length;
@@ -50,7 +53,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
   // backlog ruling. Sacred-family accent, like Crystals.
   const sys: SysItem[] = [
     { id: 'compass',   icon: Icons.compass, label: 'Compass',      to: '/compass', n: bearingCount },
-    { id: 'dashboard', icon: Icons.menu,   label: 'Dashboard',     to: '/' },
+    { id: 'dashboard', icon: Icons.menu,   label: copy('nav.dashboard'), to: '/' },
     { id: 'crystals',  icon: Icons.gem,    label: 'All crystals',  to: '/crystals', n: crystalCount },
     { id: 'triage',    icon: Icons.filter, label: 'The bench',     to: '/triage', n: triageCount },
     { id: 'reflecting', icon: Icons.park,  label: 'Reflecting',    to: '/reflecting', n: reflectingCount },
@@ -118,7 +121,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
         );
       })}
       <div style={{ padding: '14px 16px 6px' }}>
-        <Label>Pinned threads</Label>
+        <Label>{copy('nav.pinnedThreads')}</Label>
       </div>
       {allProjects.map((p) => {
         const isActive = activeProjectSlug === p.slug;
@@ -187,7 +190,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
         }}
       >
         <Icons.plus size={13} />
-        <span style={{ flex: 1, fontSize: 13 }}>New thread</span>
+        <span style={{ flex: 1, fontSize: 13 }}>{copy('nav.newThread')}</span>
         <Mono dim>⌘⇧N</Mono>
       </button>
       <div style={{ flex: 1 }} />

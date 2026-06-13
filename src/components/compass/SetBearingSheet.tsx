@@ -167,7 +167,7 @@ export const SetBearingSheet = ({
                     fontSize: 12,
                     padding: '4px 10px',
                     ...(starter === s
-                      ? { background: 'var(--sacred-soft)', color: 'var(--sacred-ink)', borderColor: 'var(--sacred)' }
+                      ? { background: 'var(--sacred-soft)', color: 'var(--cmp-ink)', borderColor: 'var(--sacred)' }
                       : {}),
                   }}
                 >
@@ -177,7 +177,7 @@ export const SetBearingSheet = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {starter && (
-                <span className="km-display-md" style={{ fontSize: 16, color: 'var(--sacred-ink)', whiteSpace: 'nowrap' }}>
+                <span className="km-display-md" style={{ fontSize: 16, color: 'var(--cmp-ink)', whiteSpace: 'nowrap' }}>
                   {starter}
                 </span>
               )}
@@ -267,7 +267,7 @@ export const SetBearingSheet = ({
                         fontSize: 12,
                         padding: '4px 10px',
                         ...(attach.includes(it.id)
-                          ? { background: 'var(--sacred-soft)', color: 'var(--sacred-ink)', borderColor: 'var(--sacred)' }
+                          ? { background: 'var(--sacred-soft)', color: 'var(--cmp-ink)', borderColor: 'var(--sacred)' }
                           : {}),
                       }}
                     >

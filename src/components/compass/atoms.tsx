@@ -81,7 +81,7 @@ export const OrientationType = ({ children = 'orientation' }: { children?: React
       fontSize: 10.5,
       letterSpacing: '.12em',
       textTransform: 'uppercase',
-      color: 'var(--sacred-ink)',
+      color: 'var(--cmp-ink)',
       background: 'var(--sacred-soft)',
       padding: '2px 8px',
       borderRadius: 999,
