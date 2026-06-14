@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { makeTestDb, useTempContent } from '../test-helpers.js';
 import { HttpError } from '../errors.js';
-import { createProject } from './project.js';
+import { createProject, getProjectById, setProjectBearing } from './project.js';
 import { createItem, getItemById, resurfaceCrystal } from './item.js';
 import { recurItem } from './cadence.js';
 import {
@@ -185,6 +185,38 @@ describe('letGoBearing', () => {
   test('rejects letting go of a non-bearing', () => {
     const id = mkItem();
     expect(() => letGoBearing(db, id)).toThrow(HttpError);
+  });
+});
+
+describe('setProjectBearing (current → bearing)', () => {
+  test('points a current at a bearing and clears it', () => {
+    const bearingId = mkItem();
+    setBearing(db, bearingId);
+    const other = createProject(db, { name: 'Marathon' }).id;
+
+    const linked = setProjectBearing(db, other, bearingId);
+    expect(linked.servesBearingId).toBe(bearingId);
+    expect(getProjectById(db, other)!.servesBearingId).toBe(bearingId);
+
+    const cleared = setProjectBearing(db, other, null);
+    expect(cleared.servesBearingId).toBeUndefined();
+  });
+
+  test('many currents can point at one bearing', () => {
+    const bearingId = mkItem();
+    setBearing(db, bearingId);
+    const a = createProject(db, { name: 'A' }).id;
+    const b = createProject(db, { name: 'B' }).id;
+    setProjectBearing(db, a, bearingId);
+    setProjectBearing(db, b, bearingId);
+    expect(getProjectById(db, a)!.servesBearingId).toBe(bearingId);
+    expect(getProjectById(db, b)!.servesBearingId).toBe(bearingId);
+  });
+
+  test('rejects pointing a current at a non-bearing', () => {
+    const notABearing = mkItem(); // a plain idea
+    const p = createProject(db, { name: 'P' }).id;
+    expect(() => setProjectBearing(db, p, notABearing)).toThrow(HttpError);
   });
 });
 

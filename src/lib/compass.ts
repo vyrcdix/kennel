@@ -5,13 +5,14 @@
 // countdown; the wake counts only kept days, gaps simply absent. See
 // docs/compass-build-plan.md P2.
 
-import type { Item } from '../data/types';
+import type { Item, Project } from '../data/types';
 import { windowOpen, cadenceSortCmp } from './cadence';
 import {
   getCrystallizations,
   getItemsServing,
   getCadencesServing,
   getActivitySince,
+  getProjects,
 } from '../data/selectors';
 
 const DAY = 86_400_000;
@@ -39,6 +40,13 @@ const bearingMap = (persona?: string | null): Map<string, Item> =>
  *  bearing (focus actions, cadences/promises, supporting crystals). Reuses the
  *  attach relation; already excludes filed/dismissed. */
 export const getBearingBuilt = (bearingId: string): Item[] => getItemsServing(bearingId);
+
+/** The currents under this bearing — threads that point at it
+ *  (`serves_bearing_id`), assigned from within each thread. Many per bearing;
+ *  ephemeral. The bearing's own storage thread is incidental, not listed here
+ *  unless it has explicitly pointed back. */
+export const getBearingThreads = (bearingId: string): Project[] =>
+  getProjects().filter((p) => p.servesBearingId === bearingId);
 
 /** The small promises of a bearing — daily cadences with role='promise'
  *  serving it, in cadence order (the due/warm ones first). */

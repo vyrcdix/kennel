@@ -13,14 +13,15 @@ import { useStoreVersion } from '../data/store';
 import { useSkin } from '../lib/skin';
 import { copy } from '../lib/copy';
 import { windowOpen } from '../lib/cadence';
-import { getBearingPromise } from '../lib/compass';
-import { getItemById, getProjectById } from '../data/selectors';
+import { getBearingPromise, getBearingThreads, getBearingBuilt } from '../lib/compass';
+import { getItemById, getProjectById, getNextUp } from '../data/selectors';
 import {
   didCadence,
   letGoBearing,
   resurfaceCrystal,
   rewordBearing,
   setBearingHorizon,
+  setItemServes,
 } from '../data/actions';
 import { OrientationType } from '../components/compass/atoms';
 import {
@@ -38,6 +39,7 @@ export const OrientationPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [editOpen, setEditOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const bearing = id ? getItemById(id) : undefined;
 
@@ -71,6 +73,14 @@ export const OrientationPage = () => {
   const project = getProjectById(bearing.projectId);
   const promise = getBearingPromise(bearing.id);
   const promiseKept = promise ? !windowOpen(promise) : false;
+  const currents = getBearingThreads(bearing.id);
+  const builtIds = new Set(getBearingBuilt(bearing.id).map((i) => i.id));
+  const addable = getNextUp(undefined, 50).filter((i) => !builtIds.has(i.id));
+
+  const onAdd = (itemId: string) => {
+    if (!itemId) return;
+    void setItemServes(itemId, bearing.id).then(() => setAddOpen(false));
+  };
 
   const onKeep = () => {
     if (promise) void didCadence(promise.id);
@@ -102,7 +112,13 @@ export const OrientationPage = () => {
             <div className="km-card cmp-resori" style={{ padding: '24px 26px 22px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                 <OrientationType>orientation</OrientationType>
-                {project && <ProjectTag slug={project.slug} />}
+                {/* related currents — threads pointing at this bearing (many) */}
+                {currents.map((c) => (
+                  <ProjectTag key={c.id} slug={c.slug} />
+                ))}
+                {currents.length === 0 && (
+                  <Mono dim>no currents yet — relate one from a thread</Mono>
+                )}
                 <span style={{ flex: 1 }} />
                 <Icons.compass size={17} style={{ color: 'var(--sacred-ink)', opacity: 0.8 }} />
               </div>
@@ -128,6 +144,31 @@ export const OrientationPage = () => {
               <BearingHorizon bearing={bearing} />
               <BearingWake bearing={bearing} />
               <BearingBuilt bearing={bearing} />
+              {/* add an existing item to the roll-up (sets its serves_id) */}
+              <div style={{ marginTop: 12 }}>
+                {addOpen ? (
+                  <select
+                    className="km-input"
+                    autoFocus
+                    defaultValue=""
+                    onChange={(e) => onAdd(e.target.value)}
+                    style={{ fontSize: 13, maxWidth: 320 }}
+                  >
+                    <option value="" disabled>
+                      Pick an item to add…
+                    </option>
+                    {addable.map((it) => (
+                      <option key={it.id} value={it.id}>
+                        {it.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <button className="km-btn km-btn-ghost" onClick={() => setAddOpen(true)}>
+                    <Icons.plus size={13} /> Add to this bearing
+                  </button>
+                )}
+              </div>
               <BearingPromise promise={promise} kept={promiseKept} onKeep={onKeep} />
               <BearingStillAbout
                 bearing={bearing}

@@ -667,6 +667,22 @@ export const togglePin = async (projectId: string): Promise<void> => {
   notify();
 };
 
+/** Compass: point a current at the bearing it's under (null clears). */
+export const setProjectBearing = async (
+  projectId: string,
+  bearingId: string | null,
+): Promise<Project> => {
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) throw new Error('unknown project');
+  const updated = await wrap(() =>
+    api.patch<Project>(`/api/projects/${project.slug}/bearing`, { bearingId }),
+  );
+  const idx = projects.findIndex((p) => p.id === projectId);
+  if (idx >= 0) projects[idx] = updated;
+  notify();
+  return updated;
+};
+
 export type UpdateProjectPatch = {
   name?: string;
   description?: string;

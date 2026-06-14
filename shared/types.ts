@@ -55,6 +55,10 @@ export type Project = {
   rank: number;
   color?: ProjectColor;
   nextStepsDismissed?: boolean;
+  /** Compass: the bearing this current is currently under (a forward crystal),
+   *  assigned from within the thread. null = not under a bearing. A bearing
+   *  gathers many such currents. See docs/compass-build-plan.md. */
+  servesBearingId?: string;
   createdAt: Date;
   updatedAt: Date;
 };

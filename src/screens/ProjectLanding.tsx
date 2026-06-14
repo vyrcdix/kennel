@@ -39,6 +39,7 @@ import {
   fetchProjectRoutings,
   setDocPinned,
   setGuidebookPinned,
+  setProjectBearing,
   touchItem,
   updateGuidebook,
   ValidationError,
@@ -65,6 +66,7 @@ import {
   getRunbook,
   getSettings,
 } from '../data/selectors';
+import { getBearings } from '../lib/compass';
 import {
   formatIsoDate,
   formatRelative,
@@ -415,6 +417,28 @@ export const ProjectLanding = () => {
                 >
                   {project.description}
                 </div>
+                {/* Compass: the bearing this current is under (assigned here,
+                    from within the thread). Only shown once bearings exist. */}
+                {getBearings().length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Mono dim>
+                      <Icons.compass size={12} /> under the bearing
+                    </Mono>
+                    <select
+                      className="km-input"
+                      value={project.servesBearingId ?? ''}
+                      onChange={(e) => void setProjectBearing(project.id, e.target.value || null)}
+                      style={{ fontSize: 12, maxWidth: 280 }}
+                    >
+                      <option value="">— none —</option>
+                      {getBearings().map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {project.context && (
                   <>
                     <div

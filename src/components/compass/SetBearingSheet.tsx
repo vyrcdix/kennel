@@ -15,6 +15,8 @@ import { OrientationType } from './atoms';
 import type { Item, Project } from '../../data/types';
 
 const STARTERS = ['Run', 'See', 'Stay close to', 'Grow at', 'Build', 'Keep'];
+const DAY = 86_400_000;
+const DEFAULT_DAYS = 1000;
 
 export type SetBearingDraft = {
   projectId: string;
@@ -43,7 +45,6 @@ export type SetBearingSheetProps = {
 };
 
 const todayISODate = () => new Date().toISOString().slice(0, 10);
-const toISODate = (d?: Date) => (d ? d.toISOString().slice(0, 10) : '');
 
 export const SetBearingSheet = ({
   open,
@@ -63,8 +64,7 @@ export const SetBearingSheet = ({
   const [text, setText] = useState('');
   const [note, setNote] = useState('');
   const [hasHorizon, setHasHorizon] = useState(false);
-  const [startAt, setStartAt] = useState(todayISODate());
-  const [targetAt, setTargetAt] = useState('');
+  const [days, setDays] = useState(DEFAULT_DAYS);
   const [attach, setAttach] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -77,8 +77,18 @@ export const SetBearingSheet = ({
     setProjectId(editBearing?.projectId ?? projects[0]?.id ?? '');
     const hasH = !!(editBearing?.horizonStartAt && editBearing?.horizonTargetAt);
     setHasHorizon(hasH);
-    setStartAt(hasH ? toISODate(editBearing?.horizonStartAt) : todayISODate());
-    setTargetAt(hasH ? toISODate(editBearing?.horizonTargetAt) : '');
+    setDays(
+      hasH
+        ? Math.max(
+            1,
+            Math.round(
+              (editBearing!.horizonTargetAt!.getTime() -
+                editBearing!.horizonStartAt!.getTime()) /
+                DAY,
+            ),
+          )
+        : DEFAULT_DAYS,
+    );
     setAttach([]);
     setSaving(false);
   }, [open, seedTitle, editBearing, projects]);
@@ -86,18 +96,24 @@ export const SetBearingSheet = ({
   if (!open) return null;
 
   const statement = `${starter ? starter + ' ' : ''}${text}`.trim();
-  const canCompose = statement.length > 0 && !!projectId && (!hasHorizon || !!targetAt);
+  const canCompose = statement.length > 0 && (!hasHorizon || days > 0);
 
   const submit = async (asDraft: boolean) => {
-    if (saving || !statement || !projectId) return;
+    if (saving || !statement) return;
     setSaving(true);
+    // Horizon as a duration: N days from when it was set (the start holds on
+    // edit; new bearings start today). Room-remaining is derived downstream.
+    const startISO = editBearing?.horizonStartAt
+      ? editBearing.horizonStartAt.toISOString()
+      : `${todayISODate()}T00:00:00Z`;
+    const targetISO = new Date(new Date(startISO).getTime() + days * DAY).toISOString();
     try {
       await onSubmit({
         projectId,
         title: statement,
         description: note.trim() || undefined,
-        horizonStartAt: hasHorizon ? `${startAt}T00:00:00Z` : undefined,
-        horizonTargetAt: hasHorizon && targetAt ? `${targetAt}T00:00:00Z` : undefined,
+        horizonStartAt: hasHorizon ? startISO : undefined,
+        horizonTargetAt: hasHorizon ? targetISO : undefined,
         attach,
         asDraft,
       });
@@ -199,10 +215,12 @@ export const SetBearingSheet = ({
               style={{ resize: 'vertical', fontSize: 13 }}
             />
 
-            {/* owning thread */}
+            {/* related current — optional. A bearing isn't owned by a thread;
+                this just relates one current at creation (you relate more from
+                within each current). On edit it's fixed (the storage home). */}
             {projects.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Mono dim>thread</Mono>
+                <Mono dim>current</Mono>
                 <select
                   className="km-input"
                   value={projectId}
@@ -210,6 +228,7 @@ export const SetBearingSheet = ({
                   disabled={editing}
                   style={{ fontSize: 13, flex: 1, maxWidth: 260 }}
                 >
+                  <option value="">— none (relate later) —</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -219,7 +238,8 @@ export const SetBearingSheet = ({
               </div>
             )}
 
-            {/* optional finish line — default off (intangible, no clock) */}
+            {/* optional finish line — default off (intangible, no clock). A
+                duration: N days from when it's set, framed as room remaining. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
                 className={'cmp-keep' + (hasHorizon ? ' on' : '')}
@@ -233,20 +253,14 @@ export const SetBearingSheet = ({
               {hasHorizon && (
                 <>
                   <input
-                    type="date"
+                    type="number"
+                    min={1}
                     className="km-input"
-                    value={startAt}
-                    onChange={(e) => setStartAt(e.target.value)}
-                    style={{ fontSize: 12, width: 150 }}
+                    value={days}
+                    onChange={(e) => setDays(Math.max(1, Number(e.target.value) || 0))}
+                    style={{ fontSize: 13, width: 90 }}
                   />
-                  <Mono dim>→</Mono>
-                  <input
-                    type="date"
-                    className="km-input"
-                    value={targetAt}
-                    onChange={(e) => setTargetAt(e.target.value)}
-                    style={{ fontSize: 12, width: 150 }}
-                  />
+                  <Mono dim>days from {editing ? 'when set' : 'today'}</Mono>
                 </>
               )}
             </div>
@@ -325,8 +339,8 @@ export const SetBearingSheet = ({
                 </p>
               )}
               <Mono dim style={{ marginTop: 4 }}>
-                {hasHorizon && targetAt
-                  ? `a finish line at ${targetAt}`
+                {hasHorizon
+                  ? `${days} days of room — a finish line`
                   : 'no clock — steered by, not tracked'}
               </Mono>
             </div>

@@ -21,6 +21,7 @@ type ProjectRow = {
   rank: number | null;
   color: ProjectColor | null;
   next_steps_dismissed: number;
+  serves_bearing_id: string | null;
   metadata: string | null;
   created_at: string;
   updated_at: string;
@@ -37,6 +38,7 @@ const rowToProject = (r: ProjectRow): Project => ({
   rank: r.rank ?? 0,
   color: r.color ?? undefined,
   nextStepsDismissed: r.next_steps_dismissed === 1,
+  servesBearingId: r.serves_bearing_id ?? undefined,
   createdAt: fromIso(r.created_at)!,
   updatedAt: fromIso(r.updated_at)!,
 });
@@ -322,6 +324,35 @@ export const togglePin = (db: DB, projectId: string): Project => {
     'UPDATE projects SET pinned = ?, updated_at = ? WHERE id = ?',
   ).run(next ? 1 : 0, now, projectId);
   return { ...project, pinned: next, updatedAt: new Date(now) };
+};
+
+/** Compass: point a current at the bearing it's under (or clear with null).
+ *  The bearing must be an orientation crystal. A bearing gathers many currents
+ *  this way — the inverse of the 1:1 binding the storage project_id implies. */
+export const setProjectBearing = (
+  db: DB,
+  projectId: string,
+  bearingId: string | null,
+): Project => {
+  const project = getProjectById(db, projectId);
+  if (!project) throw notFound('project', projectId);
+  if (bearingId !== null) {
+    const b = db
+      .prepare<[string], { ctype: string | null }>(
+        'SELECT ctype FROM items WHERE id = ?',
+      )
+      .get(bearingId);
+    if (!b) throw validationError({ bearingId: 'unknown_item' });
+    if (b.ctype !== 'orientation') throw validationError({ bearingId: 'not_a_bearing' });
+  }
+  if ((project.servesBearingId ?? null) === (bearingId ?? null)) return project;
+
+  const now = nowIso();
+  db.prepare(
+    'UPDATE projects SET serves_bearing_id = ?, updated_at = ? WHERE id = ?',
+  ).run(bearingId, now, projectId);
+  // Lightweight relation toggle — no activity log (mirrors togglePin).
+  return { ...project, servesBearingId: bearingId ?? undefined, updatedAt: new Date(now) };
 };
 
 export { toIso, fromIso, deriveSlug };

@@ -11,12 +11,13 @@ import { useStoreVersion } from '../data/store';
 import { useSkin } from '../lib/skin';
 import { copy } from '../lib/copy';
 import { getBearings } from '../lib/compass';
-import { getProjects } from '../data/selectors';
+import { getProjects, getNextUp } from '../data/selectors';
 import {
   captureItem,
   rewordBearing,
   setBearing,
   setItemCtype,
+  setProjectBearing,
   updateItem,
 } from '../data/actions';
 import { CompassStars, CompassEyebrow } from '../components/compass/atoms';
@@ -29,11 +30,15 @@ export const CompassLens = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const bearings = getBearings();
   const projects = getProjects();
+  // candidates for "what already flows toward this?" — current focus items.
+  const focusCandidates = getNextUp(undefined, 20);
 
   const handleSubmit = async (d: SetBearingDraft) => {
-    // Both flows start from a fresh item; the entry point decides whether it
-    // crystallizes into Compass (set) or stays a searchable draft.
-    const created = await captureItem({ projectId: d.projectId, kind: 'idea', title: d.title });
+    // A bearing isn't owned by a thread — project_id is just storage. Use the
+    // picked current as the home if given, else the first thread.
+    const homeId = d.projectId || projects[0]?.id;
+    if (!homeId) return;
+    const created = await captureItem({ projectId: homeId, kind: 'idea', title: d.title });
     if (d.asDraft) {
       await setItemCtype(created.id, 'orientation');
       if (d.description) await updateItem(created.id, { body: d.description });
@@ -46,6 +51,9 @@ export const CompassLens = () => {
       persona: null,
     });
     if (d.description) await rewordBearing(created.id, { description: d.description });
+    // If a current was picked, relate it to the new bearing (from-creation
+    // shortcut for the normal from-within-the-thread assignment).
+    if (d.projectId) await setProjectBearing(d.projectId, created.id);
   };
 
   return (
@@ -121,6 +129,7 @@ export const CompassLens = () => {
         onSubmit={handleSubmit}
         projects={projects}
         bearingCount={bearings.length}
+        attachCandidates={focusCandidates}
       />
     </div>
   );
