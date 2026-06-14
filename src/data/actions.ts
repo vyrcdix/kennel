@@ -320,6 +320,22 @@ export const setItemServes = async (
   return updated;
 };
 
+/** Move an item to a different current (thread). The server reassigns
+ *  project_id and picks it up off the bench (inbox → active) so it lands in
+ *  the current's In-focus rather than the global bench ("move it in"). */
+export const setItemProject = async (
+  id: string,
+  projectId: string,
+): Promise<Item> => {
+  const updated = await wrap(() =>
+    api.patch<Item>(`/api/items/${id}/project`, { projectId }),
+  );
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx >= 0) items[idx] = updated;
+  notify();
+  return updated;
+};
+
 // ─── v0.5 phase 8: per-doorway attach to a crystal ─────────────────
 
 export const attachGuidebookToCrystal = async (

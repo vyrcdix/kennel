@@ -14,7 +14,7 @@ import { useSkin } from '../../lib/skin';
 import { OrientationType } from './atoms';
 import type { Item, Project } from '../../data/types';
 
-const STARTERS = ['Run', 'See', 'Stay close to', 'Grow at', 'Build', 'Keep'];
+const STARTERS = ['Be', 'Run', 'See', 'Stay close to', 'Grow at', 'Build', 'Keep'];
 const DAY = 86_400_000;
 const DEFAULT_DAYS = 1000;
 
@@ -66,6 +66,8 @@ export const SetBearingSheet = ({
   const [hasHorizon, setHasHorizon] = useState(false);
   const [days, setDays] = useState(DEFAULT_DAYS);
   const [attach, setAttach] = useState<string[]>([]);
+  const [attachPickerOpen, setAttachPickerOpen] = useState(false);
+  const [attachQuery, setAttachQuery] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -90,6 +92,8 @@ export const SetBearingSheet = ({
         : DEFAULT_DAYS,
     );
     setAttach([]);
+    setAttachPickerOpen(false);
+    setAttachQuery('');
     setSaving(false);
   }, [open, seedTitle, editBearing, projects]);
 
@@ -265,30 +269,109 @@ export const SetBearingSheet = ({
               )}
             </div>
 
-            {/* what already flows toward this? — seeds the roll-up */}
+            {/* what already flows toward this? — a deliberate selector. Nothing
+                is related until you pick it; no auto-suggested list. Seeds the
+                roll-up. */}
             {!editing && attachCandidates.length > 0 && (
               <div>
                 <Mono dim style={{ display: 'block', marginBottom: 6 }}>
                   What already flows toward this?
                 </Mono>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {attachCandidates.map((it) => (
-                    <button
-                      key={it.id}
-                      className="km-btn km-btn-ghost"
-                      onClick={() => toggleAttach(it.id)}
+                {/* chosen — removable chips */}
+                {attach.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {attachCandidates
+                      .filter((it) => attach.includes(it.id))
+                      .map((it) => (
+                        <button
+                          key={it.id}
+                          className="km-btn"
+                          onClick={() => toggleAttach(it.id)}
+                          title="remove"
+                          style={{
+                            fontSize: 12,
+                            padding: '4px 10px',
+                            background: 'var(--sacred-soft)',
+                            color: 'var(--cmp-ink)',
+                            borderColor: 'var(--sacred)',
+                          }}
+                        >
+                          {it.title} ×
+                        </button>
+                      ))}
+                  </div>
+                )}
+                {attachPickerOpen ? (
+                  <div
+                    className="km-card"
+                    style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}
+                  >
+                    <input
+                      className="km-input"
+                      autoFocus
+                      placeholder="filter what flows toward this…"
+                      value={attachQuery}
+                      onChange={(e) => setAttachQuery(e.target.value)}
+                      style={{ fontSize: 12.5 }}
+                    />
+                    <div
                       style={{
-                        fontSize: 12,
-                        padding: '4px 10px',
-                        ...(attach.includes(it.id)
-                          ? { background: 'var(--sacred-soft)', color: 'var(--cmp-ink)', borderColor: 'var(--sacred)' }
-                          : {}),
+                        maxHeight: 150,
+                        overflow: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
                       }}
                     >
-                      {it.title}
-                    </button>
-                  ))}
-                </div>
+                      {(() => {
+                        const q = attachQuery.trim().toLowerCase();
+                        const opts = attachCandidates.filter(
+                          (it) =>
+                            !attach.includes(it.id) &&
+                            (!q || it.title.toLowerCase().includes(q)),
+                        );
+                        if (opts.length === 0)
+                          return <Mono dim style={{ padding: '4px 8px' }}>nothing to relate</Mono>;
+                        return opts.map((it) => (
+                          <button
+                            key={it.id}
+                            className="km-btn km-btn-ghost"
+                            onClick={() => {
+                              toggleAttach(it.id);
+                              setAttachQuery('');
+                            }}
+                            style={{
+                              fontSize: 12,
+                              padding: '5px 8px',
+                              justifyContent: 'flex-start',
+                              textAlign: 'left',
+                            }}
+                          >
+                            {it.title}
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                    <div style={{ display: 'flex' }}>
+                      <span style={{ flex: 1 }} />
+                      <button
+                        className="km-btn km-btn-ghost"
+                        onClick={() => setAttachPickerOpen(false)}
+                        style={{ fontSize: 12 }}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="km-btn km-btn-ghost"
+                    onClick={() => setAttachPickerOpen(true)}
+                    style={{ fontSize: 12, padding: '4px 10px' }}
+                  >
+                    <Icons.plus size={12} /> Relate something
+                  </button>
+                )}
               </div>
             )}
 

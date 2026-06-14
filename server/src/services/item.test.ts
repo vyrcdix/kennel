@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { makeTestDb, useTempContent } from '../test-helpers.js';
 import { HttpError } from '../errors.js';
 import { createProject } from './project.js';
-import { createItem, transitionItem } from './item.js';
+import { createItem, setItemProject, transitionItem } from './item.js';
 import type { DB } from '../db.js';
 
 let db: DB;
@@ -68,5 +68,43 @@ describe('transitionItem', () => {
     transitionItem(db, it.id, 'inbox');
     const after = (db.prepare('SELECT count(*) as c FROM activity').get() as { c: number }).c;
     expect(after).toBe(before);
+  });
+});
+
+describe('setItemProject (move into a current)', () => {
+  test('reassigns project and picks a bench item up off the bench (inbox → active)', () => {
+    const other = createProject(db, { name: 'Other' }).id;
+    const it = createItem(db, { projectId, kind: 'idea', title: 'wandered in' });
+    expect(it.state).toBe('inbox');
+    const moved = setItemProject(db, it.id, other);
+    expect(moved.projectId).toBe(other);
+    expect(moved.state).toBe('active'); // "move it in" — no longer on the bench
+  });
+
+  test('keeps a non-inbox item in its current state when moved', () => {
+    const other = createProject(db, { name: 'Other' }).id;
+    const it = createItem(db, { projectId, kind: 'idea', title: 'already sorted' });
+    transitionItem(db, it.id, 'reflecting');
+    const moved = setItemProject(db, it.id, other);
+    expect(moved.projectId).toBe(other);
+    expect(moved.state).toBe('reflecting');
+  });
+
+  test('no-op when already in the target current (no extra activity)', () => {
+    const it = createItem(db, { projectId, kind: 'idea', title: 't' });
+    const before = (db.prepare('SELECT count(*) as c FROM activity').get() as { c: number }).c;
+    setItemProject(db, it.id, projectId);
+    const after = (db.prepare('SELECT count(*) as c FROM activity').get() as { c: number }).c;
+    expect(after).toBe(before);
+  });
+
+  test('404 on unknown target project', () => {
+    const it = createItem(db, { projectId, kind: 'idea', title: 'x' });
+    try {
+      setItemProject(db, it.id, 'nope');
+      expect.unreachable();
+    } catch (err) {
+      expect((err as HttpError).status).toBe(404);
+    }
   });
 });

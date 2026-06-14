@@ -50,11 +50,13 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
   const crystalCount = getAllCrystals().length;
   const reflectingCount = getTotalReflectingCount();
   const bearingCount = getBearings().length;
-  // Compass sits at the very top, above Harbour (the dashboard) — per the
-  // backlog ruling. Sacred-family accent, like Crystals.
+  // Harbour (the dashboard) is the landing page and sits at the top of the
+  // nav; Compass follows just beneath it (Craig, 2026-06-14 — reverses the
+  // earlier "Compass above Harbour" override). Compass keeps its sacred-family
+  // accent, like Crystals.
   const sys: SysItem[] = [
-    { id: 'compass',   icon: Icons.compass, label: 'Compass',      to: '/compass', n: bearingCount },
     { id: 'dashboard', icon: Icons.menu,   label: copy('nav.dashboard'), to: '/' },
+    { id: 'compass',   icon: Icons.compass, label: 'Compass',      to: '/compass', n: bearingCount },
     { id: 'crystals',  icon: Icons.gem,    label: 'All crystals',  to: '/crystals', n: crystalCount },
     { id: 'triage',    icon: Icons.filter, label: 'The bench',     to: '/triage', n: triageCount },
     { id: 'reflecting', icon: Icons.park,  label: 'Reflecting',    to: '/reflecting', n: reflectingCount },

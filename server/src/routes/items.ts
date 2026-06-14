@@ -13,6 +13,7 @@ import {
   listItems,
   resurfaceCrystal,
   setItemCtype,
+  setItemProject,
   setItemServes,
   touchItem,
   transitionItem,
@@ -155,6 +156,19 @@ export const itemsRouter = (db: DB): Router => {
         throw validationError({ servesId: 'must_be_string_or_null' });
       }
       res.json(setItemServes(db, req.params.id, raw));
+    }),
+  );
+
+  // Move an item to a different current (thread) — reassigns project_id and
+  // picks it up off the bench (inbox → active) so it lands in the current.
+  r.patch(
+    '/:id/project',
+    asyncHandler(async (req, res) => {
+      const raw = (req.body ?? {}).projectId;
+      if (typeof raw !== 'string' || !raw) {
+        throw validationError({ projectId: 'required' });
+      }
+      res.json(setItemProject(db, req.params.id, raw));
     }),
   );
 

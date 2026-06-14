@@ -318,7 +318,12 @@ export const ProjectLanding = () => {
   const refs = getProjectReferences(project.id);
   const runbook = getRunbook(project.id);
   const fieldNotes = getFieldNotes(project.id);
-  const crystallizations = getCrystallizations(project.id);
+  // Bearings (ctype 'orientation') are forward-pointed crystals; they live in
+  // the Compass layer, never in a current's backward-looking crystal shelf
+  // (matches getAllCrystals' gallery guard). Filtered out here this round.
+  const crystallizations = getCrystallizations(project.id).filter(
+    (c) => c.ctype !== 'orientation',
+  );
   const dueCrystals = getDueCrystals(project.id);
   const recentRoutings = getProjectRoutings(project.id);
 

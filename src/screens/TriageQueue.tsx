@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AttachToThinkingModal } from '../components/AttachToThinkingModal';
 import { ChromeBar } from '../components/ChromeBar';
 import { NavRail } from '../components/NavRail';
@@ -18,11 +19,13 @@ import {
 import {
   convertItem,
   crystallizeItem,
+  setItemProject,
   transitionItem,
   type ConvertTarget,
 } from '../data/actions';
 import { removeItem, type RemovalAction } from '../lib/permanence';
-import { openRecur } from '../lib/modals';
+import { openItem, openRecur } from '../lib/modals';
+import { showToast } from '../lib/toast';
 import { useSkin } from '../lib/skin';
 import { useStoreVersion } from '../data/store';
 import { formatRelative } from '../data/time';
@@ -152,12 +155,14 @@ const TieredLegend = ({
 // panel drops in here when per-item routing ships server-side.
 const SuggestsSlot = ({
   item,
-  project,
+  projects,
   onConvert,
+  onMove,
 }: {
   item: Item;
-  project: Project;
+  projects: Project[];
   onConvert: (target: ConvertTarget) => void;
+  onMove: (projectId: string) => void;
 }) => {
   const [kindOpen, setKindOpen] = useState(false);
   return (
@@ -172,7 +177,19 @@ const SuggestsSlot = ({
       >
         <span className="km-mono-sm" style={{ color: 'var(--fg-muted)' }}>In</span>
         <span>
-          <ProjectTag slug={project.slug} />
+          {/* "In" is editable state (A2) — and the move gesture: pick another
+              current and the item moves in (off the bench, into that current). */}
+          <select
+            value={item.projectId}
+            onChange={(e) => onMove(e.target.value)}
+            className="km-input km-input-mono"
+            style={{ fontSize: 12.5, padding: '2px 6px', width: 'auto' }}
+            title="Move to a current"
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.slug}</option>
+            ))}
+          </select>
         </span>
         <span className="km-mono-sm" style={{ color: 'var(--fg-muted)' }}>As a</span>
         <span style={{ position: 'relative' }}>
@@ -462,6 +479,7 @@ const ITEM_KINDS: KindFilter[] = ['idea', 'note', 'action', 'ref', 'question'];
 
 export const TriageQueue = () => {
   const v = useStoreVersion();
+  const navigate = useNavigate();
   const projects = getProjects();
   const [projectFilter, setProjectFilter] = useState<string | undefined>(undefined);
   const [kindFilter, setKindFilter] = useState<Set<KindFilter>>(() => new Set());
@@ -606,6 +624,28 @@ export const TriageQueue = () => {
     if (!selected) return;
     setConvertOpen(false);
     void convertItem(selected.item.id, target);
+  };
+
+  // Move a bench item into a current: reassigns its home and picks it up off
+  // the bench (inbox → active) so it lands in the current's In-focus rather
+  // than staying on the bench ("move it in"). Reversible via the toast.
+  const doMove = (projectId: string) => {
+    if (!selected || projectId === selected.item.projectId) return;
+    const moved = selected.item;
+    const prevProject = moved.projectId;
+    const prevState = moved.state;
+    const dest = projects.find((p) => p.id === projectId);
+    void setItemProject(moved.id, projectId).then(() => {
+      showToast(`Moved into ${dest?.name ?? 'the current'}.`, {
+        kind: 'focus',
+        onUndo: () => {
+          void (async () => {
+            await setItemProject(moved.id, prevProject);
+            await transitionItem(moved.id, prevState);
+          })();
+        },
+      });
+    });
   };
 
   // Every bench removal routes through removeItem: it animates the row out
@@ -816,22 +856,67 @@ export const TriageQueue = () => {
                     <KindIcon kind={selected.item.kind} muted={false} />
                     <ProjectTag slug={selected.project.slug} />
                     <span style={{ flex: 1 }} />
-                    <Mono>
-                      id {selected.item.id} · captured via desktop ⌘⇧K
-                    </Mono>
+                    <Mono>id {selected.item.id}</Mono>
+                    <button
+                      className="km-btn km-btn-ghost"
+                      onClick={() => openItem(selected.item, navigate)}
+                      style={{ padding: '2px 8px', fontSize: 11.5 }}
+                      title="Open full details — the same view as inside a current"
+                    >
+                      Open <Icons.arrowR size={11} />
+                    </button>
                   </div>
-                  <div className="km-display-md" style={{ marginBottom: 10 }}>
+                  {/* Title opens the same detail view as clicking the item inside
+                      a current (shared openItem policy) — consistent everywhere. */}
+                  <button
+                    onClick={() => openItem(selected.item, navigate)}
+                    className="km-display-md"
+                    title="Open full details"
+                    style={{
+                      marginBottom: 10,
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      background: 'transparent',
+                      border: 0,
+                      padding: 0,
+                      cursor: 'pointer',
+                      color: 'var(--fg)',
+                    }}
+                  >
                     {selected.item.title}
-                  </div>
+                  </button>
                   <div style={{ marginBottom: 12 }}>
                     <TagChips entityType="item" entityId={selected.item.id} editable />
                   </div>
-                  {skin === 'life' && (
+                  {skin === 'life' ? (
                     <SuggestsSlot
                       item={selected.item}
-                      project={selected.project}
+                      projects={projects}
                       onConvert={doConvert}
+                      onMove={doMove}
                     />
+                  ) : (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <Label style={{ marginBottom: 0 }}>Move to a current</Label>
+                      <select
+                        value={selected.item.projectId}
+                        onChange={(e) => doMove(e.target.value)}
+                        className="km-input km-input-mono"
+                        style={{ fontSize: 12.5, width: 'auto', flex: 1 }}
+                      >
+                        {projects.map((p) => (
+                          <option key={p.id} value={p.id}>{p.slug}</option>
+                        ))}
+                      </select>
+                    </div>
                   )}
 
                   <div className="km-body" style={{ lineHeight: 1.6, color: 'var(--fg)' }}>

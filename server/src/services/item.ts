@@ -529,6 +529,42 @@ export const setItemServes = (
   return getItemById(db, id)!;
 };
 
+/** Move an item to a different current (thread). Reassigns project_id; if the
+ *  item is still on the bench (inbox) it's picked up into the current as part
+ *  of the move (inbox → active) so it surfaces in the current's In-focus rather
+ *  than languishing on the global bench ("move it in" — Craig, 2026-06-14).
+ *  No-op when it's already there. */
+export const setItemProject = (
+  db: DB,
+  id: string,
+  projectId: string,
+  actor: 'craig' | 'claude' | 'cli' = 'craig',
+): Item => {
+  const existing = getItemById(db, id);
+  if (!existing) throw notFound('item', id);
+  const proj = getProjectById(db, projectId);
+  if (!proj) throw notFound('project', projectId);
+  if (existing.projectId === projectId) return existing;
+
+  const now = nowIso();
+  const nextState: ItemState = existing.state === 'inbox' ? 'active' : existing.state;
+  db.prepare(
+    'UPDATE items SET project_id = ?, state = ?, updated_at = ?, last_touched_at = ? WHERE id = ?',
+  ).run(projectId, nextState, now, now, id);
+
+  logActivity(db, {
+    projectId,
+    entityType: 'item',
+    entityId: id,
+    verb: 'MOVED',
+    target: `${existing.kind} / ${existing.title}`,
+    payload: `${existing.projectId} → ${projectId}`,
+    actor,
+    occurredAt: now,
+  });
+  return getItemById(db, id)!;
+};
+
 /** v0.5 resurfacing — touch / ack a crystal. Touch (default) resets
  *  `last_surfaced_at` so the resurface cadence restarts; ack also bumps
  *  `surface_count`. Touch is fired implicitly when the user opens a

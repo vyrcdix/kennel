@@ -117,7 +117,8 @@ the wake, the horizon math, "still about?" — reuses existing machinery.
 | P1 | Backend: bearings | set-bearing (promote/crystallize→orientation, optional horizon, currents attach, persona), reword/edit, set/remove horizon, cadence `role=promise`, let-go (revert promises→practice), still-about (resurface re-pointed); contract tests (horizon derivation inputs, let-go→practice) | tests green |
 | P2 | Derivation + selectors + copy | `lib/compass.ts` (horizon day/total/ahead; wake series from KEPT; `getBearings`, `getBearingBuilt`, `getBearingPromise`); `groupFocus('orient')`; both copy columns | none |
 | P3 | Core components + `.cmp-*` | `CompassBand`, bearing card, the **wake** visual, `SetBearingSheet`, orientation-page atoms; the `.cmp-*` block (sky Life/Workshop, stars/lodestar, horizon, wake, promise); 7 icons | none |
-| P4 | Compass lens + orientation page | `TideCompass` (new **Compass** Mood/route — **top of the Moods nav, above Harbour**, per the backlog; the handoff said "below Harbour" — Craig overrode) + `TideOrientation` (forward crystal · horizon · wake · what's-built roll-up · today's promise · "still about?"); creation flow wired | none |
+| P4 | Compass lens + orientation page | `TideCompass` (new **Compass** Mood/route — **top of the Moods nav, above Harbour**, per the backlog; the handoff said "below Harbour" — Craig overrode; **re-reversed 2026-06-14 —
+Harbour back on top**, see Post-deploy dogfooding rulings) + `TideOrientation` (forward crystal · horizon · wake · what's-built roll-up · today's promise · "still about?"); creation flow wired | none |
 | P5 | Dashboard surfaces | `CompassBand` above the hearth (both skins, rotating) + the **"Under a bearing"** 3rd In-focus lens (on the existing lens component); guard: filter bearings out of the Crystals gallery | none |
 | P6 | Naming sweep + QA/deploy | Harbour/Driftwood/Currents + the broad thread→current visible-string sweep (Life copy, staged); QA (both-skin parity, **no-progress-bar / no-streak / no-red** audit, AA, reduced-motion); ship to the test instance | parity/voice review; deploy |
 
@@ -127,6 +128,85 @@ the wake, the horizon math, "still about?" — reuses existing machinery.
 - The **deepening-field** (dashboard) + **crossing** (horizon bearings) evidence
   visuals (the wake ships this round).
 - The broad thread→current copy sweep may itself span more than P6.
+
+## Post-deploy dogfooding rulings (Craig, 2026-06-14)
+
+First round of feedback from the live test instance, on branch `compass-fixes`
+(off `main`). Nine issues triaged against the merged Compass build.
+
+**Shipped this pass (code):**
+- **#1 Bearing on an unrelated current's crystals (bug).** The per-current
+  crystal shelf (`ProjectLanding`) now applies the same `ctype !== 'orientation'`
+  guard as the global gallery (`getAllCrystals`), so a forward crystal never
+  renders with backward chrome on a current.
+- **#2 Ideas added to a current vanished → "move it in".** New primitive
+  `setItemProject` (server `PATCH /api/items/:id/project` + client action):
+  moving an item to a current reassigns its home **and** picks it up off the
+  bench (`inbox → active`) so it lands in the current's In-focus instead of
+  languishing on the global bench. Surfaced on the bench preview — the Life
+  **"In"** suggests-slot row is now a current selector; Workshop gets a "Move to
+  a current" select. Reversible via an Undo toast. Contract tests added to
+  `item.test.ts`.
+- **#3 Harbour at the top + landing.** Reverses the earlier "Compass above
+  Harbour" override (P4): Harbour (dashboard) is row 0 of the nav and remains
+  the `/` landing; Compass sits just beneath it.
+- **#5 "What flows toward this" is a selector, not auto-populated.** The
+  creation sheet no longer pre-lists the top focus items as toggles; you open a
+  small filter/picker and add deliberately. Chosen items show as removable chips.
+- **#6 Bearing "Be" prompt.** Added `Be` to the SetBearingSheet starters
+  (e.g. "Be debt free in 1000 days").
+- **#9 Consistent item detail.** Clicking an item on the bench now opens the
+  same detail view (shared `openItem` policy → EditItemModal) as clicking it
+  inside a current — clickable title plus an explicit "Open" affordance.
+
+**Clarified, no change:**
+- **#8 "Skip this week" logic.** Working as designed — a *no-debt* skip: the
+  window is forgiven, leaves **no trace in the wake** (a missed window simply has
+  no mark), and rolls to the next window. No streak, no penalty. (Toast:
+  "Skipped, no harm. Rolls to the next window.")
+
+**Fast-follows specced (not yet built):**
+
+### Fast-follow — the bench, elevated (#4)
+The bench is calls-to-action / reminders — it carries more weight than its
+current treatment (nav row 4 + a right-sidebar roll-up on Harbour). Raise it
+without turning it into a nag:
+- **Harbour:** promote the bench roll-up from the right rail to a first-class
+  band near the top of Harbour (under the orientation/hearth), with the count
+  and a one-tap "Sort".
+- **Consider** a count beside Harbour's headline ("N washed in") linking to the
+  bench, in the calm-tide voice.
+- Decide whether per-current landings surface that current's own un-sorted
+  captures ("N waiting on the bench →") — interplay with the #2 "move it in"
+  model, without duplicating the global queue.
+- **Constraints:** no red, no notification badges, no count that reads as
+  overdue. The bench is an invitation, like the rest of the system.
+- **For design:** exact placement/weight on Harbour; whether the bench earns a
+  persistent header affordance (capture is already ⌘⇧K).
+
+### Fast-follow — bearing milestones (self-reported, no bars) (#7)
+Bearings often have measurable, dated checkpoints — "Finished 1st in 50k ultra
+age-group, Sept 2025", "debt halved", "sub-4:00 tune-up race done". Add
+milestones as **self-reported, dated marks along the bearing**, modelled on the
+**wake** — NOT as progress bars.
+- **Hard invariants (carry over):** no progress bar, no %-complete, no
+  countdown, no streak, no red. A milestone is a *kept moment*, not a gauge.
+- **Shape:** milestone = `{ title, reachedAt, note? }`. Reaching one is an
+  explicit self-reported act (like "Still true" / "Did it"). Unmet future
+  milestones are never shown as deficits — at most a faint "next: …", with no
+  clock unless the bearing has a horizon.
+- **Data model (decide in design) —** lean toward reusing existing machinery
+  over a new metric column:
+  1. **Milestone = a tiny crystal/item** that serves / is-sourced-from the
+     bearing, carrying `reachedAt` — fits the item machinery and shows in the
+     orientation page's wake / "what's built" roll-up *(preferred — milestones
+     become evidence, honouring "compounding = accumulated evidence")*.
+  2. A `milestones` JSON column on the bearing item — simpler, but a new shape
+     to render + migrate.
+- **Surface:** orientation page — a dated milestone strip beneath the wake; the
+  most recent milestone can ride the CompassBand rotation.
+- **Needs a design handoff** before build (the rev-2 prototype has no milestone
+  study) — the one item here that genuinely extends the concept.
 
 ## Invariants checklist (verify before merge)
 
