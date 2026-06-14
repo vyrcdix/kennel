@@ -551,12 +551,14 @@ export const Chart = () => {
   const night = mode === 'dark' || (mode === 'system' && prefersDark());
 
   return (
-    <div className={`km km-skin-life${night ? ' km-dark' : ''}`} style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* header */}
+    <div
+      className={`km km-skin-life${night ? ' km-dark' : ''}`}
+      style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}
+    >
+      {/* header — fixed above the scroll pane (.km clips document scroll) */}
       <header
         style={{
-          position: 'sticky',
-          top: 0,
+          flex: '0 0 auto',
           zIndex: 30,
           display: 'flex',
           alignItems: 'center',
@@ -606,6 +608,8 @@ export const Chart = () => {
         </button>
       </header>
 
+      {/* scroll pane — full width so the scrollbar sits at the viewport edge */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <main style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px 100px' }}>
         {/* hero */}
         <section style={{ position: 'relative', padding: '64px 0 40px', overflow: 'hidden' }}>
@@ -759,6 +763,7 @@ export const Chart = () => {
           </p>
         </section>
       </main>
+      </div>
 
       <WhyModal open={why} onClose={() => setWhy(false)} />
     </div>
