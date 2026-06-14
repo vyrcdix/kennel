@@ -268,6 +268,52 @@ the "No projects" state; create your real threads from there.
 > data. Only do it before you've added real data, or take a backup
 > first (`cp kennel.db kennel.db.before-wipe`).
 
+### Resetting a live instance (wipe your own data, e.g. between dogfood runs)
+
+Same idea as the clean slate above, but for an instance that already holds
+**real data** — so it **backs up first** (reversible) and confirms the paths
+rather than assuming them.
+
+```sh
+# 0. Confirm the paths THIS instance uses (don't assume the defaults).
+systemctl show kennel -p Environment --no-pager
+#    note KENNEL_DB=…  and KENNEL_CONTENT_DIR=…  (unset content → /opt/kennel/server/content)
+
+# 1. Stop, then back up (reversible).
+systemctl stop kennel
+ts=$(date -u +%Y%m%d-%H%M%S)
+cp /opt/kennel/server/kennel.db "/opt/kennel/server/kennel.db.$ts.bak"
+tar czf "/opt/kennel/server/content-$ts.tgz" -C /opt/kennel/server content
+
+# 2. Wipe the DB (+ WAL/SHM) and content.
+rm -f /opt/kennel/server/kennel.db /opt/kennel/server/kennel.db-wal /opt/kennel/server/kennel.db-shm
+rm -rf /opt/kennel/server/content/*
+
+# 3. Start — fresh empty DB, migrations re-apply, no demo seed.
+systemctl start kennel
+journalctl -u kennel -n 20 --no-pager
+```
+
+**Resets:** all data **and the login password** (the hash lives in the DB) — it
+re-seeds from `KENNEL_INITIAL_PASSWORD` on the fresh boot if that's still in the
+unit (otherwise auth is disabled until you set one). **Persists:**
+`KENNEL_MCP_TOKEN` (it's env, not in the DB), so MCP clients keep working.
+
+**Restore** from the backup if you regret it:
+
+```sh
+systemctl stop kennel
+cp "/opt/kennel/server/kennel.db.$ts.bak" /opt/kennel/server/kennel.db
+rm -f /opt/kennel/server/kennel.db-wal /opt/kennel/server/kennel.db-shm
+rm -rf /opt/kennel/server/content/* && tar xzf "/opt/kennel/server/content-$ts.tgz" -C /opt/kennel/server
+systemctl start kennel
+```
+
+> **Non-destructive alternative:** instead of wiping, dogfood on a **parallel
+> instance** and leave this one alone — `ops/provision.sh dogfood` (see
+> `docs/multi-tenant.md`) gives a clean empty `dogfood.steep.work` with its own
+> DB; `deprovision.sh dogfood --purge` removes it when you're done.
+
 ### 6. Caddy on the Tailscale interface
 
 Find your tailnet hostname:
