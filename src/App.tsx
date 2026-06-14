@@ -5,6 +5,7 @@ import CrystalDetail from './screens/CrystalDetail';
 import CrystalsGallery from './screens/CrystalsGallery';
 import CompassLens from './screens/CompassLens';
 import OrientationPage from './screens/OrientationPage';
+import Chart from './screens/Chart';
 import TraceView from './screens/TraceView';
 import Dashboard from './screens/Dashboard';
 import FieldNotesView from './screens/FieldNotesView';
@@ -125,6 +126,7 @@ export const App = () => (
       <Route path="/crystal/:id" element={<CrystalDetail />} />
       <Route path="/compass" element={<CompassLens />} />
       <Route path="/orientation/:id" element={<OrientationPage />} />
+      <Route path="/chart" element={<Chart />} />
       <Route path="/project/:slug/trace" element={<TraceView />} />
       <Route path="/aging" element={<AgingBoard />} />
       <Route path="/reflecting" element={<ReflectingBoard />} />

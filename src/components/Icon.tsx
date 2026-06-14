@@ -80,6 +80,18 @@ export const Icons: Record<string, IconFn> = {
   repeat:    make(['m17 2 4 4-4 4','M3 11v-1a4 4 0 0 1 4-4h14','m7 22-4-4 4-4','M21 13v1a4 4 0 0 1-4 4H3']),
   mic:       make(['M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z','M19 10v1a7 7 0 0 1-14 0v-1','M12 18v4']),
   globe:     make(['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z','M2 12h20','M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z']),
+  // The Chart (help page) glyphs.
+  tide:      make(['M2 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0', 'M2 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0']),
+  layers:    make(['M12 3 3 8l9 5 9-5z', 'M3 13l9 5 9-5']),
+  clock:     make(['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 8v5l3 2']),
+  refresh:   make(['M20 12a8 8 0 1 1-2.3-5.6', 'M20 4v4h-4']),
+  book:      make(['M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z', 'M8 3v18']),
+  spark:     make(['M11 3l1.4 4.6L17 9l-4.6 1.4L11 15l-1.4-4.6L5 9z', 'M18 13l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z']),
+  run:       make(['M13.5 5a1.5 1.5 0 1 0 0-.01', 'm6 20 3-5 3 2 1 4', 'M9 15l-1-4 5-2 2 3 3 .5']),
+  plane:     make('M21 15v-1.7l-7.5-4.6V4a1.5 1.5 0 0 0-3 0v4.7L3 13.3V15l7.5-2.2V17l-2 1.4V20l3.5-1 3.5 1v-1.6L13.5 17v-4.2z'),
+  moon:      make('M21 12.5A8.5 8.5 0 1 1 11.5 3 6.5 6.5 0 0 0 21 12.5z'),
+  sun:       make(['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M12 2v2', 'M12 20v2', 'M4 12H2', 'M22 12h-2', 'm5 5 1.4 1.4', 'm17.6 17.6 1.4 1.4', 'm19 5-1.4 1.4', 'm6.4 17.6-1.4 1.4']),
+  undo:      make(['M9 14 4 9l5-5', 'M4 9h11a5 5 0 0 1 0 10h-3']),
   // Compass (orientation layer): compass face, the 4-point star (stroked +
   // filled lodestar), a rising-sun horizon, a tick, a heart, an anchor.
   compass:   make(['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z','m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z']),

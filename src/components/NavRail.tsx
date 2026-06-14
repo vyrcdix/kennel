@@ -23,6 +23,7 @@ export type NavRailActive =
   | 'reflecting'
   | 'search'
   | 'skills'
+  | 'chart'
   | 'settings'
   | '';
 
@@ -59,6 +60,7 @@ export const NavRail = ({ active = 'dashboard', activeProjectSlug }: NavRailProp
     { id: 'reflecting', icon: Icons.park,  label: 'Reflecting',    to: '/reflecting', n: reflectingCount },
     { id: 'search',    icon: Icons.search, label: 'Search',        to: '/search' },
     { id: 'skills',    icon: Icons.star,   label: 'Skills',        to: '/proposal' },
+    { id: 'chart',     icon: Icons.book,   label: 'The Chart',     to: '/chart' },
     { id: 'settings',  icon: Icons.cog,    label: 'Settings',      to: '/settings' },
   ];
 
