@@ -1,0 +1,20 @@
+# Steep multi-user front door.  Install as /etc/caddy/Caddyfile (adapt the
+# domain + DNS provider), then `systemctl reload caddy`.
+#
+# One wildcard cert for *.steep.work via a DNS-01 challenge, so adding a user
+# never issues a new cert or needs a DNS edit. Each provisioned user is a small
+# generated route file under /etc/caddy/tenants/ (see ops/provision.sh).
+#
+# Wildcard certs REQUIRE a DNS-provider plugin build of Caddy. Build/install one
+# for your provider, e.g.:
+#   caddy add-package github.com/caddy-dns/cloudflare
+# and give Caddy the API token (e.g. in /etc/default/caddy or the unit's
+# Environment=). Swap `cloudflare`/`CF_API_TOKEN` below for your provider.
+
+{
+	# Wildcard cert for every subdomain. Uncomment + set your DNS provider:
+	# acme_dns cloudflare {env.CF_API_TOKEN}
+}
+
+# Per-user routes are generated here, one file per subdomain.
+import /etc/caddy/tenants/*.caddy

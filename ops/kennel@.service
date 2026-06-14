@@ -1,0 +1,29 @@
+# Steep (kennel) — per-user instance, one process per subdomain.
+# Install:  cp ops/kennel@.service /etc/systemd/system/  &&  systemctl daemon-reload
+# Manage:   systemctl {enable --now|restart|stop|status} kennel@<subdomain>
+# Fleet:    systemctl restart 'kennel@*'
+#
+# %i is the subdomain. Each instance reads its own env file and writes only its
+# own data dir. See docs/multi-tenant.md.
+[Unit]
+Description=Steep (kennel) — %i
+After=network.target
+
+[Service]
+Type=simple
+User=kennel
+WorkingDirectory=/opt/kennel
+EnvironmentFile=/etc/kennel/%i.env
+ExecStart=/usr/bin/npm --prefix server start
+Restart=on-failure
+RestartSec=5
+
+# Hardening — the instance can write only its own /srv/kennel/<sub> tree.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/kennel/%i
+
+[Install]
+WantedBy=multi-user.target

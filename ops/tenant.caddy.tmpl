@@ -1,0 +1,23 @@
+# Per-user Caddy route. Rendered by ops/provision.sh (__SUB__ / __DOMAIN__ /
+# __PORT__ substituted) into /etc/caddy/tenants/<sub>.caddy.
+__SUB__.__DOMAIN__ {
+	encode gzip
+
+	# API + MCP → this user's process. flush_interval -1 keeps the
+	# /api/events SSE stream unbuffered.
+	@backend path /api/* /mcp /mcp/*
+	handle @backend {
+		reverse_proxy 127.0.0.1:__PORT__ {
+			flush_interval -1
+		}
+	}
+
+	# Everything else → the shared built SPA. The frontend is tenant-agnostic
+	# (it only calls same-origin /api), so one dist/ serves every user, with
+	# client-side-routing fallback to index.html.
+	handle {
+		root * /opt/kennel/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

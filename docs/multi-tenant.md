@@ -1,0 +1,339 @@
+# Multi-user Steep — Option A: a process per subdomain
+
+> **Brand vs. codename.** The repo, env vars (`KENNEL_*`), systemd unit, and DB
+> file keep the internal codename `kennel`. **Steep** is the user-facing brand.
+> This is a companion to `docs/deploy.md` — read that first; this doc only adds
+> the multi-user layer.
+
+## What this is
+
+Steep is single-user by design, but the runtime is already isolated by
+environment, not baked in. So the cheapest way to host **multiple independent
+users — each with their own database** — is to run **one process per user**,
+one per subdomain:
+
+```
+alice.steep.work  →  127.0.0.1:8421  →  /srv/kennel/alice/kennel.db
+bob.steep.work    →  127.0.0.1:8422  →  /srv/kennel/bob/kennel.db
+carol.steep.work  →  127.0.0.1:8423  →  /srv/kennel/carol/kennel.db
+```
+
+Each process has its **own DB file, content directory, login password, MCP
+token, and port**. They share one code checkout and one Caddy front door.
+**No application code changes** — it's all env + systemd + Caddy.
+
+### Why this shape (and not one process for everyone)
+
+Two properties of the codebase make process-per-user the natural fit:
+
+1. **`db` is dependency-injected and auth lives inside each DB.** Every router
+   is built with a `db` handle (`itemsRouter(db)`, …) — there is no global `db`
+   singleton — and the login password + sessions are stored in that database's
+   own `settings` row. So *one instance pointed at its own file already is an
+   independent user*: separate data, separate credentials, separate MCP token.
+   There is no shared "users" table to build, and no auth rewrite.
+2. **`better-sqlite3` is synchronous, and the SSE bus is process-global.** In a
+   single shared process, any user's query would block the event loop for
+   everyone, the activity-event bus (`server/src/events.ts`, a module-level
+   `Set`) would fan out across users, and one bad migration would be shared-fate.
+   Separate OS processes sidestep all three for free. (The multi-tenant-in-one-
+   process alternative — "Option B" — is a real refactor; see the bottom.)
+
+**Net:** independent users fall out of the existing single-user design by
+running it N times. The work is provisioning + routing, not product code.
+
+---
+
+## The env contract (what defines one user's world)
+
+Everything below is already read by the server (`server/src/db.ts`,
+`content.ts`, `index.ts`, `mcp/auth.ts`). A user = one process with these set:
+
+| Var | Per-user value | Notes |
+|---|---|---|
+| `PORT` | unique, e.g. `8421`, `8422`, … | localhost only; Caddy is the only public listener |
+| `HOST` | `127.0.0.1` | never bind public |
+| `KENNEL_DB` | `/srv/kennel/<sub>/kennel.db` | the user's database; migrations apply to it on boot |
+| `KENNEL_CONTENT_DIR` | `/srv/kennel/<sub>/content` | the user's markdown (docs / field notes) |
+| `KENNEL_INITIAL_PASSWORD` | generated | seeds the web-UI login on first boot; inert after |
+| `KENNEL_MCP_TOKEN` | generated | bearer token for that user's `/mcp` |
+| `KENNEL_SKIP_SEED` | `1` | start empty — no demo fixtures |
+| `NODE_ENV` | `production` | |
+
+> Auth is **disabled** when no password is set. Always set
+> `KENNEL_INITIAL_PASSWORD` on a public box so each subdomain is gated.
+
+---
+
+## Layout on the box
+
+```
+/opt/kennel/                     # ONE shared code checkout (git + dist/ + node_modules)
+/etc/kennel/<sub>.env            # per-user environment file
+/srv/kennel/<sub>/kennel.db      # per-user database (+ -wal, -shm)
+/srv/kennel/<sub>/content/       # per-user markdown
+/etc/caddy/tenants/<sub>.caddy   # per-user Caddy route (generated)
+```
+
+Code is shared and read-only to the service; **all per-user state lives under
+`/srv/kennel/<sub>/`**, which keeps backups and deletion trivially scoped.
+
+---
+
+## 1. systemd — a template unit
+
+One template serves every user; `%i` is the subdomain.
+
+```ini
+# /etc/systemd/system/kennel@.service
+[Unit]
+Description=Steep (kennel) — %i
+After=network.target
+
+[Service]
+Type=simple
+User=kennel
+WorkingDirectory=/opt/kennel
+EnvironmentFile=/etc/kennel/%i.env
+ExecStart=/usr/bin/npm --prefix server start
+Restart=on-failure
+RestartSec=5
+
+# Hardening — only this user's data dir is writable.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/kennel/%i
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Manage a user with `systemctl … kennel@alice`. `systemctl restart 'kennel@*'`
+hits everyone.
+
+---
+
+## 2. Caddy — wildcard cert, per-user routes
+
+Use **one wildcard certificate** for `*.steep.work` (DNS-01 challenge) so adding
+a user never issues a new cert or needs a DNS edit. Each user is a small
+generated route file.
+
+```caddy
+# /etc/caddy/Caddyfile
+{
+    # Wildcard cert via your DNS provider's plugin (needs an API token).
+    # Example for Cloudflare; swap for your provider.
+    # acme_dns cloudflare {env.CF_API_TOKEN}
+}
+
+import /etc/caddy/tenants/*.caddy
+```
+
+```caddy
+# /etc/caddy/tenants/alice.caddy   (generated by provision.sh)
+alice.steep.work {
+    encode gzip
+    # API + MCP → this user's process. flush_interval -1 keeps SSE unbuffered.
+    @backend path /api/* /mcp /mcp/*
+    handle @backend {
+        reverse_proxy 127.0.0.1:8421 { flush_interval -1 }
+    }
+    # Everything else → the shared built SPA (tenant-agnostic; it only calls
+    # same-origin /api, so one dist/ serves all users).
+    handle {
+        root * /opt/kennel/dist
+        try_files {path} /index.html
+        file_server
+    }
+}
+```
+
+The SPA needs **no per-user build** — it talks to `/api` on its own origin,
+which Caddy routes to that user's process.
+
+> **Don't** add Caddy `basic_auth` — Steep's own login gates each subdomain.
+
+---
+
+## 3. DNS
+
+A single wildcard record, set once:
+
+```
+A   *.steep.work   <vps-ip>
+```
+
+(Plus the DNS-provider API token in Caddy's environment for the wildcard cert.)
+After this, provisioning a user touches **no DNS and no Caddyfile** — only a
+generated route file + a reload.
+
+---
+
+## 4. Provisioning a user
+
+A script does the whole thing. Sketch (`/opt/kennel/ops/provision.sh`, run as
+root):
+
+```sh
+#!/usr/bin/env bash
+set -euo pipefail
+sub="$1"                                   # e.g. alice
+[[ "$sub" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || { echo "bad subdomain"; exit 1; }
+env="/etc/kennel/$sub.env"
+[[ -e "$env" ]] && { echo "$sub already exists"; exit 1; }
+
+# next free port: 8421 + count of existing tenants
+base=8421
+port=$(( base + $(ls /etc/kennel/*.env 2>/dev/null | wc -l) ))
+
+data="/srv/kennel/$sub"
+install -d -o kennel -g kennel "$data" "$data/content"
+
+pass=$(openssl rand -base64 12)
+token=$(openssl rand -hex 32)
+
+cat >"$env" <<EOF
+NODE_ENV=production
+HOST=127.0.0.1
+PORT=$port
+KENNEL_DB=$data/kennel.db
+KENNEL_CONTENT_DIR=$data/content
+KENNEL_INITIAL_PASSWORD=$pass
+KENNEL_MCP_TOKEN=$token
+KENNEL_SKIP_SEED=1
+EOF
+chmod 600 "$env"
+
+# Caddy route for this subdomain
+install -d /etc/caddy/tenants
+sed "s/__SUB__/$sub/; s/__PORT__/$port/" /opt/kennel/ops/tenant.caddy.tmpl \
+  >"/etc/caddy/tenants/$sub.caddy"
+
+systemctl enable --now "kennel@$sub"
+systemctl reload caddy
+
+cat <<EOF
+
+  ✅ provisioned $sub
+     URL:       https://$sub.steep.work
+     password:  $pass
+     MCP URL:   https://$sub.steep.work/mcp
+     MCP token: $token
+EOF
+```
+
+Hand the user their URL + password; the password is changeable from
+**Settings → Account** after first login (the env value is inert thereafter).
+
+### Deprovisioning
+
+```sh
+#!/usr/bin/env bash
+set -euo pipefail
+sub="$1"
+systemctl disable --now "kennel@$sub" || true
+rm -f "/etc/caddy/tenants/$sub.caddy" "/etc/kennel/$sub.env"
+systemctl reload caddy
+# Data is NOT deleted automatically. Archive, then remove deliberately:
+#   tar czf /srv/kennel-archive/$sub-$(date +%F).tgz -C /srv/kennel "$sub"
+#   rm -rf "/srv/kennel/$sub"
+echo "deprovisioned $sub (data retained at /srv/kennel/$sub)"
+```
+
+Deletion of user data is left as a deliberate, separate step — never
+automatic.
+
+---
+
+## 5. Updating all users
+
+Code is shared, so it's one pull + build, then a fleet restart. Each process
+applies any pending migrations to **its own** DB on boot:
+
+```sh
+sudo -u kennel bash -lc 'cd /opt/kennel && git pull --ff-only && npm install && npm --prefix server install && npm run build'
+systemctl restart 'kennel@*'
+journalctl -u 'kennel@*' --since "2 min ago" | grep -E "applied migration|listening|Error"
+```
+
+Because migrations run per-DB, a schema change rolls out to every user on
+restart, independently — one user's migration failure stops only that user's
+process, not the fleet. Back up first (below).
+
+---
+
+## 6. Backups (per user)
+
+Loop the existing strategy over `/srv/kennel/*`:
+
+```sh
+for d in /srv/kennel/*/; do
+  sub=$(basename "$d")
+  sqlite3 "$d/kennel.db" ".backup /tmp/$sub.snapshot"
+  restic backup /tmp/$sub.snapshot "$d/content" --tag "$sub"
+  rm -f "/tmp/$sub.snapshot"
+done
+```
+
+Per-user tags make per-user restore straightforward.
+
+---
+
+## 7. Cost & scale
+
+- ~**170 MB RAM per process** at idle (measured: the prod journal shows ~168 M
+  peak). On a CX22 (4 GB) that's ~**20 users** with headroom; size the box up
+  from there.
+- SQLite WAL is **per file**, so there is **zero cross-user contention**, and
+  separate processes mean one user's heavy query can't stall another.
+- Ports are localhost-only; the only public surface is Caddy.
+
+This is the right footprint for a handful-to-dozens of users. Past that, the
+ops (one unit + one route file each) and the RAM start to argue for Option B.
+
+---
+
+## Security notes
+
+- **Per-user credentials.** Each subdomain has its own password and its own MCP
+  token; a compromise of one is scoped to one DB.
+- **Wildcard cert, scoped routes.** Only provisioned subdomains have a route;
+  an unknown `*.steep.work` host hits no route (404), so the wildcard cert isn't
+  a path to arbitrary tenants.
+- **Env files `chmod 600`, owned by root**, read by systemd — tokens never enter
+  shell history or the repo.
+- **Hardened unit:** each process can only write its own `/srv/kennel/<sub>`.
+
+---
+
+## Migrating the existing single instance
+
+The current prod is one `kennel.service` at `/opt/kennel/server/kennel.db`. To
+fold it into this scheme as, say, `craig.steep.work`:
+
+1. `systemctl stop kennel`
+2. `install -d -o kennel -g kennel /srv/kennel/craig/content`
+3. move the data: `mv /opt/kennel/server/kennel.db* /srv/kennel/craig/` and
+   `mv /opt/kennel/server/content/* /srv/kennel/craig/content/`
+4. write `/etc/kennel/craig.env` (port 8421, the paths above, the **existing**
+   MCP token so clients keep working) — skip `KENNEL_INITIAL_PASSWORD` since the
+   password is already seeded in the DB.
+5. drop the old `kennel.service`; `systemctl enable --now kennel@craig`
+6. add the `craig` Caddy route; point DNS `craig.steep.work` (covered by the
+   wildcard); reload Caddy.
+
+Then re-point the MCP client at `https://craig.steep.work/mcp`.
+
+---
+
+## When to switch to Option B (one process, many tenants)
+
+If you outgrow ~dozens of users and per-process RAM/ops dominate, the
+single-process route resolves the tenant DB from the `Host` subdomain per
+request. It needs real code: a per-request `req.db`/content-root middleware (the
+routers currently close over `db`), per-tenant SSE channels, a
+MCP-token→tenant registry, and it reintroduces the synchronous-driver
+event-loop and shared-fate-crash caveats. Worth it only at scale — not now.
