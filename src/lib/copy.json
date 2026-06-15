@@ -1,0 +1,158 @@
+{
+  "aging.title": {
+    "workshop": "Aging",
+    "life": "Driftwood"
+  },
+  "aging.subtitle": {
+    "workshop": "Items that haven't been touched in a while. Most should be let go; some are worth picking back up. Each decision is one keystroke.",
+    "life": "Threads settling deeper. Nothing's wrong with that — just so you know."
+  },
+  "aging.lead": {
+    "workshop": "across all threads",
+    "life": "the cold material, asking honestly to be released"
+  },
+  "aging.threshold": {
+    "workshop": "threshold",
+    "life": "show threads quiet for"
+  },
+  "aging.empty.line": {
+    "workshop": "Nothing's gone cold.",
+    "life": "Nothing's gone cold."
+  },
+  "aging.empty.sub": {
+    "workshop": "everything's been touched within the last {n} days",
+    "life": "Everything's still within reach."
+  },
+  "aging.verb.pickup": {
+    "workshop": "Pick up",
+    "life": "Bring back up"
+  },
+  "aging.verb.crystallize": {
+    "workshop": "Crystallize",
+    "life": "Crystallize"
+  },
+  "aging.verb.file": {
+    "workshop": "File",
+    "life": "File"
+  },
+  "reflecting.empty.line": {
+    "workshop": "Nothing's set aside.",
+    "life": "Nothing's set aside."
+  },
+  "reflecting.empty.sub": {
+    "workshop": "set aside from Sort lands here",
+    "life": "An empty shelf is allowed. Capture something when it comes."
+  },
+  "dashboard.calm": {
+    "workshop": "Dashboard",
+    "life": "The tide's calm."
+  },
+  "bench.empty": {
+    "workshop": "nothing to sort",
+    "life": "The bench is clear."
+  },
+  "vitality.fresh": {
+    "workshop": "fresh",
+    "life": "sunlit"
+  },
+  "vitality.active": {
+    "workshop": "active",
+    "life": "active"
+  },
+  "vitality.aging": {
+    "workshop": "aging",
+    "life": "deepening"
+  },
+  "vitality.dormant": {
+    "workshop": "dormant",
+    "life": "still"
+  },
+  "cadence.doThisWeek": {
+    "workshop": "Do this week",
+    "life": "Do this week"
+  },
+  "cadence.doThisWeek.sub": {
+    "workshop": "recurring actions whose window is open — invitations, never due",
+    "life": "what's asking for a touch this window — an invitation, never a deadline"
+  },
+  "cadence.cooled": {
+    "workshop": "Cooled cadences",
+    "life": "Cooled cadences"
+  },
+  "cadence.cooled.sub": {
+    "workshop": "rhythms you stopped feeding — keep, crystallize the lesson, or let go",
+    "life": "sweeping the workshop — not confronting failures"
+  },
+  "compass.lens": {
+    "workshop": "Compass",
+    "life": "Compass"
+  },
+  "compass.bearing": {
+    "workshop": "bearing",
+    "life": "bearing"
+  },
+  "compass.bearings": {
+    "workshop": "bearings",
+    "life": "bearings"
+  },
+  "compass.setBearing": {
+    "workshop": "Set a new bearing",
+    "life": "Set a new bearing"
+  },
+  "compass.lodestar": {
+    "workshop": "lodestar",
+    "life": "lodestar"
+  },
+  "compass.wake": {
+    "workshop": "the trail",
+    "life": "the wake"
+  },
+  "compass.wake.caption": {
+    "workshop": "{kept} kept across {days} days",
+    "life": "{kept} kept across {days} days"
+  },
+  "compass.ahead": {
+    "workshop": "{n} days of road ahead",
+    "life": "{n} days of water still ahead"
+  },
+  "compass.horizon.none": {
+    "workshop": "no clock",
+    "life": "no clock"
+  },
+  "compass.loose": {
+    "workshop": "loose on the bench",
+    "life": "loose in the water"
+  },
+  "compass.loose.sub": {
+    "workshop": "not under a bearing yet",
+    "life": "not under a bearing yet"
+  },
+  "compass.still": {
+    "workshop": "still what you’re about?",
+    "life": "still what you’re about?"
+  },
+  "compass.still.true": {
+    "workshop": "Still true",
+    "life": "Still true"
+  },
+  "compass.still.reword": {
+    "workshop": "Reword",
+    "life": "Reword"
+  },
+  "compass.still.letgo": {
+    "workshop": "Let it set",
+    "life": "Let it set"
+  },
+  "nav.dashboard": {
+    "workshop": "Dashboard",
+    "life": "Harbour"
+  },
+  "nav.pinnedThreads": {
+    "workshop": "Pinned threads",
+    "life": "Currents"
+  },
+  "nav.newThread": {
+    "workshop": "New thread",
+    "life": "New current"
+  }
+}

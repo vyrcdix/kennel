@@ -32,6 +32,7 @@ import { listRunbooks } from './runbook.js';
 import { getSettings } from './settings.js';
 import { listSkills } from './skill.js';
 import { listEntityTags, listTags } from './tag.js';
+import { readCopyOverrides, type CopyOverrides } from './copyOverrides.js';
 
 export type BootstrapPayload = {
   projects: Project[];
@@ -50,6 +51,9 @@ export type BootstrapPayload = {
   guidebooks: Guidebook[];
   guidebookEntries: GuidebookEntry[];
   settings: Settings;
+  /** Per-instance UI-copy overrides (Option 3) — merged over the bundled
+   *  defaults client-side. Empty unless a copy.json exists for this instance. */
+  copy: CopyOverrides;
 };
 
 export const bootstrap = (db: DB): BootstrapPayload => ({
@@ -69,4 +73,5 @@ export const bootstrap = (db: DB): BootstrapPayload => ({
   guidebooks: listGuidebooks(db),
   guidebookEntries: listAllEntries(db),
   settings: getSettings(db),
+  copy: readCopyOverrides(),
 });

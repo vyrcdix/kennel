@@ -3,6 +3,7 @@
 // update the cache. Selectors read from these arrays synchronously.
 
 import { notify } from './store';
+import { setCopyOverrides } from '../lib/copy';
 import type {
   ActivityEntry,
   Chat,
@@ -76,6 +77,8 @@ export type BootstrapPayload = {
   guidebooks: Guidebook[];
   guidebookEntries: GuidebookEntry[];
   settings: Settings;
+  /** Per-instance UI-copy overrides — merged over the bundled defaults. */
+  copy?: Record<string, { workshop?: string; life?: string }>;
 };
 
 const replace = <T>(target: T[], source: T[]) => {
@@ -101,5 +104,6 @@ export const hydrate = (payload: BootstrapPayload) => {
   replace(guidebooks, payload.guidebooks ?? []);
   replace(guidebookEntries, payload.guidebookEntries ?? []);
   settings.current = payload.settings ?? DEFAULT_SETTINGS;
+  setCopyOverrides(payload.copy);
   notify();
 };
