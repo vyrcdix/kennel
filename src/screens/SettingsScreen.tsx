@@ -141,6 +141,17 @@ export const SettingsScreen = () => {
   const [pwConfirm, setPwConfirm] = useState('');
   const [pwBusy, setPwBusy] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Whether a password is set at all. When it isn't, the app is OPEN — show a
+  // "set a password" form (no current-password field, which doesn't exist yet).
+  const [authRequired, setAuthRequired] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/auth/status', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((d) => { if (alive) setAuthRequired(!!d.authRequired); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const submitPassword = async () => {
     setPwMsg(null);
     if (pwNew.length < 8) {
@@ -155,7 +166,13 @@ export const SettingsScreen = () => {
     const result = await changePassword(pwCurrent, pwNew);
     setPwBusy(false);
     if (result.ok) {
-      setPwMsg({ ok: true, text: 'Password changed. Other sessions were signed out.' });
+      setPwMsg({
+        ok: true,
+        text: authRequired
+          ? 'Password changed. Other sessions were signed out.'
+          : 'Password set — login is now required.',
+      });
+      setAuthRequired(true);
       setPwCurrent('');
       setPwNew('');
       setPwConfirm('');
@@ -794,13 +811,31 @@ export const SettingsScreen = () => {
                   <div className="km-display-lg" style={{ marginBottom: 4 }}>
                     Account
                   </div>
-                  <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
-                    Steep uses a single shared password. Changing it signs out
-                    every other session — re-share the new password with anyone
-                    in the circle.
-                  </div>
+                  {authRequired ? (
+                    <div className="km-body" style={{ color: 'var(--fg-muted)', marginBottom: 20 }}>
+                      Steep uses a single shared password. Changing it signs out
+                      every other session — re-share the new password with anyone
+                      in the circle.
+                    </div>
+                  ) : (
+                    <div
+                      className="km-body"
+                      style={{
+                        marginBottom: 20,
+                        padding: '12px 14px',
+                        borderRadius: 'var(--r-ctrl)',
+                        background: 'var(--action-soft)',
+                        border: '1px solid color-mix(in oklab, var(--action) 22%, var(--line))',
+                        color: 'var(--ink)',
+                      }}
+                    >
+                      No password is set, so Steep is currently <b>open</b> — anyone who
+                      reaches it can read and edit everything. Set one below to require login.
+                    </div>
+                  )}
 
                   <div style={{ borderBottom: '1px solid var(--line)' }}>
+                    {authRequired && (
                     <SettingsRow
                       label="Current password"
                       control={
@@ -813,6 +848,7 @@ export const SettingsScreen = () => {
                         />
                       }
                     />
+                    )}
                     <SettingsRow
                       label="New password"
                       hint="At least 8 characters."
@@ -857,7 +893,7 @@ export const SettingsScreen = () => {
                       disabled={pwBusy || !pwNew || !pwConfirm}
                       style={{ opacity: pwBusy || !pwNew || !pwConfirm ? 0.5 : 1 }}
                     >
-                      {pwBusy ? 'Changing…' : 'Change password'}
+                      {pwBusy ? 'Saving…' : authRequired ? 'Change password' : 'Set password'}
                     </button>
                     {pwMsg && (
                       <Mono
